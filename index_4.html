@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="light-content">
+<meta name="apple-mobile-web-app-title" content="NutriTrack">
+<meta name="theme-color" content="#1565C0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>NutriTrack — Family</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════
+   TOKENS
+═══════════════════════════════ */
+:root {
+  --blue:        #1565C0;
+  --blue-dk:     #0D47A1;
+  --blue-lt:     #E3F2FD;
+  --blue-mid:    #BBDEFB;
+  --red:         #D32F2F;
+  --red-lt:      #FFEBEE;
+  --yellow:      #F9A825;
+  --yellow-lt:   #FFFDE7;
+  --green:       #2E7D32;
+  --green-lt:    #E8F5E9;
+  --bg:          #F0F6FF;
+  --surface:     #FFFFFF;
+  --surface2:    #F7FAFF;
+  --border:      #DDEAF8;
+  --text:        #0D1B3E;
+  --text-2:      #4A6080;
+  --text-3:      #8FA8C8;
+  --shadow-sm:   0 1px 4px rgba(21,101,192,.08);
+  --shadow:      0 3px 14px rgba(21,101,192,.12);
+  --shadow-lg:   0 8px 30px rgba(21,101,192,.16);
+  --r:           18px;
+  --r-sm:        12px;
+  --r-xs:        8px;
+  --ff:          'Outfit', sans-serif;
+  --ff-serif:    'Lora', serif;
+  --tab-h:       calc(62px + env(safe-area-inset-bottom));
+  --header-h:    60px;
+}
+
+/* ═══════════════════════════════
+   RESET & BASE
+═══════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { height: 100%; overflow: hidden; }
+body {
+  height: 100%; font-family: var(--ff); color: var(--text); background: var(--bg);
+  overflow: hidden; display: flex; flex-direction: column;
+  max-width: 430px; margin: 0 auto;
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: var(--ff); cursor: pointer; border: none; }
+input, textarea { font-family: var(--ff); }
+a { color: inherit; text-decoration: none; }
+
+/* ═══════════════════════════════
+   SCROLLABLE CONTAINER
+═══════════════════════════════ */
+#app { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+
+/* ═══════════════════════════════
+   HEADER
+═══════════════════════════════ */
+.app-header {
+  height: var(--header-h);
+  padding: 0 18px;
+  padding-top: env(safe-area-inset-top);
+  background: var(--surface);
+  border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0; z-index: 50;
+}
+.logo { display: flex; align-items: center; gap: 8px; }
+.logo-icon {
+  width: 34px; height: 34px; background: var(--blue);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(21,101,192,.3);
+}
+.logo-icon svg { width: 20px; height: 20px; }
+.logo-name { font-family: var(--ff-serif); font-size: 20px; font-weight: 600; color: var(--blue); letter-spacing: -0.3px; }
+.logo-name em { color: var(--red); font-style: normal; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.today-chip {
+  background: var(--blue-lt); color: var(--blue);
+  font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 20px;
+  letter-spacing: 0.2px;
+}
+.settings-btn {
+  width: 34px; height: 34px; border-radius: 10px; background: var(--surface2);
+  border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
+}
+.settings-btn svg { width: 18px; height: 18px; }
+
+/* ═══════════════════════════════
+   SCREENS
+═══════════════════════════════ */
+.screens { flex: 1; overflow: hidden; position: relative; }
+.screen {
+  position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden;
+  padding: 16px 16px calc(var(--tab-h) + 16px);
+  display: none;
+  -webkit-overflow-scrolling: touch;
+}
+.screen.active { display: block; }
+
+/* ═══════════════════════════════
+   TAB BAR
+═══════════════════════════════ */
+.tab-bar {
+  height: var(--tab-h);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface);
+  border-top: 1.5px solid var(--border);
+  display: flex; align-items: flex-start;
+  box-shadow: 0 -2px 12px rgba(21,101,192,.08);
+  flex-shrink: 0;
+}
+.tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 10px 0 4px; background: none; color: var(--text-3);
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.3px;
+  transition: color .2s;
+  gap: 3px;
+}
+.tab svg { width: 22px; height: 22px; transition: transform .2s; }
+.tab.active { color: var(--blue); }
+.tab.active svg { transform: translateY(-1px); }
+.tab-pip {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--blue); margin-top: 2px;
+  opacity: 0; transition: opacity .2s;
+}
+.tab.active .tab-pip { opacity: 1; }
+
+/* ═══════════════════════════════
+   SHARED COMPONENTS
+═══════════════════════════════ */
+.card {
+  background: var(--surface); border-radius: var(--r);
+  border: 1.5px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.1px;
+  text-transform: uppercase; color: var(--text-3); margin-bottom: 12px;
+}
+.pill-blue { background: var(--blue-lt); color: var(--blue); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+.pill-red  { background: var(--red-lt); color: var(--red); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+.pill-yellow { background: var(--yellow-lt); color: var(--yellow); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+.pill-green  { background: var(--green-lt); color: var(--green); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+
+.btn {
+  width: 100%; padding: 14px; border-radius: var(--r-sm);
+  font-size: 15px; font-weight: 700; letter-spacing: 0.2px;
+  transition: opacity .15s, transform .15s;
+  border: none;
+}
+.btn:active { opacity: .85; transform: scale(.98); }
+.btn-primary { background: var(--blue); color: #fff; box-shadow: 0 4px 14px rgba(21,101,192,.3); }
+.btn-red { background: var(--red); color: #fff; box-shadow: 0 4px 14px rgba(211,47,47,.25); }
+.btn-outline { background: transparent; color: var(--blue); border: 1.5px solid var(--blue); }
+
+.inp {
+  width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: var(--r-sm); padding: 13px 14px;
+  font-size: 15px; color: var(--text); outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.inp:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(21,101,192,.1); }
+.inp::placeholder { color: var(--text-3); }
+
+/* macro chips in a row */
+.macro-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.macro-chip {
+  flex: 1; min-width: 80px; background: var(--surface2);
+  border: 1.5px solid var(--border); border-radius: var(--r-sm);
+  padding: 10px 8px; text-align: center;
+}
+.macro-chip .mc-val { font-size: 22px; font-weight: 800; line-height: 1; }
+.macro-chip .mc-lbl { font-size: 10px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-3); margin-top: 3px; }
+.mc-cal .mc-val { color: var(--red); }
+.mc-carb .mc-val { color: var(--blue); }
+.mc-protein .mc-val { color: var(--green); }
+.mc-fat .mc-val { color: var(--yellow); }
+
+/* ═══════════════════════════════
+   API KEY MODAL
+═══════════════════════════════ */
+.overlay {
+  position: fixed; inset: 0; background: rgba(13,27,62,.45);
+  backdrop-filter: blur(6px); z-index: 200;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 0 env(safe-area-inset-bottom);
+}
+.overlay.hidden { display: none; }
+.sheet {
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  padding: 24px 20px 32px; width: 100%; max-width: 430px;
+  box-shadow: var(--shadow-lg);
+}
+.sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+.sheet h2 { font-family: var(--ff-serif); font-size: 22px; color: var(--blue); margin-bottom: 6px; }
+.sheet p { font-size: 13.5px; color: var(--text-2); line-height: 1.55; margin-bottom: 18px; }
+.sheet-label { font-size: 12px; font-weight: 700; color: var(--text-2); letter-spacing: 0.6px; margin-bottom: 6px; }
+
+/* ═══════════════════════════════
+   SCREEN 1 — SEARCH
+═══════════════════════════════ */
+.search-bar-wrap { position: relative; margin-bottom: 14px; }
+.search-bar-wrap .search-icon {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; color: var(--text-3);
+  pointer-events: none;
+}
+.search-bar-wrap .inp { padding-left: 40px; font-size: 16px; }
+.search-go-btn {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: var(--blue); color: #fff; border: none;
+  padding: 7px 14px; border-radius: 9px; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.result-card {
+  background: var(--surface); border-radius: var(--r);
+  border: 1.5px solid var(--blue-mid); box-shadow: var(--shadow);
+  padding: 16px; margin-bottom: 12px;
+  animation: slideUp .3s ease;
+}
+@keyframes slideUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+
+.result-food-name { font-family: var(--ff-serif); font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.result-qty { font-size: 13px; color: var(--text-2); margin-bottom: 12px; }
+
+.add-meal-row { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+.qty-inp { width: 80px; text-align: center; font-weight: 700; }
+.qty-unit { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.add-btn {
+  flex: 1; background: var(--blue); color: #fff;
+  padding: 12px; border-radius: var(--r-sm); font-size: 14px; font-weight: 700;
+  box-shadow: 0 3px 10px rgba(21,101,192,.25);
+  transition: opacity .15s, transform .15s;
+}
+.add-btn:active { opacity: .85; transform: scale(.97); }
+
+.thinking {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--blue-lt); border-radius: var(--r-sm);
+  padding: 14px; margin-bottom: 12px; border: 1.5px solid var(--blue-mid);
+}
+.thinking-dots { display: flex; gap: 4px; }
+.thinking-dots span {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--blue);
+  animation: bounce 1.2s infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: .2s; }
+.thinking-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-7px); } }
+.thinking span.t-txt { font-size: 13.5px; color: var(--blue); font-weight: 500; }
+
+.history-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 20px; padding: 6px 12px; font-size: 13px; color: var(--text-2);
+  font-weight: 500; margin: 0 4px 6px 0;
+  transition: border-color .2s, color .2s;
+}
+.history-chip:active { border-color: var(--blue); color: var(--blue); }
+.history-wrap { display: flex; flex-wrap: wrap; margin-top: 4px; }
+
+/* ═══════════════════════════════
+   SCREEN 2 — TODAY
+═══════════════════════════════ */
+.today-totals {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+}
+.total-tile {
+  background: var(--surface); border-radius: var(--r); border: 1.5px solid var(--border);
+  padding: 14px; box-shadow: var(--shadow-sm);
+}
+.total-tile .tt-val { font-size: 32px; font-weight: 800; line-height: 1; }
+.total-tile .tt-lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-3); margin-top: 4px; }
+.total-tile.tt-cal { border-color: #FFCDD2; }
+.total-tile.tt-cal .tt-val { color: var(--red); }
+.total-tile.tt-carb { border-color: var(--blue-mid); }
+.total-tile.tt-carb .tt-val { color: var(--blue); }
+
+.weight-row { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+.weight-row .inp { flex: 1; }
+.weight-save-btn {
+  background: var(--green); color: #fff;
+  padding: 13px 16px; border-radius: var(--r-sm); font-size: 14px; font-weight: 700;
+  white-space: nowrap; box-shadow: 0 3px 10px rgba(46,125,50,.25);
+}
+
+.meal-log-list { display: flex; flex-direction: column; gap: 8px; }
+.meal-log-item {
+  background: var(--surface); border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: var(--shadow-sm); animation: slideUp .25s ease;
+}
+.meal-log-item .mli-icon {
+  width: 36px; height: 36px; border-radius: 10px; background: var(--blue-lt);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  font-size: 18px;
+}
+.meal-log-item .mli-info { flex: 1; }
+.meal-log-item .mli-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.meal-log-item .mli-qty { font-size: 12px; color: var(--text-2); }
+.meal-log-item .mli-macros { display: flex; gap: 6px; margin-top: 3px; }
+.meal-log-item .mli-del {
+  width: 30px; height: 30px; border-radius: 8px; background: var(--red-lt);
+  border: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.meal-log-item .mli-del svg { width: 16px; height: 16px; }
+
+.empty-state {
+  text-align: center; padding: 40px 20px;
+  color: var(--text-3); font-size: 14px; line-height: 1.6;
+}
+.empty-state .es-icon { font-size: 44px; margin-bottom: 12px; }
+
+/* ═══════════════════════════════
+   SCREEN 3 — CALENDAR
+═══════════════════════════════ */
+.cal-day {
+  background: var(--surface); border-radius: var(--r);
+  border: 1.5px solid var(--border); padding: 14px 16px;
+  margin-bottom: 10px; box-shadow: var(--shadow-sm);
+}
+.cal-day.is-today { border-color: var(--blue); border-width: 2px; }
+.cal-day-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cal-day-date { font-size: 13px; font-weight: 700; color: var(--text-2); }
+.cal-day-date .cal-day-num { font-size: 22px; font-weight: 800; color: var(--text); }
+.cal-day.is-today .cal-day-date .cal-day-num { color: var(--blue); }
+.cal-weight { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-2); font-weight: 500; }
+.cal-weight svg { width: 15px; height: 15px; }
+.cal-bars { display: flex; gap: 10px; }
+.cal-bar-wrap { flex: 1; }
+.cal-bar-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-3); margin-bottom: 5px; display: flex; justify-content: space-between; }
+.cal-bar-track { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+.cal-bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.cal-bar-cal .cal-bar-fill { background: linear-gradient(90deg, var(--red) 0%, #FF5252 100%); }
+.cal-bar-carb .cal-bar-fill { background: linear-gradient(90deg, var(--blue-dk) 0%, var(--blue) 100%); }
+.cal-items-count { font-size: 12px; color: var(--text-3); margin-top: 8px; }
+
+.cal-month-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.cal-month-title { font-family: var(--ff-serif); font-size: 20px; font-weight: 600; color: var(--text); }
+.cal-nav-btn {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--blue); box-shadow: var(--shadow-sm);
+}
+
+/* ═══════════════════════════════
+   SCREEN 4 — ANALYTICS
+═══════════════════════════════ */
+.equation-card {
+  background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dk) 100%);
+  border-radius: var(--r); padding: 18px;
+  color: #fff; margin-bottom: 14px;
+  box-shadow: var(--shadow-lg);
+}
+.equation-card .eq-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; opacity: .75; margin-bottom: 8px; }
+.equation-card .eq-formula { font-family: var(--ff-serif); font-size: 19px; font-weight: 400; font-style: italic; margin-bottom: 10px; line-height: 1.4; }
+.equation-card .eq-stats { display: flex; gap: 16px; }
+.equation-card .eq-stat .es-val { font-size: 20px; font-weight: 800; }
+.equation-card .eq-stat .es-lbl { font-size: 10.5px; opacity: .7; letter-spacing: 0.5px; }
+
+.chart-card {
+  background: var(--surface); border-radius: var(--r);
+  border: 1.5px solid var(--border); padding: 16px;
+  box-shadow: var(--shadow-sm); margin-bottom: 14px;
+}
+.chart-card canvas { width: 100% !important; }
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.stat-tile {
+  background: var(--surface); border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); padding: 12px 8px; text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.stat-tile .stv { font-size: 20px; font-weight: 800; color: var(--blue); }
+.stat-tile .stl { font-size: 10px; font-weight: 600; color: var(--text-3); letter-spacing: 0.5px; text-transform: uppercase; margin-top: 2px; }
+
+/* ═══════════════════════════════
+   TOAST
+═══════════════════════════════ */
+.toast {
+  position: fixed; bottom: calc(var(--tab-h) + 12px);
+  left: 50%; transform: translateX(-50%) translateY(10px);
+  background: var(--text); color: #fff; padding: 11px 20px;
+  border-radius: 20px; font-size: 13.5px; font-weight: 500;
+  z-index: 300; white-space: nowrap;
+  opacity: 0; transition: opacity .2s, transform .2s;
+  pointer-events: none;
+  box-shadow: var(--shadow-lg);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+
+/* ═══════════════════════════════
+   SECTION LABEL
+═══════════════════════════════ */
+.sec-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.1px;
+  text-transform: uppercase; color: var(--text-3);
+  margin: 18px 0 10px; padding-left: 2px;
+}
+
+/* ═══════════════════════════════
+   PROGRESS RING
+═══════════════════════════════ */
+.ring-wrap { display: flex; justify-content: center; gap: 24px; margin-bottom: 14px; }
+.ring-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.ring-item svg { width: 72px; height: 72px; transform: rotate(-90deg); }
+.ring-item .ring-bg { fill: none; stroke: var(--border); stroke-width: 6; }
+.ring-item .ring-fg { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+.ring-cal .ring-fg { stroke: var(--red); }
+.ring-carb .ring-fg { stroke: var(--blue); }
+.ring-item .ring-center { text-align: center; }
+.ring-item .ring-val { font-size: 13px; font-weight: 800; }
+.ring-item .ring-lbl { font-size: 9.5px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-3); }
+
+/* ═══════════════════════════════
+   GOAL SETTINGS SECTION
+═══════════════════════════════ */
+.goal-row { display: flex; gap: 8px; align-items: center; }
+.goal-row .inp { flex: 1; }
+.goal-row span { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+
+/* ─── meal type selector ─── */
+.meal-type-row { display: flex; gap: 6px; margin-bottom: 12px; }
+.meal-type-btn {
+  flex: 1; padding: 8px 4px; border-radius: var(--r-xs);
+  font-size: 12px; font-weight: 600;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  color: var(--text-2); transition: all .15s;
+}
+.meal-type-btn.sel { background: var(--blue-lt); border-color: var(--blue); color: var(--blue); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ════ HEADER ════ -->
+  <header class="app-header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/>
+          <circle cx="12" cy="9" r="2.5" fill="#fff" stroke="none"/>
+        </svg>
+      </div>
+      <span class="logo-name">Nutri<em>Track</em></span>
+    </div>
+    <div class="header-right">
+      <span class="today-chip" id="headerDate"></span>
+      <button class="settings-btn" onclick="showApiModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ════ SCREENS ════ -->
+  <div class="screens">
+
+    <!-- ── SCREEN: SEARCH ── -->
+    <div class="screen active" id="screen-search">
+      <div class="search-bar-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input class="inp" id="foodSearchInput" type="text" placeholder="e.g. 200g grilled chicken…"
+          autocomplete="off" autocorrect="off" spellcheck="false"
+          onkeydown="if(event.key==='Enter'){doSearch()}">
+        <button class="search-go-btn" onclick="doSearch()">Go</button>
+      </div>
+
+      <!-- meal type -->
+      <div class="meal-type-row" id="mealTypeSel">
+        <button class="meal-type-btn sel" data-mt="Breakfast" onclick="selectMealType(this)">🌅 Breakfast</button>
+        <button class="meal-type-btn" data-mt="Lunch" onclick="selectMealType(this)">☀️ Lunch</button>
+        <button class="meal-type-btn" data-mt="Dinner" onclick="selectMealType(this)">🌙 Dinner</button>
+        <button class="meal-type-btn" data-mt="Snack" onclick="selectMealType(this)">🍎 Snack</button>
+      </div>
+
+      <div id="thinkingEl" class="thinking" style="display:none">
+        <div class="thinking-dots"><span></span><span></span><span></span></div>
+        <span class="t-txt">Looking up nutrition data…</span>
+      </div>
+
+      <div id="resultEl" style="display:none"></div>
+
+      <div class="sec-label">Recent Searches</div>
+      <div class="history-wrap" id="searchHistory"></div>
+    </div>
+
+    <!-- ── SCREEN: TODAY ── -->
+    <div class="screen" id="screen-today">
+      <!-- rings -->
+      <div class="ring-wrap" id="ringsWrap">
+        <div class="ring-item">
+          <svg viewBox="0 0 36 36">
+            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
+            <circle class="ring-fg ring-cal" id="ringCal" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-val" id="ringCalVal" style="color:var(--red)">0</div>
+            <div class="ring-lbl">Cals</div>
+          </div>
+        </div>
+        <div class="ring-item">
+          <svg viewBox="0 0 36 36">
+            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
+            <circle class="ring-fg ring-carb" id="ringCarb" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-val" id="ringCarbVal" style="color:var(--blue)">0g</div>
+            <div class="ring-lbl">Carbs</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- totals -->
+      <div class="today-totals">
+        <div class="total-tile tt-cal">
+          <div class="tt-val" id="todayCal">0</div>
+          <div class="tt-lbl">Calories today</div>
+        </div>
+        <div class="total-tile tt-carb">
+          <div class="tt-val" id="todayCarb">0g</div>
+          <div class="tt-lbl">Carbs today</div>
+        </div>
+      </div>
+
+      <!-- weight -->
+      <div class="card">
+        <div class="card-title">Log Weight</div>
+        <div class="weight-row">
+          <input class="inp" id="weightInput" type="text" inputmode="decimal" placeholder="e.g. 185.4" autocomplete="off" oninput="this.value=this.value.replace(',','.');">
+          <span style="font-size:13px;color:var(--text-2);white-space:nowrap" id="weightUnit">lbs</span>
+          <button class="weight-save-btn" onclick="saveWeight()">Save ✓</button>
+        </div>
+        <div id="savedWeightDisplay" style="display:none;margin-top:8px;font-size:13.5px;color:var(--green);font-weight:600"></div>
+      </div>
+
+      <!-- goal settings -->
+      <div class="card">
+        <div class="card-title">Daily Goals</div>
+        <div style="display:flex;gap:10px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px">Cal goal</div>
+            <input class="inp" id="calGoalInp" type="number" value="2000" oninput="saveGoals()" style="padding:10px">
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px">Carb goal (g)</div>
+            <input class="inp" id="carbGoalInp" type="number" value="250" oninput="saveGoals()" style="padding:10px">
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px">Units</div>
+            <select class="inp" id="unitsSel" onchange="saveGoals()" style="padding:10px">
+              <option value="lbs">lbs</option>
+              <option value="kg">kg</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- meal log -->
+      <div class="sec-label">Today's Log</div>
+      <div id="todayLog"></div>
+    </div>
+
+    <!-- ── SCREEN: CALENDAR ── -->
+    <div class="screen" id="screen-calendar">
+      <div class="cal-month-header">
+        <button class="cal-nav-btn" onclick="calNav(-1)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="cal-month-title" id="calMonthTitle"></span>
+        <button class="cal-nav-btn" onclick="calNav(1)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+      <div id="calDayList"></div>
+    </div>
+
+    <!-- ── SCREEN: ANALYTICS ── -->
+    <div class="screen" id="screen-analytics">
+      <div id="equationCard" class="equation-card" style="display:none"></div>
+
+      <div class="stat-grid" id="analyticsStats">
+        <div class="stat-tile"><div class="stv" id="statDays">—</div><div class="stl">Days Logged</div></div>
+        <div class="stat-tile"><div class="stv" id="statAvgCal">—</div><div class="stl">Avg Cals</div></div>
+        <div class="stat-tile"><div class="stv" id="statWeightDelta">—</div><div class="stl">Weight Δ</div></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Calories vs Weight Change</div>
+        <canvas id="scatterChart" height="280"></canvas>
+        <div id="chartEmpty" class="empty-state" style="padding:24px 0 12px">
+          <div class="es-icon">📊</div>
+          Log at least 3 days with both calories and weight to see your scatter plot.
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Daily Calories — Trend</div>
+        <canvas id="calTrendChart" height="200"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Daily Carbs — Trend</div>
+        <canvas id="carbTrendChart" height="200"></canvas>
+      </div>
+    </div>
+  </div><!-- /screens -->
+
+  <!-- ════ TAB BAR ════ -->
+  <nav class="tab-bar">
+    <button class="tab active" data-tab="search" onclick="switchTab('search')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Search
+      <div class="tab-pip"></div>
+    </button>
+    <button class="tab" data-tab="today" onclick="switchTab('today')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Today
+      <div class="tab-pip"></div>
+    </button>
+    <button class="tab" data-tab="calendar" onclick="switchTab('calendar')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Calendar
+      <div class="tab-pip"></div>
+    </button>
+    <button class="tab" data-tab="analytics" onclick="switchTab('analytics')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Analytics
+      <div class="tab-pip"></div>
+    </button>
+  </nav>
+</div><!-- /app -->
+
+<!-- ════ API KEY MODAL ════ -->
+<div class="overlay" id="apiOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>🔑 Anthropic API Key</h2>
+    <p>Your key is stored locally on this device only — never sent anywhere except directly to Anthropic's API for food lookups.</p>
+    <div class="sheet-label">API KEY</div>
+    <input class="inp" type="password" id="apiKeyInput" placeholder="sk-ant-…" style="margin-bottom:14px">
+    <button class="btn btn-primary" onclick="saveApiKey()">Save & Continue</button>
+    <div style="margin-top:10px;text-align:center;font-size:12px;color:var(--text-3)">
+      Get a key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--blue);font-weight:600">console.anthropic.com</a>
+    </div>
+  </div>
+</div>
+
+<!-- ════ TOAST ════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════
+   STATE & STORAGE
+════════════════════════════════════════ */
+const DB_KEY   = 'nt_data_v2';
+const GOAL_KEY = 'nt_goals_v1';
+const API_KEY  = 'nt_api_key';
+const HIST_KEY = 'nt_history';
+
+let db       = loadDB();
+let goals    = loadGoals();
+let activeTab = 'search';
+let calMonth = new Date();
+let currentResult = null;
+let selectedMealType = 'Breakfast';
+let scatterChartInst = null, calTrendInst = null, carbTrendInst = null;
+
+function loadDB() {
+  try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; }
+}
+function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+function loadGoals() {
+  try { return JSON.parse(localStorage.getItem(GOAL_KEY)) || { calGoal: 2000, carbGoal: 250, units: 'lbs' }; }
+  catch { return { calGoal: 2000, carbGoal: 250, units: 'lbs' }; }
+}
+function saveGoals() {
+  goals.calGoal  = parseInt(document.getElementById('calGoalInp').value) || 2000;
+  goals.carbGoal = parseInt(document.getElementById('carbGoalInp').value) || 250;
+  goals.units    = document.getElementById('unitsSel').value;
+  localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
+  document.getElementById('weightUnit').textContent = goals.units;
+  renderToday();
+}
+
+function todayKey() { return isoDate(new Date()); }
+function isoDate(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+function getDay(key) { return db[key] || { items: [], weight: null }; }
+function setDay(key, val) { db[key] = val; saveDB(); }
+
+/* ════════════════════════════════════════
+   INIT
+════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  // header date
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+
+  // load goals into form
+  document.getElementById('calGoalInp').value = goals.calGoal;
+  document.getElementById('carbGoalInp').value = goals.carbGoal;
+  document.getElementById('unitsSel').value = goals.units;
+  document.getElementById('weightUnit').textContent = goals.units;
+
+  // show api modal if no key
+  if (!localStorage.getItem(API_KEY)) {
+    document.getElementById('apiOverlay').classList.remove('hidden');
+  } else {
+    document.getElementById('apiOverlay').classList.add('hidden');
+  }
+
+  renderHistory();
+  renderToday();
+  renderCalendar();
+});
+
+/* ════════════════════════════════════════
+   API KEY
+════════════════════════════════════════ */
+function showApiModal() {
+  const k = localStorage.getItem(API_KEY) || '';
+  document.getElementById('apiKeyInput').value = k;
+  document.getElementById('apiOverlay').classList.remove('hidden');
+}
+function saveApiKey() {
+  const v = document.getElementById('apiKeyInput').value.trim();
+  if (!v) { showToast('Please enter your API key', 'error'); return; }
+  localStorage.setItem(API_KEY, v);
+  document.getElementById('apiOverlay').classList.add('hidden');
+  showToast('API key saved ✓', 'success');
+}
+// tap outside sheet to close if key exists
+document.getElementById('apiOverlay').addEventListener('click', function(e) {
+  if (e.target === this && localStorage.getItem(API_KEY)) {
+    this.classList.add('hidden');
+  }
+});
+
+/* ════════════════════════════════════════
+   TABS
+════════════════════════════════════════ */
+function switchTab(name) {
+  activeTab = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + name));
+  if (name === 'today')     renderToday();
+  if (name === 'calendar')  renderCalendar();
+  if (name === 'analytics') renderAnalytics();
+}
+
+/* ════════════════════════════════════════
+   MEAL TYPE
+════════════════════════════════════════ */
+function selectMealType(btn) {
+  document.querySelectorAll('.meal-type-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  selectedMealType = btn.dataset.mt;
+  // update the add button label if a result is already showing
+  const addBtn = document.getElementById('addToMealBtn');
+  if (addBtn) addBtn.textContent = '＋ Add to ' + selectedMealType;
+}
+
+/* ════════════════════════════════════════
+   SEARCH
+════════════════════════════════════════ */
+async function doSearch() {
+  const query = document.getElementById('foodSearchInput').value.trim();
+  if (!query) return;
+  const apiKey = localStorage.getItem(API_KEY);
+  if (!apiKey) { showApiModal(); return; }
+
+  document.getElementById('thinkingEl').style.display = 'flex';
+  document.getElementById('resultEl').style.display = 'none';
+
+  try {
+    const prompt = `You are a precise nutrition database. The user asks about: "${query}"
+
+Identify the food and quantity (if no quantity given, use a standard serving).
+
+Respond ONLY with valid JSON like this, no markdown, no extra text:
+{
+  "food": "Food name (qty)",
+  "qty_g": 100,
+  "qty_label": "100g",
+  "calories": 165,
+  "carbs_g": 0,
+  "protein_g": 31,
+  "fat_g": 3.6,
+  "fiber_g": 0,
+  "notes": "One brief insight about this food"
+}`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const raw  = data.content?.[0]?.text || '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse nutrition data');
+    const result = JSON.parse(jsonMatch[0]);
+
+    currentResult = result;
+    addToHistory(query);
+    renderResult(result);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    document.getElementById('thinkingEl').style.display = 'none';
+  }
+}
+
+function renderResult(r) {
+  const el = document.getElementById('resultEl');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="result-card">
+      <div class="result-food-name">${r.food}</div>
+      <div class="result-qty">Per ${r.qty_label}</div>
+      <div class="macro-row">
+        <div class="macro-chip mc-cal">
+          <div class="mc-val">${Math.round(r.calories)}</div>
+          <div class="mc-lbl">Cals</div>
+        </div>
+        <div class="macro-chip mc-carb">
+          <div class="mc-val">${r.carbs_g}g</div>
+          <div class="mc-lbl">Carbs</div>
+        </div>
+        <div class="macro-chip mc-protein">
+          <div class="mc-val">${r.protein_g}g</div>
+          <div class="mc-lbl">Protein</div>
+        </div>
+        <div class="macro-chip mc-fat">
+          <div class="mc-val">${r.fat_g}g</div>
+          <div class="mc-lbl">Fat</div>
+        </div>
+      </div>
+      ${r.fiber_g ? `<div style="font-size:12.5px;color:var(--text-2);margin-top:8px">🌾 Fibre: ${r.fiber_g}g</div>` : ''}
+      ${r.notes ? `<div style="font-size:12.5px;color:var(--text-2);margin-top:6px;line-height:1.45;font-style:italic">💡 ${r.notes}</div>` : ''}
+      <div class="add-meal-row">
+        <input class="inp qty-inp" id="qtyScaleInp" type="number" value="1" min="0.1" step="0.1" inputmode="decimal">
+        <span class="qty-unit">× serving (${r.qty_label})</span>
+        <button class="add-btn" id="addToMealBtn" onclick="addToLog()">＋ Add to ${selectedMealType}</button>
+      </div>
+    </div>`;
+}
+
+function addToLog() {
+  if (!currentResult) return;
+  const scale = parseFloat(document.getElementById('qtyScaleInp').value) || 1;
+  const r = currentResult;
+  const key = todayKey();
+  const day = getDay(key);
+  day.items.push({
+    id:        Date.now(),
+    name:      r.food,
+    mealType:  selectedMealType,
+    qty_label: r.qty_label,
+    scale,
+    calories:  +(r.calories * scale).toFixed(1),
+    carbs_g:   +(r.carbs_g * scale).toFixed(1),
+    protein_g: +(r.protein_g * scale).toFixed(1),
+    fat_g:     +(r.fat_g * scale).toFixed(1),
+  });
+  setDay(key, day);
+  showToast(`Added to ${selectedMealType} ✓`, 'success');
+  document.getElementById('resultEl').style.display = 'none';
+  document.getElementById('foodSearchInput').value = '';
+  currentResult = null;
+}
+
+/* search history */
+function addToHistory(q) {
+  let h = getHistory();
+  h = [q, ...h.filter(x => x !== q)].slice(0, 8);
+  localStorage.setItem(HIST_KEY, JSON.stringify(h));
+  renderHistory();
+}
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch { return []; }
+}
+function renderHistory() {
+  const h = getHistory();
+  const el = document.getElementById('searchHistory');
+  if (!h.length) { el.innerHTML = '<span style="font-size:13px;color:var(--text-3)">No recent searches yet</span>'; return; }
+  el.innerHTML = h.map(q => `<button class="history-chip" onclick="useHistory('${q.replace(/'/g,"\\'")}')">🔍 ${q}</button>`).join('');
+}
+function useHistory(q) {
+  document.getElementById('foodSearchInput').value = q;
+  doSearch();
+}
+
+/* ════════════════════════════════════════
+   TODAY SCREEN
+════════════════════════════════════════ */
+function renderToday() {
+  const key = todayKey();
+  const day = getDay(key);
+
+  const totCal  = day.items.reduce((s, i) => s + i.calories, 0);
+  const totCarb = day.items.reduce((s, i) => s + i.carbs_g, 0);
+
+  document.getElementById('todayCal').textContent  = Math.round(totCal);
+  document.getElementById('todayCarb').textContent = totCarb.toFixed(1) + 'g';
+  document.getElementById('ringCalVal').textContent  = Math.round(totCal);
+  document.getElementById('ringCarbVal').textContent = totCarb.toFixed(0) + 'g';
+
+  // rings
+  const calPct  = Math.min(totCal  / goals.calGoal * 100, 100);
+  const carbPct = Math.min(totCarb / goals.carbGoal * 100, 100);
+  const C = 100; // circumference for r=15.9
+  document.getElementById('ringCal').style.strokeDashoffset  = 100 - calPct;
+  document.getElementById('ringCarb').style.strokeDashoffset = 100 - carbPct;
+
+  // weight display
+  const wd = document.getElementById('savedWeightDisplay');
+  if (day.weight) {
+    wd.style.display = 'block';
+    wd.textContent = `Today's weight: ${day.weight} ${goals.units}`;
+    document.getElementById('weightInput').value = day.weight;
+  } else {
+    wd.style.display = 'none';
+  }
+
+  // log
+  const logEl = document.getElementById('todayLog');
+  if (!day.items.length) {
+    logEl.innerHTML = `<div class="empty-state"><div class="es-icon">🍽️</div>No items logged yet.<br>Search for food to get started!</div>`;
+    return;
+  }
+
+  // group by meal type
+  const groups = {};
+  day.items.forEach(item => {
+    if (!groups[item.mealType]) groups[item.mealType] = [];
+    groups[item.mealType].push(item);
+  });
+
+  const mealOrder = ['Breakfast','Lunch','Dinner','Snack'];
+  const mealEmoji = { Breakfast:'🌅', Lunch:'☀️', Dinner:'🌙', Snack:'🍎' };
+
+  logEl.innerHTML = mealOrder.filter(m => groups[m]).map(meal => {
+    const items = groups[meal];
+    const gc = items.reduce((s,i)=>s+i.calories,0);
+    const gcb = items.reduce((s,i)=>s+i.carbs_g,0);
+    return `
+      <div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:13px;font-weight:700;color:var(--text-2)">${mealEmoji[meal]} ${meal}</span>
+          <span style="font-size:12px;color:var(--text-3)">${Math.round(gc)} cal · ${gcb.toFixed(0)}g carbs</span>
+        </div>
+        <div class="meal-log-list">
+          ${items.map(item => `
+            <div class="meal-log-item">
+              <div class="mli-icon">${mealEmoji[item.mealType] || '🍴'}</div>
+              <div class="mli-info">
+                <div class="mli-name">${item.name}</div>
+                <div class="mli-qty">${item.scale !== 1 ? item.scale + '× ' : ''}${item.qty_label}</div>
+                <div class="mli-macros">
+                  <span class="pill-red">${Math.round(item.calories)} cal</span>
+                  <span class="pill-blue">${item.carbs_g.toFixed(0)}g carbs</span>
+                  <span class="pill-green">${item.protein_g.toFixed(0)}g prot</span>
+                </div>
+              </div>
+              <button class="mli-del" onclick="deleteItem('${key}', ${item.id})">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function saveWeight() {
+  // replace comma with dot to handle European/iPhone locale keyboards
+  const raw = document.getElementById('weightInput').value.replace(',', '.');
+  const v = parseFloat(raw);
+  if (!v || v <= 0) { showToast('Enter a valid weight', 'error'); return; }
+  const key = todayKey();
+  const day = getDay(key);
+  day.weight = v;
+  setDay(key, day);
+  showToast('Weight saved ✓', 'success');
+  renderToday();
+}
+
+function deleteItem(key, id) {
+  const day = getDay(key);
+  day.items = day.items.filter(i => i.id !== id);
+  setDay(key, day);
+  renderToday();
+}
+
+/* ════════════════════════════════════════
+   CALENDAR
+════════════════════════════════════════ */
+let calYear, calMonthIdx;
+
+function renderCalendar() {
+  const now = new Date();
+  if (calYear === undefined) { calYear = now.getFullYear(); calMonthIdx = now.getMonth(); }
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthTitle').textContent = monthNames[calMonthIdx] + ' ' + calYear;
+
+  const firstDay = new Date(calYear, calMonthIdx, 1);
+  const lastDay  = new Date(calYear, calMonthIdx + 1, 0);
+  const todayISO = isoDate(now);
+
+  const maxCal  = Math.max(...Object.values(db).map(d => d.items?.reduce((s,i)=>s+i.calories,0)||0), goals.calGoal);
+  const maxCarb = Math.max(...Object.values(db).map(d => d.items?.reduce((s,i)=>s+i.carbs_g,0)||0), goals.carbGoal);
+
+  let html = '';
+  for (let d = lastDay.getDate(); d >= 1; d--) {
+    const date = new Date(calYear, calMonthIdx, d);
+    const key  = isoDate(date);
+    const day  = getDay(key);
+    const totCal  = day.items.reduce((s,i)=>s+i.calories,0);
+    const totCarb = day.items.reduce((s,i)=>s+i.carbs_g,0);
+    const isToday = key === todayISO;
+    const hasDat  = day.items.length > 0 || day.weight;
+    const calPct  = Math.min(totCal  / goals.calGoal  * 100, 100).toFixed(1);
+    const carbPct = Math.min(totCarb / goals.carbGoal * 100, 100).toFixed(1);
+
+    const dow = date.toLocaleDateString('en-US', { weekday:'short' });
+    const dm  = date.toLocaleDateString('en-US', { month:'short' });
+
+    html += `
+      <div class="cal-day${isToday ? ' is-today' : ''}">
+        <div class="cal-day-header">
+          <div class="cal-day-date">
+            <span>${dow}, ${dm}</span><br>
+            <span class="cal-day-num">${d}</span>
+          </div>
+          <div style="text-align:right">
+            ${day.weight ? `<div class="cal-weight">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" stroke-width="2" stroke-linecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+              ${day.weight} ${goals.units}
+            </div>` : `<span style="font-size:11px;color:var(--text-3)">No weight</span>`}
+          </div>
+        </div>
+        ${hasDat ? `
+        <div class="cal-bars">
+          <div class="cal-bar-wrap">
+            <div class="cal-bar-label">
+              <span>Calories</span><span style="color:var(--red)">${Math.round(totCal)}</span>
+            </div>
+            <div class="cal-bar-track cal-bar-cal">
+              <div class="cal-bar-fill" style="width:${calPct}%"></div>
+            </div>
+          </div>
+          <div class="cal-bar-wrap">
+            <div class="cal-bar-label">
+              <span>Carbs</span><span style="color:var(--blue)">${totCarb.toFixed(0)}g</span>
+            </div>
+            <div class="cal-bar-track cal-bar-carb">
+              <div class="cal-bar-fill" style="width:${carbPct}%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="cal-items-count">${day.items.length} item${day.items.length!==1?'s':''} logged</div>
+        ` : `<div style="font-size:12.5px;color:var(--text-3);padding-top:4px">Nothing logged</div>`}
+      </div>`;
+  }
+
+  document.getElementById('calDayList').innerHTML = html;
+}
+
+function calNav(dir) {
+  calMonthIdx += dir;
+  if (calMonthIdx > 11) { calMonthIdx = 0; calYear++; }
+  if (calMonthIdx < 0)  { calMonthIdx = 11; calYear--; }
+  renderCalendar();
+}
+
+/* ════════════════════════════════════════
+   ANALYTICS
+════════════════════════════════════════ */
+function renderAnalytics() {
+  // build dataset: days with both cal and weight, sorted
+  const keys = Object.keys(db).sort();
+  const calSeries  = [];
+  const carbSeries = [];
+  const weightSeries = {};
+  const calByDate = {};
+
+  keys.forEach(k => {
+    const d = db[k];
+    const totCal  = d.items?.reduce((s,i)=>s+i.calories,0)||0;
+    const totCarb = d.items?.reduce((s,i)=>s+i.carbs_g,0)||0;
+    if (totCal > 0)  calSeries.push({ date: k, cal: totCal, carb: totCarb });
+    if (d.weight)    weightSeries[k] = d.weight;
+    calByDate[k] = totCal;
+  });
+
+  // stats
+  const daysLogged = calSeries.length;
+  const avgCal     = daysLogged ? Math.round(calSeries.reduce((s,d)=>s+d.cal,0)/daysLogged) : 0;
+  const weightKeys = Object.keys(weightSeries).sort();
+  let weightDelta = '—';
+  if (weightKeys.length >= 2) {
+    const delta = (weightSeries[weightKeys[weightKeys.length-1]] - weightSeries[weightKeys[0]]).toFixed(1);
+    weightDelta = (delta > 0 ? '+' : '') + delta + ' ' + goals.units;
+  }
+  document.getElementById('statDays').textContent    = daysLogged || '—';
+  document.getElementById('statAvgCal').textContent  = avgCal    || '—';
+  document.getElementById('statWeightDelta').textContent = weightDelta;
+
+  // scatter: for each day with weight, find day-over-day weight change + that day's calories
+  const scatterData = [];
+  for (let i = 1; i < weightKeys.length; i++) {
+    const k      = weightKeys[i];
+    const kPrev  = weightKeys[i-1];
+    const delta  = weightSeries[k] - weightSeries[kPrev];
+    const cal    = calByDate[k] || 0;
+    if (cal > 0) scatterData.push({ x: cal, y: +delta.toFixed(2) });
+  }
+
+  const eqCard = document.getElementById('equationCard');
+  const chartEmpty = document.getElementById('chartEmpty');
+
+  if (scatterData.length >= 3) {
+    chartEmpty.style.display = 'none';
+    // linear regression
+    const n   = scatterData.length;
+    const sx  = scatterData.reduce((s,p)=>s+p.x, 0);
+    const sy  = scatterData.reduce((s,p)=>s+p.y, 0);
+    const sxy = scatterData.reduce((s,p)=>s+p.x*p.y, 0);
+    const sx2 = scatterData.reduce((s,p)=>s+p.x*p.x, 0);
+    const m   = (n*sxy - sx*sy) / (n*sx2 - sx*sx);
+    const b   = (sy - m*sx) / n;
+
+    // R²
+    const yMean = sy/n;
+    const ss_tot = scatterData.reduce((s,p)=>s+(p.y-yMean)**2, 0);
+    const ss_res = scatterData.reduce((s,p)=>s+(p.y-(m*p.x+b))**2, 0);
+    const r2     = ss_tot > 0 ? 1 - ss_res/ss_tot : 0;
+
+    const mStr = m.toFixed(5);
+    const bStr = (b >= 0 ? '+' : '') + b.toFixed(3);
+    const sign = b >= 0 ? '+' : '';
+
+    eqCard.style.display = 'block';
+    eqCard.innerHTML = `
+      <div class="eq-title">Linear Regression</div>
+      <div class="eq-formula">Δ Weight = ${mStr} × Calories ${sign}${b.toFixed(3)}</div>
+      <div class="eq-stats">
+        <div class="eq-stat"><div class="es-val">R² ${r2.toFixed(3)}</div><div class="es-lbl">Fit Quality</div></div>
+        <div class="eq-stat"><div class="es-val">${n}</div><div class="es-lbl">Data Points</div></div>
+        <div class="eq-stat"><div class="es-val">${Math.round(1/Math.abs(m))} cal</div><div class="es-lbl">Cal/unit Δwt</div></div>
+      </div>`;
+
+    // scatter chart
+    const xMin = Math.min(...scatterData.map(p=>p.x));
+    const xMax = Math.max(...scatterData.map(p=>p.x));
+    const rLine = [
+      { x: xMin, y: m*xMin+b },
+      { x: xMax, y: m*xMax+b }
+    ];
+
+    if (scatterChartInst) scatterChartInst.destroy();
+    scatterChartInst = new Chart(document.getElementById('scatterChart'), {
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: 'Daily Data',
+            data: scatterData,
+            backgroundColor: 'rgba(21,101,192,0.65)',
+            pointRadius: 6, pointHoverRadius: 8,
+            borderColor: 'var(--blue)', borderWidth: 1.5,
+          },
+          {
+            label: 'Regression',
+            data: rLine,
+            type: 'line',
+            borderColor: 'var(--red)',
+            borderWidth: 2.5,
+            borderDash: [5,3],
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${Math.round(ctx.raw.x)} cal → ${ctx.raw.y > 0 ? '+' : ''}${ctx.raw.y} ${goals.units}`
+            }
+          }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Daily Calories', font: { family: "'Outfit'" } }, grid: { color: '#E3F2FD' } },
+          y: { title: { display: true, text: `Weight Change (${goals.units})`, font: { family: "'Outfit'" } }, grid: { color: '#E3F2FD' } }
+        }
+      }
+    });
+  } else {
+    eqCard.style.display = 'none';
+    chartEmpty.style.display = 'block';
+    if (scatterChartInst) { scatterChartInst.destroy(); scatterChartInst = null; }
+  }
+
+  // cal trend
+  if (calTrendInst) calTrendInst.destroy();
+  const trendDates = calSeries.slice(-30);
+  calTrendInst = new Chart(document.getElementById('calTrendChart'), {
+    type: 'bar',
+    data: {
+      labels: trendDates.map(d => d.date.slice(5)),
+      datasets: [{
+        label: 'Calories',
+        data: trendDates.map(d => d.cal),
+        backgroundColor: trendDates.map(d => d.cal > goals.calGoal ? 'rgba(211,47,47,0.75)' : 'rgba(21,101,192,0.65)'),
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        annotation: {}
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
+        y: { grid: { color: '#E3F2FD' } }
+      }
+    }
+  });
+
+  // carb trend
+  if (carbTrendInst) carbTrendInst.destroy();
+  carbTrendInst = new Chart(document.getElementById('carbTrendChart'), {
+    type: 'line',
+    data: {
+      labels: trendDates.map(d => d.date.slice(5)),
+      datasets: [{
+        label: 'Carbs (g)',
+        data: trendDates.map(d => d.carb),
+        borderColor: 'var(--blue)',
+        backgroundColor: 'rgba(21,101,192,0.1)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+        pointBackgroundColor: 'var(--blue)',
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
+        y: { grid: { color: '#E3F2FD' } }
+      }
+    }
+  });
+}
+
+/* ════════════════════════════════════════
+   TOAST
+════════════════════════════════════════ */
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2600);
+}
+</script>
+</body>
+</html>

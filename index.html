@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 /* ═══════════════════════════════
    TOKENS
@@ -1934,39 +1935,41 @@ function exportCSV() {
 }
 
 function exportExcel() {
+  if (typeof XLSX === 'undefined') { showToast('Export library not loaded yet — try again in a moment', 'error'); return; }
   const rows = buildExportRows();
   if (rows.length <= 1) { showToast('No data to export yet', 'error'); return; }
-  // Build a minimal XLSX using XML SpreadsheetML (works in all browsers, no library needed)
-  const xmlRows = rows.map((row, ri) => {
-    const cells = row.map((val, ci) => {
-      const isNum = ri > 0 && ci >= 1 && ci <= 8 && val !== '';
-      return isNum
-        ? `<Cell><Data ss:Type="Number">${val}</Data></Cell>`
-        : `<Cell><Data ss:Type="String">${String(val).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</Data></Cell>`;
-    }).join('');
-    return `<Row>${cells}</Row>`;
-  }).join('');
 
-  const xml = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Worksheet ss:Name="NutriTrack">
-  <Table>
-   <Column ss:Width="90"/>
-   <Column ss:Width="75"/><Column ss:Width="75"/><Column ss:Width="75"/><Column ss:Width="75"/>
-   <Column ss:Width="75"/><Column ss:Width="75"/><Column ss:Width="75"/>
-   <Column ss:Width="75"/><Column ss:Width="200"/>
-   ${xmlRows}
-  </Table>
- </Worksheet>
-</Workbook>`;
+  // Convert rows array to worksheet
+  const ws = XLSX.utils.aoa_to_sheet(rows);
 
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = 'nutritrack_export.xls'; a.click();
-  URL.revokeObjectURL(url);
+  // Set column widths
+  ws['!cols'] = [
+    { wch: 12 }, // Date
+    { wch: 10 }, // Calories
+    { wch: 10 }, // Carbs
+    { wch: 10 }, // Protein
+    { wch: 10 }, // Fat
+    { wch: 10 }, // Steps
+    { wch: 10 }, // Weight
+    { wch: 8  }, // Units
+    { wch: 8  }, // Items Count
+    { wch: 50 }, // Items Detail
+  ];
+
+  // Bold the header row
+  const headerRange = XLSX.utils.decode_range(ws['!ref']);
+  for (let C = headerRange.s.c; C <= headerRange.e.c; C++) {
+    const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (!ws[cellAddr]) continue;
+    ws[cellAddr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'BBDEFB' } } };
+  }
+
+  // Create workbook and append sheet
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'NutriTrack');
+
+  // Write and trigger download as real .xlsx
+  XLSX.writeFile(wb, 'nutritrack_export.xlsx');
   showToast('Excel downloaded ✓', 'success');
 }
 </script>

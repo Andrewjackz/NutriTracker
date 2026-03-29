@@ -734,6 +734,56 @@ a { color: inherit; text-decoration: none; }
         <div class="card-title">Daily Carbs — Trend</div>
         <canvas id="carbTrendChart" height="200"></canvas>
       </div>
+
+      <div class="chart-card">
+        <div class="card-title">Daily Protein — Trend</div>
+        <canvas id="proteinTrendChart" height="200"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Daily Fat — Trend</div>
+        <canvas id="fatTrendChart" height="200"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Weight — Trend</div>
+        <div id="weightChartEmpty" class="empty-state" style="padding:20px 0 8px;display:none">
+          <div class="es-icon">⚖️</div>Log weight on at least 2 days to see the trend.
+        </div>
+        <canvas id="weightTrendChart" height="200"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Daily Steps — Trend</div>
+        <div id="stepsChartEmpty" class="empty-state" style="padding:20px 0 8px;display:none">
+          <div class="es-icon">👟</div>Log steps on at least 2 days to see the trend.
+        </div>
+        <canvas id="stepsTrendChart" height="200"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Weight vs Calories — Dual Axis</div>
+        <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11.5px;font-weight:600">
+          <span style="color:#C62828">⚖️ Weight (left axis)</span>
+          <span style="color:#1565C0">🔥 Calories (right axis)</span>
+        </div>
+        <div id="wtCalEmpty" class="empty-state" style="padding:20px 0 8px;display:none">
+          <div class="es-icon">📈</div>Log weight and calories on at least 2 days to see this chart.
+        </div>
+        <canvas id="wtCalChart" height="240"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Steps vs Weight — Dual Axis</div>
+        <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11.5px;font-weight:600">
+          <span style="color:#2E7D32">👟 Steps (left axis)</span>
+          <span style="color:#C62828">⚖️ Weight (right axis)</span>
+        </div>
+        <div id="stWtEmpty" class="empty-state" style="padding:20px 0 8px;display:none">
+          <div class="es-icon">📉</div>Log steps and weight on at least 2 days to see this chart.
+        </div>
+        <canvas id="stWtChart" height="240"></canvas>
+      </div>
     </div>
   </div><!-- /screens -->
 
@@ -806,7 +856,7 @@ let activeTab = 'search';
 let calMonth = new Date();
 let currentResult = null;
 let selectedMealType = 'Breakfast';
-let scatterChartInst = null, calTrendInst = null, carbTrendInst = null;
+let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null;
 
 function loadDB() {
   try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; }
@@ -1292,12 +1342,24 @@ function renderAnalytics() {
   const weightSeries = {};
   const calByDate = {};
 
+  const proteinSeries = [];
+  const fatSeries     = [];
+  const weightTrend   = [];
+  const stepsTrend    = [];
+
   keys.forEach(k => {
     const d = db[k];
-    const totCal  = d.items?.reduce((s,i)=>s+i.calories,0)||0;
-    const totCarb = d.items?.reduce((s,i)=>s+i.carbs_g,0)||0;
-    if (totCal > 0)  calSeries.push({ date: k, cal: totCal, carb: totCarb });
-    if (d.weight)    weightSeries[k] = d.weight;
+    const totCal     = d.items?.reduce((s,i)=>s+i.calories,0)||0;
+    const totCarb    = d.items?.reduce((s,i)=>s+i.carbs_g,0)||0;
+    const totProtein = d.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0;
+    const totFat     = d.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0;
+    if (totCal > 0) {
+      calSeries.push({ date: k, cal: totCal, carb: totCarb, protein: totProtein, fat: totFat });
+      if (totProtein > 0) proteinSeries.push({ date: k, val: totProtein });
+      if (totFat     > 0) fatSeries.push({ date: k, val: totFat });
+    }
+    if (d.weight) { weightSeries[k] = d.weight; weightTrend.push({ date: k, val: d.weight }); }
+    if (d.steps)  stepsTrend.push({ date: k, val: d.steps });
     calByDate[k] = totCal;
   });
 
@@ -1440,6 +1502,21 @@ function renderAnalytics() {
     }
   });
 
+  // helper: standard line chart options
+  function lineOpts(color, goalVal) {
+    return {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
+        y: {
+          grid: { color: '#E3F2FD' },
+          ...(goalVal ? { suggestedMax: goalVal * 1.2 } : {})
+        }
+      }
+    };
+  }
+
   // carb trend
   if (carbTrendInst) carbTrendInst.destroy();
   carbTrendInst = new Chart(document.getElementById('carbTrendChart'), {
@@ -1449,23 +1526,293 @@ function renderAnalytics() {
       datasets: [{
         label: 'Carbs (g)',
         data: trendDates.map(d => d.carb),
-        borderColor: 'var(--blue)',
+        borderColor: '#1565C0',
         backgroundColor: 'rgba(21,101,192,0.1)',
-        fill: true,
-        tension: 0.35,
-        pointRadius: 3,
-        pointBackgroundColor: 'var(--blue)',
+        fill: true, tension: 0.35, pointRadius: 3,
+        pointBackgroundColor: '#1565C0',
       }]
     },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
-        y: { grid: { color: '#E3F2FD' } }
-      }
-    }
+    options: lineOpts('#1565C0', goals.carbGoal)
   });
+
+  // protein trend
+  if (proteinTrendInst) proteinTrendInst.destroy();
+  const proteinDates = proteinSeries.slice(-30);
+  proteinTrendInst = new Chart(document.getElementById('proteinTrendChart'), {
+    type: 'line',
+    data: {
+      labels: proteinDates.map(d => d.date.slice(5)),
+      datasets: [{
+        label: 'Protein (g)',
+        data: proteinDates.map(d => d.val),
+        borderColor: '#2E7D32',
+        backgroundColor: 'rgba(46,125,50,0.1)',
+        fill: true, tension: 0.35, pointRadius: 3,
+        pointBackgroundColor: '#2E7D32',
+      }]
+    },
+    options: lineOpts('#2E7D32', goals.proteinGoal)
+  });
+
+  // fat trend
+  if (fatTrendInst) fatTrendInst.destroy();
+  const fatDates = fatSeries.slice(-30);
+  fatTrendInst = new Chart(document.getElementById('fatTrendChart'), {
+    type: 'line',
+    data: {
+      labels: fatDates.map(d => d.date.slice(5)),
+      datasets: [{
+        label: 'Fat (g)',
+        data: fatDates.map(d => d.val),
+        borderColor: '#F9A825',
+        backgroundColor: 'rgba(249,168,37,0.12)',
+        fill: true, tension: 0.35, pointRadius: 3,
+        pointBackgroundColor: '#F9A825',
+      }]
+    },
+    options: lineOpts('#F9A825', goals.fatGoal)
+  });
+
+  // weight trend
+  if (weightTrendInst) weightTrendInst.destroy();
+  const wtDates = weightTrend.slice(-60);
+  const weightChartEmpty = document.getElementById('weightChartEmpty');
+  const weightCanvas     = document.getElementById('weightTrendChart');
+  if (wtDates.length < 2) {
+    weightChartEmpty.style.display = 'block';
+    weightCanvas.style.display = 'none';
+  } else {
+    weightChartEmpty.style.display = 'none';
+    weightCanvas.style.display = 'block';
+    const wtMin = Math.min(...wtDates.map(d=>d.val));
+    const wtMax = Math.max(...wtDates.map(d=>d.val));
+    const wtPad = (wtMax - wtMin) * 0.15 || 1;
+    weightTrendInst = new Chart(weightCanvas, {
+      type: 'line',
+      data: {
+        labels: wtDates.map(d => d.date.slice(5)),
+        datasets: [{
+          label: `Weight (${goals.units})`,
+          data: wtDates.map(d => d.val),
+          borderColor: '#C62828',
+          backgroundColor: 'rgba(198,40,40,0.08)',
+          fill: true, tension: 0.3, pointRadius: 4,
+          pointBackgroundColor: '#C62828',
+          borderWidth: 2.5,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 10 }, grid: { display: false } },
+          y: {
+            min: wtMin - wtPad, max: wtMax + wtPad,
+            grid: { color: '#E3F2FD' },
+            ticks: { callback: v => v.toFixed(1) }
+          }
+        }
+      }
+    });
+  }
+
+  // steps trend
+  if (stepsTrendInst) stepsTrendInst.destroy();
+  const stDates = stepsTrend.slice(-30);
+  const stepsChartEmpty = document.getElementById('stepsChartEmpty');
+  const stepsCanvas     = document.getElementById('stepsTrendChart');
+  if (stDates.length < 2) {
+    stepsChartEmpty.style.display = 'block';
+    stepsCanvas.style.display = 'none';
+  } else {
+    stepsChartEmpty.style.display = 'none';
+    stepsCanvas.style.display = 'block';
+    stepsTrendInst = new Chart(stepsCanvas, {
+      type: 'bar',
+      data: {
+        labels: stDates.map(d => d.date.slice(5)),
+        datasets: [{
+          label: 'Steps',
+          data: stDates.map(d => d.val),
+          backgroundColor: stDates.map(d => d.val >= (goals.stepsGoal||10000) ? 'rgba(46,125,50,0.75)' : 'rgba(21,101,192,0.6)'),
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
+          y: {
+            grid: { color: '#E3F2FD' },
+            ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v }
+          }
+        }
+      }
+    });
+  }
+
+  // ── DUAL AXIS A: Weight vs Calories ──
+  if (wtCalChartInst) wtCalChartInst.destroy();
+  const wtCalEmpty  = document.getElementById('wtCalEmpty');
+  const wtCalCanvas = document.getElementById('wtCalChart');
+  // build joined dataset: days that have BOTH weight and calories
+  const wtCalDays = keys
+    .filter(k => db[k]?.weight && (db[k].items||[]).reduce((s,i)=>s+i.calories,0) > 0)
+    .slice(-60)
+    .map(k => ({
+      date:   k.slice(5),
+      weight: db[k].weight,
+      cal:    Math.round((db[k].items||[]).reduce((s,i)=>s+i.calories,0))
+    }));
+
+  if (wtCalDays.length < 2) {
+    wtCalEmpty.style.display  = 'block';
+    wtCalCanvas.style.display = 'none';
+  } else {
+    wtCalEmpty.style.display  = 'none';
+    wtCalCanvas.style.display = 'block';
+    const wtMin2 = Math.min(...wtCalDays.map(d=>d.weight));
+    const wtMax2 = Math.max(...wtCalDays.map(d=>d.weight));
+    const wtPad2 = (wtMax2 - wtMin2) * 0.15 || 1;
+    wtCalChartInst = new Chart(wtCalCanvas, {
+      type: 'line',
+      data: {
+        labels: wtCalDays.map(d => d.date),
+        datasets: [
+          {
+            label: `Weight (${goals.units})`,
+            data: wtCalDays.map(d => d.weight),
+            borderColor: '#C62828',
+            backgroundColor: 'rgba(198,40,40,0.07)',
+            fill: true, tension: 0.3,
+            pointRadius: 4, pointBackgroundColor: '#C62828',
+            borderWidth: 2.5,
+            yAxisID: 'yWeight',
+          },
+          {
+            label: 'Calories',
+            data: wtCalDays.map(d => d.cal),
+            borderColor: '#1565C0',
+            backgroundColor: 'transparent',
+            fill: false, tension: 0.3,
+            pointRadius: 3, pointBackgroundColor: '#1565C0',
+            borderWidth: 2, borderDash: [4, 3],
+            yAxisID: 'yCal',
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + (ctx.dataset.yAxisID === 'yWeight' ? ' ' + goals.units : ' cal')
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8 }, grid: { display: false } },
+          yWeight: {
+            type: 'linear', position: 'left',
+            min: wtMin2 - wtPad2, max: wtMax2 + wtPad2,
+            grid: { color: '#FFEBEE' },
+            ticks: { color: '#C62828', callback: v => v.toFixed(1) },
+            title: { display: true, text: `Weight (${goals.units})`, color: '#C62828', font: { size: 11 } }
+          },
+          yCal: {
+            type: 'linear', position: 'right',
+            grid: { drawOnChartArea: false },
+            ticks: { color: '#1565C0' },
+            title: { display: true, text: 'Calories', color: '#1565C0', font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ── DUAL AXIS B: Steps vs Weight ──
+  if (stWtChartInst) stWtChartInst.destroy();
+  const stWtEmpty  = document.getElementById('stWtEmpty');
+  const stWtCanvas = document.getElementById('stWtChart');
+  // days that have BOTH steps and weight
+  const stWtDays = keys
+    .filter(k => db[k]?.steps && db[k]?.weight)
+    .slice(-60)
+    .map(k => ({
+      date:   k.slice(5),
+      steps:  db[k].steps,
+      weight: db[k].weight
+    }));
+
+  if (stWtDays.length < 2) {
+    stWtEmpty.style.display  = 'block';
+    stWtCanvas.style.display = 'none';
+  } else {
+    stWtEmpty.style.display  = 'none';
+    stWtCanvas.style.display = 'block';
+    const wtMin3 = Math.min(...stWtDays.map(d=>d.weight));
+    const wtMax3 = Math.max(...stWtDays.map(d=>d.weight));
+    const wtPad3 = (wtMax3 - wtMin3) * 0.15 || 1;
+    stWtChartInst = new Chart(stWtCanvas, {
+      type: 'line',
+      data: {
+        labels: stWtDays.map(d => d.date),
+        datasets: [
+          {
+            label: 'Steps',
+            data: stWtDays.map(d => d.steps),
+            borderColor: '#2E7D32',
+            backgroundColor: 'rgba(46,125,50,0.08)',
+            fill: true, tension: 0.3,
+            pointRadius: 3, pointBackgroundColor: '#2E7D32',
+            borderWidth: 2.5,
+            yAxisID: 'ySteps',
+          },
+          {
+            label: `Weight (${goals.units})`,
+            data: stWtDays.map(d => d.weight),
+            borderColor: '#C62828',
+            backgroundColor: 'transparent',
+            fill: false, tension: 0.3,
+            pointRadius: 4, pointBackgroundColor: '#C62828',
+            borderWidth: 2, borderDash: [4, 3],
+            yAxisID: 'yWeight',
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ctx.dataset.label + ': ' + (ctx.dataset.yAxisID === 'ySteps' ? ctx.parsed.y.toLocaleString() + ' steps' : ctx.parsed.y.toFixed(1) + ' ' + goals.units)
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8 }, grid: { display: false } },
+          ySteps: {
+            type: 'linear', position: 'left',
+            grid: { color: '#E8F5E9' },
+            ticks: { color: '#2E7D32', callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v },
+            title: { display: true, text: 'Steps', color: '#2E7D32', font: { size: 11 } }
+          },
+          yWeight: {
+            type: 'linear', position: 'right',
+            min: wtMin3 - wtPad3, max: wtMax3 + wtPad3,
+            grid: { drawOnChartArea: false },
+            ticks: { color: '#C62828', callback: v => v.toFixed(1) },
+            title: { display: true, text: `Weight (${goals.units})`, color: '#C62828', font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
 }
 
 /* ════════════════════════════════════════

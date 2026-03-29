@@ -355,6 +355,8 @@ a { color: inherit; text-decoration: none; }
 .cal-bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
 .cal-bar-cal .cal-bar-fill { background: linear-gradient(90deg, var(--red) 0%, #FF5252 100%); }
 .cal-bar-carb .cal-bar-fill { background: linear-gradient(90deg, var(--blue-dk) 0%, var(--blue) 100%); }
+.cal-bar-protein .cal-bar-fill { background: linear-gradient(90deg, #1B5E20 0%, var(--green) 100%); }
+.cal-bar-fat .cal-bar-fill { background: linear-gradient(90deg, #E65100 0%, var(--yellow) 100%); }
 .cal-items-count { font-size: 12px; color: var(--text-3); margin-top: 8px; }
 
 .cal-month-header {
@@ -436,6 +438,8 @@ a { color: inherit; text-decoration: none; }
 .ring-item .ring-fg { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
 .ring-cal .ring-fg { stroke: var(--red); }
 .ring-carb .ring-fg { stroke: var(--blue); }
+.ring-protein .ring-fg { stroke: var(--green); }
+.ring-fat .ring-fg { stroke: var(--yellow); }
 .ring-item .ring-center { text-align: center; }
 .ring-item .ring-val { font-size: 13px; font-weight: 800; }
 .ring-item .ring-lbl { font-size: 9.5px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-3); }
@@ -456,6 +460,43 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-2); transition: all .15s;
 }
 .meal-type-btn.sel { background: var(--blue-lt); border-color: var(--blue); color: var(--blue); }
+/* ═══════════════════════════════
+   DAY DETAIL MODAL
+═══════════════════════════════ */
+.day-modal-overlay {
+  position: fixed; inset: 0; background: rgba(13,27,62,.5);
+  backdrop-filter: blur(6px); z-index: 200;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 0 env(safe-area-inset-bottom);
+}
+.day-modal-overlay.hidden { display: none; }
+.day-modal {
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  width: 100%; max-width: 430px;
+  max-height: 82vh; display: flex; flex-direction: column;
+  box-shadow: 0 -4px 30px rgba(21,101,192,.18);
+}
+.day-modal-header {
+  padding: 20px 20px 14px; border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.day-modal-title { font-family: var(--ff-serif); font-size: 20px; font-weight: 600; color: var(--text); }
+.day-modal-close {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--surface2);
+  border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--text-2);
+}
+.day-modal-body { overflow-y: auto; padding: 16px 20px 24px; flex: 1; }
+.day-modal-macros {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;
+}
+.dmm { background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--r-sm); padding: 10px 6px; text-align: center; }
+.dmm .dmm-val { font-size: 18px; font-weight: 800; line-height: 1; }
+.dmm .dmm-lbl { font-size: 9.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-3); margin-top: 3px; }
+.dmm-cal .dmm-val { color: var(--red); }
+.dmm-carb .dmm-val { color: var(--blue); }
+.dmm-protein .dmm-val { color: var(--green); }
+.dmm-fat .dmm-val { color: var(--yellow); }
 </style>
 </head>
 <body>
@@ -519,7 +560,7 @@ a { color: inherit; text-decoration: none; }
     <!-- ── SCREEN: TODAY ── -->
     <div class="screen" id="screen-today">
       <!-- rings -->
-      <div class="ring-wrap" id="ringsWrap">
+      <div class="ring-wrap" id="ringsWrap" style="gap:12px">
         <div class="ring-item">
           <svg viewBox="0 0 36 36">
             <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
@@ -540,17 +581,45 @@ a { color: inherit; text-decoration: none; }
             <div class="ring-lbl">Carbs</div>
           </div>
         </div>
+        <div class="ring-item">
+          <svg viewBox="0 0 36 36">
+            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
+            <circle class="ring-fg ring-protein" id="ringProtein" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-val" id="ringProteinVal" style="color:var(--green)">0g</div>
+            <div class="ring-lbl">Protein</div>
+          </div>
+        </div>
+        <div class="ring-item">
+          <svg viewBox="0 0 36 36">
+            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
+            <circle class="ring-fg ring-fat" id="ringFat" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-val" id="ringFatVal" style="color:var(--yellow)">0g</div>
+            <div class="ring-lbl">Fat</div>
+          </div>
+        </div>
       </div>
 
       <!-- totals -->
       <div class="today-totals">
         <div class="total-tile tt-cal">
           <div class="tt-val" id="todayCal">0</div>
-          <div class="tt-lbl">Calories today</div>
+          <div class="tt-lbl">Calories</div>
         </div>
         <div class="total-tile tt-carb">
           <div class="tt-val" id="todayCarb">0g</div>
-          <div class="tt-lbl">Carbs today</div>
+          <div class="tt-lbl">Carbs</div>
+        </div>
+        <div class="total-tile" style="border-color:var(--green-lt)">
+          <div class="tt-val" id="todayProtein" style="color:var(--green)">0g</div>
+          <div class="tt-lbl">Protein</div>
+        </div>
+        <div class="total-tile" style="border-color:#FFE0B2">
+          <div class="tt-val" id="todayFat" style="color:var(--yellow)">0g</div>
+          <div class="tt-lbl">Fat</div>
         </div>
       </div>
 
@@ -678,6 +747,17 @@ a { color: inherit; text-decoration: none; }
 </div>
 
 <!-- ════ TOAST ════ -->
+<!-- ════ DAY DETAIL MODAL ════ -->
+<div class="day-modal-overlay hidden" id="dayModalOverlay" onclick="if(event.target===this)closeDayDetail()">
+  <div class="day-modal">
+    <div class="day-modal-header">
+      <span class="day-modal-title" id="dayModalTitle">Day Detail</span>
+      <button class="day-modal-close" onclick="closeDayDetail()">×</button>
+    </div>
+    <div class="day-modal-body" id="dayModalBody"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -947,20 +1027,31 @@ function renderToday() {
   const key = todayKey();
   const day = getDay(key);
 
-  const totCal  = day.items.reduce((s, i) => s + i.calories, 0);
-  const totCarb = day.items.reduce((s, i) => s + i.carbs_g, 0);
+  const totCal     = day.items.reduce((s, i) => s + i.calories, 0);
+  const totCarb    = day.items.reduce((s, i) => s + i.carbs_g, 0);
+  const totProtein = day.items.reduce((s, i) => s + (i.protein_g||0), 0);
+  const totFat     = day.items.reduce((s, i) => s + (i.fat_g||0), 0);
 
-  document.getElementById('todayCal').textContent  = Math.round(totCal);
-  document.getElementById('todayCarb').textContent = totCarb.toFixed(1) + 'g';
-  document.getElementById('ringCalVal').textContent  = Math.round(totCal);
-  document.getElementById('ringCarbVal').textContent = totCarb.toFixed(0) + 'g';
+  document.getElementById('todayCal').textContent     = Math.round(totCal);
+  document.getElementById('todayCarb').textContent    = totCarb.toFixed(1) + 'g';
+  document.getElementById('todayProtein').textContent = totProtein.toFixed(1) + 'g';
+  document.getElementById('todayFat').textContent     = totFat.toFixed(1) + 'g';
+  document.getElementById('ringCalVal').textContent     = Math.round(totCal);
+  document.getElementById('ringCarbVal').textContent    = totCarb.toFixed(0) + 'g';
+  document.getElementById('ringProteinVal').textContent = totProtein.toFixed(0) + 'g';
+  document.getElementById('ringFatVal').textContent     = totFat.toFixed(0) + 'g';
 
-  // rings
-  const calPct  = Math.min(totCal  / goals.calGoal * 100, 100);
-  const carbPct = Math.min(totCarb / goals.carbGoal * 100, 100);
-  const C = 100; // circumference for r=15.9
-  document.getElementById('ringCal').style.strokeDashoffset  = 100 - calPct;
-  document.getElementById('ringCarb').style.strokeDashoffset = 100 - carbPct;
+  // rings — protein goal = calGoal*0.15/4 kcal, fat goal = calGoal*0.3/9
+  const proteinGoal = goals.proteinGoal || Math.round(goals.calGoal * 0.15 / 4);
+  const fatGoal     = goals.fatGoal     || Math.round(goals.calGoal * 0.3  / 9);
+  const calPct     = Math.min(totCal     / goals.calGoal  * 100, 100);
+  const carbPct    = Math.min(totCarb    / goals.carbGoal * 100, 100);
+  const proteinPct = Math.min(totProtein / proteinGoal    * 100, 100);
+  const fatPct     = Math.min(totFat     / fatGoal        * 100, 100);
+  document.getElementById('ringCal').style.strokeDashoffset     = 100 - calPct;
+  document.getElementById('ringCarb').style.strokeDashoffset    = 100 - carbPct;
+  document.getElementById('ringProtein').style.strokeDashoffset = 100 - proteinPct;
+  document.getElementById('ringFat').style.strokeDashoffset     = 100 - fatPct;
 
   // weight display
   const wd = document.getElementById('savedWeightDisplay');
@@ -991,13 +1082,15 @@ function renderToday() {
 
   logEl.innerHTML = mealOrder.filter(m => groups[m]).map(meal => {
     const items = groups[meal];
-    const gc = items.reduce((s,i)=>s+i.calories,0);
+    const gc  = items.reduce((s,i)=>s+i.calories,0);
     const gcb = items.reduce((s,i)=>s+i.carbs_g,0);
+    const gp  = items.reduce((s,i)=>s+(i.protein_g||0),0);
+    const gf  = items.reduce((s,i)=>s+(i.fat_g||0),0);
     return `
       <div style="margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-size:13px;font-weight:700;color:var(--text-2)">${mealEmoji[meal]} ${meal}</span>
-          <span style="font-size:12px;color:var(--text-3)">${Math.round(gc)} cal · ${gcb.toFixed(0)}g carbs</span>
+          <span style="font-size:12px;color:var(--text-3)">${Math.round(gc)} cal · ${gcb.toFixed(0)}g carbs · ${gp.toFixed(0)}g prot · ${gf.toFixed(0)}g fat</span>
         </div>
         <div class="meal-log-list">
           ${items.map(item => `
@@ -1010,6 +1103,7 @@ function renderToday() {
                   <span class="pill-red">${Math.round(item.calories)} cal</span>
                   <span class="pill-blue">${item.carbs_g.toFixed(0)}g carbs</span>
                   <span class="pill-green">${item.protein_g.toFixed(0)}g prot</span>
+                  <span class="pill-yellow">${item.fat_g.toFixed(0)}g fat</span>
                 </div>
               </div>
               <button class="mli-del" onclick="deleteItem('${key}', ${item.id})">
@@ -1065,12 +1159,18 @@ function renderCalendar() {
     const date = new Date(calYear, calMonthIdx, d);
     const key  = isoDate(date);
     const day  = getDay(key);
-    const totCal  = day.items.reduce((s,i)=>s+i.calories,0);
-    const totCarb = day.items.reduce((s,i)=>s+i.carbs_g,0);
+    const totCal     = day.items.reduce((s,i)=>s+i.calories,0);
+    const totCarb    = day.items.reduce((s,i)=>s+i.carbs_g,0);
+    const totProtein = day.items.reduce((s,i)=>s+(i.protein_g||0),0);
+    const totFat     = day.items.reduce((s,i)=>s+(i.fat_g||0),0);
     const isToday = key === todayISO;
     const hasDat  = day.items.length > 0 || day.weight;
-    const calPct  = Math.min(totCal  / goals.calGoal  * 100, 100).toFixed(1);
-    const carbPct = Math.min(totCarb / goals.carbGoal * 100, 100).toFixed(1);
+    const proteinGoal = goals.proteinGoal || Math.round(goals.calGoal * 0.15 / 4);
+    const fatGoal     = goals.fatGoal     || Math.round(goals.calGoal * 0.3  / 9);
+    const calPct     = Math.min(totCal     / goals.calGoal  * 100, 100).toFixed(1);
+    const carbPct    = Math.min(totCarb    / goals.carbGoal * 100, 100).toFixed(1);
+    const proteinPct = Math.min(totProtein / proteinGoal    * 100, 100).toFixed(1);
+    const fatPct     = Math.min(totFat     / fatGoal        * 100, 100).toFixed(1);
 
     const dow = date.toLocaleDateString('en-US', { weekday:'short' });
     const dm  = date.toLocaleDateString('en-US', { month:'short' });
@@ -1090,25 +1190,28 @@ function renderCalendar() {
           </div>
         </div>
         ${hasDat ? `
-        <div class="cal-bars">
-          <div class="cal-bar-wrap">
-            <div class="cal-bar-label">
-              <span>Calories</span><span style="color:var(--red)">${Math.round(totCal)}</span>
-            </div>
-            <div class="cal-bar-track cal-bar-cal">
-              <div class="cal-bar-fill" style="width:${calPct}%"></div>
-            </div>
+        <div class="cal-bars" style="flex-wrap:wrap;gap:6px">
+          <div class="cal-bar-wrap" style="min-width:calc(50% - 3px)">
+            <div class="cal-bar-label"><span>Calories</span><span style="color:var(--red)">${Math.round(totCal)}</span></div>
+            <div class="cal-bar-track cal-bar-cal"><div class="cal-bar-fill" style="width:${calPct}%"></div></div>
           </div>
-          <div class="cal-bar-wrap">
-            <div class="cal-bar-label">
-              <span>Carbs</span><span style="color:var(--blue)">${totCarb.toFixed(0)}g</span>
-            </div>
-            <div class="cal-bar-track cal-bar-carb">
-              <div class="cal-bar-fill" style="width:${carbPct}%"></div>
-            </div>
+          <div class="cal-bar-wrap" style="min-width:calc(50% - 3px)">
+            <div class="cal-bar-label"><span>Carbs</span><span style="color:var(--blue)">${totCarb.toFixed(0)}g</span></div>
+            <div class="cal-bar-track cal-bar-carb"><div class="cal-bar-fill" style="width:${carbPct}%"></div></div>
+          </div>
+          <div class="cal-bar-wrap" style="min-width:calc(50% - 3px)">
+            <div class="cal-bar-label"><span>Protein</span><span style="color:var(--green)">${totProtein.toFixed(0)}g</span></div>
+            <div class="cal-bar-track cal-bar-protein"><div class="cal-bar-fill" style="width:${proteinPct}%"></div></div>
+          </div>
+          <div class="cal-bar-wrap" style="min-width:calc(50% - 3px)">
+            <div class="cal-bar-label"><span>Fat</span><span style="color:var(--yellow)">${totFat.toFixed(0)}g</span></div>
+            <div class="cal-bar-track cal-bar-fat"><div class="cal-bar-fill" style="width:${fatPct}%"></div></div>
           </div>
         </div>
-        <div class="cal-items-count">${day.items.length} item${day.items.length!==1?'s':''} logged</div>
+        <div class="cal-items-count" style="display:flex;align-items:center;justify-content:space-between">
+          <span>${day.items.length} item${day.items.length!==1?'s':''} logged</span>
+          <button onclick="openDayDetail('${key}')" style="font-size:12px;font-weight:700;color:var(--blue);background:var(--blue-lt);border:none;padding:4px 10px;border-radius:20px">View items ›</button>
+        </div>
         ` : `<div style="font-size:12.5px;color:var(--text-3);padding-top:4px">Nothing logged</div>`}
       </div>`;
   }
@@ -1308,6 +1411,69 @@ function renderAnalytics() {
       }
     }
   });
+}
+
+/* ════════════════════════════════════════
+   DAY DETAIL MODAL
+════════════════════════════════════════ */
+function openDayDetail(key) {
+  const day = getDay(key);
+  const date = new Date(key + 'T00:00:00');
+  const label = date.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+  const totCal     = day.items.reduce((s,i)=>s+i.calories,0);
+  const totCarb    = day.items.reduce((s,i)=>s+i.carbs_g,0);
+  const totProtein = day.items.reduce((s,i)=>s+(i.protein_g||0),0);
+  const totFat     = day.items.reduce((s,i)=>s+(i.fat_g||0),0);
+  document.getElementById('dayModalTitle').textContent = label;
+  const mealOrder = ['Breakfast','Lunch','Dinner','Snack'];
+  const mealEmoji = { Breakfast:'🌅', Lunch:'☀️', Dinner:'🌙', Snack:'🍎' };
+  const groups = {};
+  day.items.forEach(item => {
+    if (!groups[item.mealType]) groups[item.mealType] = [];
+    groups[item.mealType].push(item);
+  });
+  let html = `
+    <div class="day-modal-macros">
+      <div class="dmm dmm-cal"><div class="dmm-val">${Math.round(totCal)}</div><div class="dmm-lbl">Cals</div></div>
+      <div class="dmm dmm-carb"><div class="dmm-val">${totCarb.toFixed(0)}g</div><div class="dmm-lbl">Carbs</div></div>
+      <div class="dmm dmm-protein"><div class="dmm-val">${totProtein.toFixed(0)}g</div><div class="dmm-lbl">Protein</div></div>
+      <div class="dmm dmm-fat"><div class="dmm-val">${totFat.toFixed(0)}g</div><div class="dmm-lbl">Fat</div></div>
+    </div>
+    ${day.weight ? `<div style="font-size:13px;color:var(--text-2);font-weight:600;margin-bottom:14px">⚖️ Weight: ${day.weight} ${goals.units}</div>` : ''}`;
+  if (!day.items.length) {
+    html += `<div class="empty-state"><div class="es-icon">🍽️</div>Nothing logged this day.</div>`;
+  } else {
+    html += mealOrder.filter(m => groups[m]).map(meal => {
+      const items = groups[meal];
+      const gc  = items.reduce((s,i)=>s+i.calories,0);
+      const gcb = items.reduce((s,i)=>s+i.carbs_g,0);
+      const gp  = items.reduce((s,i)=>s+(i.protein_g||0),0);
+      const gf  = items.reduce((s,i)=>s+(i.fat_g||0),0);
+      return `
+        <div style="margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:700;color:var(--text-2)">${mealEmoji[meal]} ${meal}</span>
+            <span style="font-size:11.5px;color:var(--text-3)">${Math.round(gc)} cal · ${gcb.toFixed(0)}g C · ${gp.toFixed(0)}g P · ${gf.toFixed(0)}g F</span>
+          </div>
+          ${items.map(item => `
+            <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:6px">
+              <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">${item.name}</div>
+              <div style="font-size:12px;color:var(--text-2);margin-bottom:6px">${item.scale !== 1 ? item.scale + '× ' : ''}${item.qty_label}</div>
+              <div style="display:flex;gap:5px;flex-wrap:wrap">
+                <span class="pill-red">${Math.round(item.calories)} cal</span>
+                <span class="pill-blue">${item.carbs_g.toFixed(0)}g carbs</span>
+                <span class="pill-green">${(item.protein_g||0).toFixed(0)}g prot</span>
+                <span class="pill-yellow">${(item.fat_g||0).toFixed(0)}g fat</span>
+              </div>
+            </div>`).join('')}
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('dayModalBody').innerHTML = html;
+  document.getElementById('dayModalOverlay').classList.remove('hidden');
+}
+function closeDayDetail() {
+  document.getElementById('dayModalOverlay').classList.add('hidden');
 }
 
 /* ════════════════════════════════════════

@@ -30,6 +30,8 @@
   --yellow-lt:   #FFFDE7;
   --green:       #2E7D32;
   --green-lt:    #E8F5E9;
+  --teal:        #00695C;
+  --teal-lt:     #E0F2F1;
   --bg:          #F0F6FF;
   --surface:     #FFFFFF;
   --surface2:    #F7FAFF;
@@ -161,6 +163,7 @@ a { color: inherit; text-decoration: none; }
 .pill-blue { background: var(--blue-lt); color: var(--blue); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
 .pill-red  { background: var(--red-lt); color: var(--red); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
 .pill-yellow { background: var(--yellow-lt); color: var(--yellow); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+.pill-teal   { background: var(--teal-lt);   color: var(--teal);   font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
 .pill-green  { background: var(--green-lt); color: var(--green); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
 
 .btn {
@@ -196,6 +199,7 @@ a { color: inherit; text-decoration: none; }
 .mc-carb .mc-val { color: var(--blue); }
 .mc-protein .mc-val { color: var(--green); }
 .mc-fat .mc-val { color: var(--yellow); }
+.mc-fibre .mc-val { color: var(--teal); }
 
 /* ═══════════════════════════════
    API KEY MODAL
@@ -358,6 +362,7 @@ a { color: inherit; text-decoration: none; }
 .cal-bar-carb .cal-bar-fill { background: linear-gradient(90deg, var(--blue-dk) 0%, var(--blue) 100%); }
 .cal-bar-protein .cal-bar-fill { background: linear-gradient(90deg, #1B5E20 0%, var(--green) 100%); }
 .cal-bar-fat .cal-bar-fill { background: linear-gradient(90deg, #E65100 0%, var(--yellow) 100%); }
+.cal-bar-fibre .cal-bar-fill { background: linear-gradient(90deg, #004D40 0%, var(--teal) 100%); }
 .cal-items-count { font-size: 12px; color: var(--text-3); margin-top: 8px; }
 
 .cal-month-header {
@@ -441,6 +446,7 @@ a { color: inherit; text-decoration: none; }
 .ring-carb .ring-fg { stroke: var(--blue); }
 .ring-protein .ring-fg { stroke: var(--green); }
 .ring-fat .ring-fg { stroke: var(--yellow); }
+.ring-fibre .ring-fg { stroke: var(--teal); }
 .ring-item .ring-center { text-align: center; }
 .ring-item .ring-val { font-size: 13px; font-weight: 800; }
 .ring-item .ring-lbl { font-size: 9.5px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-3); }
@@ -461,6 +467,47 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-2); transition: all .15s;
 }
 .meal-type-btn.sel { background: var(--blue-lt); border-color: var(--blue); color: var(--blue); }
+/* ═══════════════════════════════
+   BMI & WEEKLY SUMMARY
+═══════════════════════════════ */
+.bmi-card {
+  background: linear-gradient(135deg, #00695C 0%, #004D40 100%);
+  border-radius: var(--r); padding: 18px; color: #fff;
+  margin-bottom: 14px; box-shadow: var(--shadow-lg);
+}
+.bmi-card .bmi-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; opacity: .75; margin-bottom: 6px; }
+.bmi-card .bmi-val { font-family: var(--ff-serif); font-size: 42px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.bmi-card .bmi-cat { font-size: 15px; font-weight: 600; opacity: .9; margin-bottom: 12px; }
+.bmi-card .bmi-scale { display: flex; gap: 4px; margin-bottom: 14px; }
+.bmi-card .bmi-seg { flex: 1; height: 6px; border-radius: 3px; opacity: .5; }
+.bmi-card .bmi-seg.active { opacity: 1; box-shadow: 0 0 8px rgba(255,255,255,.6); }
+.bmi-inputs { display: flex; gap: 8px; margin-top: 2px; }
+.bmi-inputs .inp { flex: 1; background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.3); color: #fff; }
+.bmi-inputs .inp::placeholder { color: rgba(255,255,255,.6); }
+.bmi-inputs .inp:focus { border-color: rgba(255,255,255,.8); box-shadow: none; }
+.bmi-save { background: rgba(255,255,255,.2); color: #fff; border: 1.5px solid rgba(255,255,255,.4); padding: 13px 16px; border-radius: var(--r-sm); font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+.week-card {
+  background: var(--surface); border-radius: var(--r);
+  border: 1.5px solid var(--border); padding: 16px;
+  margin-bottom: 10px; box-shadow: var(--shadow-sm);
+}
+.week-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.week-card-title { font-family: var(--ff-serif); font-size: 16px; font-weight: 600; color: var(--text); }
+.week-card-range { font-size: 11px; color: var(--text-3); font-weight: 600; }
+.week-macro-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.wmg { background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--r-sm); padding: 8px 6px; text-align: center; }
+.wmg .wmg-val { font-size: 16px; font-weight: 800; line-height: 1; }
+.wmg .wmg-lbl { font-size: 9px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-3); margin-top: 3px; }
+.wmg-cal .wmg-val { color: var(--red); }
+.wmg-carb .wmg-val { color: var(--blue); }
+.wmg-protein .wmg-val { color: var(--green); }
+.wmg-fat .wmg-val { color: var(--yellow); }
+.wmg-fibre .wmg-val { color: var(--teal); }
+.wmg-steps .wmg-val { color: var(--text-2); }
+.week-weight-row { display: flex; gap: 16px; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+.week-weight-row span { font-weight: 700; }
+
 /* ═══════════════════════════════
    DAY DETAIL MODAL
 ═══════════════════════════════ */
@@ -498,6 +545,7 @@ a { color: inherit; text-decoration: none; }
 .dmm-carb .dmm-val { color: var(--blue); }
 .dmm-protein .dmm-val { color: var(--green); }
 .dmm-fat .dmm-val { color: var(--yellow); }
+.dmm-fibre .dmm-val { color: var(--teal); }
 </style>
 </head>
 <body>
@@ -602,6 +650,16 @@ a { color: inherit; text-decoration: none; }
             <div class="ring-lbl">Fat</div>
           </div>
         </div>
+        <div class="ring-item">
+          <svg viewBox="0 0 36 36">
+            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
+            <circle class="ring-fg ring-fibre" id="ringFibre" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-val" id="ringFibreVal" style="color:var(--teal)">0g</div>
+            <div class="ring-lbl">Fibre</div>
+          </div>
+        </div>
       </div>
 
       <!-- totals -->
@@ -621,6 +679,10 @@ a { color: inherit; text-decoration: none; }
         <div class="total-tile" style="border-color:#FFE0B2">
           <div class="tt-val" id="todayFat" style="color:var(--yellow)">0g</div>
           <div class="tt-lbl">Fat</div>
+        </div>
+        <div class="total-tile" style="border-color:var(--teal-lt)">
+          <div class="tt-val" id="todayFibre" style="color:var(--teal)">0g</div>
+          <div class="tt-lbl">Fibre</div>
         </div>
       </div>
 
@@ -659,15 +721,21 @@ a { color: inherit; text-decoration: none; }
             <input class="inp" id="proteinGoalInp" type="number" value="120" oninput="saveGoals()" style="padding:10px">
           </div>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
           <div style="flex:1">
             <div style="font-size:11px;font-weight:600;color:var(--yellow);margin-bottom:5px">🥑 Fat (g)</div>
             <input class="inp" id="fatGoalInp" type="number" value="65" oninput="saveGoals()" style="padding:10px">
           </div>
           <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--teal);margin-bottom:5px">🥦 Fibre (g)</div>
+            <input class="inp" id="fibreGoalInp" type="number" value="30" oninput="saveGoals()" style="padding:10px">
+          </div>
+          <div style="flex:1">
             <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px">👟 Steps</div>
             <input class="inp" id="stepsGoalInp" type="number" value="10000" oninput="saveGoals()" style="padding:10px">
           </div>
+        </div>
+        <div style="display:flex;gap:8px">
           <div style="flex:1">
             <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px">⚖️ Units</div>
             <select class="inp" id="unitsSel" onchange="saveGoals()" style="padding:10px">
@@ -675,6 +743,7 @@ a { color: inherit; text-decoration: none; }
               <option value="kg">kg</option>
             </select>
           </div>
+          <div style="flex:2"></div>
         </div>
       </div>
 
@@ -706,6 +775,22 @@ a { color: inherit; text-decoration: none; }
         <div class="stat-tile"><div class="stv" id="statAvgCal">—</div><div class="stl">Avg Cals</div></div>
         <div class="stat-tile"><div class="stv" id="statWeightDelta">—</div><div class="stl">Weight Δ</div></div>
       </div>
+
+      <!-- BMI Tracker -->
+      <div class="bmi-card" id="bmiCard">
+        <div class="bmi-title">BMI Tracker</div>
+        <div id="bmiDisplay">
+          <div style="font-size:13px;opacity:.8;margin-bottom:12px">Enter your height below to calculate BMI from your logged weight.</div>
+        </div>
+        <div class="bmi-inputs">
+          <input class="inp" id="bmiHeightInp" type="text" inputmode="decimal" placeholder="Height (e.g. 5ft 10in or 178cm)" autocomplete="off" oninput="this.value=this.value.replace(',','.')">
+          <button class="bmi-save" onclick="saveBMIHeight()">Save</button>
+        </div>
+      </div>
+
+      <!-- Weekly Summaries -->
+      <div class="sec-label" style="color:#fff;opacity:0;height:0;margin:0"></div>
+      <div id="weeklySummaries"></div>
 
       <!-- Export -->
       <div class="card" style="margin-bottom:14px">
@@ -744,6 +829,11 @@ a { color: inherit; text-decoration: none; }
       <div class="chart-card">
         <div class="card-title">Daily Fat — Trend</div>
         <canvas id="fatTrendChart" height="200"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Daily Fibre — Trend</div>
+        <canvas id="fibreTrendChart" height="200"></canvas>
       </div>
 
       <div class="chart-card">
@@ -857,21 +947,22 @@ let activeTab = 'search';
 let calMonth = new Date();
 let currentResult = null;
 let selectedMealType = 'Breakfast';
-let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null;
+let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null;
 
 function loadDB() {
   try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; }
 }
 function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 function loadGoals() {
-  try { return JSON.parse(localStorage.getItem(GOAL_KEY)) || { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, stepsGoal: 10000, units: 'lbs' }; }
-  catch { return { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, stepsGoal: 10000, units: 'lbs' }; }
+  try { return JSON.parse(localStorage.getItem(GOAL_KEY)) || { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, units: 'lbs' }; }
+  catch { return { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, units: 'lbs' }; }
 }
 function saveGoals() {
   goals.calGoal     = parseInt(document.getElementById('calGoalInp').value)     || 2000;
   goals.carbGoal    = parseInt(document.getElementById('carbGoalInp').value)    || 250;
   goals.proteinGoal = parseInt(document.getElementById('proteinGoalInp').value) || 120;
   goals.fatGoal     = parseInt(document.getElementById('fatGoalInp').value)     || 65;
+  goals.fibreGoal   = parseInt(document.getElementById('fibreGoalInp').value)   || 30;
   goals.stepsGoal   = parseInt(document.getElementById('stepsGoalInp').value)   || 10000;
   goals.units       = document.getElementById('unitsSel').value;
   localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
@@ -900,6 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('carbGoalInp').value    = goals.carbGoal;
   document.getElementById('proteinGoalInp').value = goals.proteinGoal || 120;
   document.getElementById('fatGoalInp').value     = goals.fatGoal     || 65;
+  document.getElementById('fibreGoalInp').value   = goals.fibreGoal   || 30;
   document.getElementById('stepsGoalInp').value   = goals.stepsGoal   || 10000;
   document.getElementById('unitsSel').value       = goals.units;
   document.getElementById('weightUnit').textContent = goals.units;
@@ -1053,7 +1145,11 @@ function renderResult(r) {
           <div class="mc-lbl">Fat</div>
         </div>
       </div>
-      ${r.fiber_g ? `<div style="font-size:12.5px;color:var(--text-2);margin-top:8px">🌾 Fibre: ${r.fiber_g}g</div>` : ''}
+      ${(r.fiber_g||r.fibre_g) ? `
+        <div class="macro-chip mc-fibre" style="margin-top:8px">
+          <div class="mc-val">${r.fiber_g||r.fibre_g}g</div>
+          <div class="mc-lbl">Fibre</div>
+        </div>` : ''}
       ${r.notes ? `<div style="font-size:12.5px;color:var(--text-2);margin-top:6px;line-height:1.45;font-style:italic">💡 ${r.notes}</div>` : ''}
       <div class="add-meal-row">
         <input class="inp qty-inp" id="qtyScaleInp" type="number" value="1" min="0.1" step="0.1" inputmode="decimal">
@@ -1079,6 +1175,7 @@ function addToLog() {
     carbs_g:   +(r.carbs_g * scale).toFixed(1),
     protein_g: +(r.protein_g * scale).toFixed(1),
     fat_g:     +(r.fat_g * scale).toFixed(1),
+    fibre_g:   +((r.fiber_g||r.fibre_g||0) * scale).toFixed(1),
   });
   setDay(key, day);
   showToast(`Added to ${selectedMealType} ✓`, 'success');
@@ -1119,27 +1216,32 @@ function renderToday() {
   const totCarb    = day.items.reduce((s, i) => s + i.carbs_g, 0);
   const totProtein = day.items.reduce((s, i) => s + (i.protein_g||0), 0);
   const totFat     = day.items.reduce((s, i) => s + (i.fat_g||0), 0);
+  const totFibre   = day.items.reduce((s, i) => s + (i.fibre_g||i.fiber_g||0), 0);
 
   document.getElementById('todayCal').textContent     = Math.round(totCal);
   document.getElementById('todayCarb').textContent    = totCarb.toFixed(1) + 'g';
   document.getElementById('todayProtein').textContent = totProtein.toFixed(1) + 'g';
   document.getElementById('todayFat').textContent     = totFat.toFixed(1) + 'g';
+  document.getElementById('todayFibre').textContent   = totFibre.toFixed(1) + 'g';
   document.getElementById('ringCalVal').textContent     = Math.round(totCal);
   document.getElementById('ringCarbVal').textContent    = totCarb.toFixed(0) + 'g';
   document.getElementById('ringProteinVal').textContent = totProtein.toFixed(0) + 'g';
   document.getElementById('ringFatVal').textContent     = totFat.toFixed(0) + 'g';
+  document.getElementById('ringFibreVal').textContent   = totFibre.toFixed(0) + 'g';
 
-  // rings — protein goal = calGoal*0.15/4 kcal, fat goal = calGoal*0.3/9
   const proteinGoal = goals.proteinGoal || Math.round(goals.calGoal * 0.15 / 4);
   const fatGoal     = goals.fatGoal     || Math.round(goals.calGoal * 0.3  / 9);
+  const fibreGoal   = goals.fibreGoal   || 30;
   const calPct     = Math.min(totCal     / goals.calGoal  * 100, 100);
   const carbPct    = Math.min(totCarb    / goals.carbGoal * 100, 100);
   const proteinPct = Math.min(totProtein / proteinGoal    * 100, 100);
   const fatPct     = Math.min(totFat     / fatGoal        * 100, 100);
+  const fibrePct   = Math.min(totFibre   / fibreGoal      * 100, 100);
   document.getElementById('ringCal').style.strokeDashoffset     = 100 - calPct;
   document.getElementById('ringCarb').style.strokeDashoffset    = 100 - carbPct;
   document.getElementById('ringProtein').style.strokeDashoffset = 100 - proteinPct;
   document.getElementById('ringFat').style.strokeDashoffset     = 100 - fatPct;
+  document.getElementById('ringFibre').style.strokeDashoffset   = 100 - fibrePct;
 
   // weight + steps display
   const wd = document.getElementById('savedWeightDisplay');
@@ -1200,6 +1302,7 @@ function renderToday() {
                   <span class="pill-blue">${item.carbs_g.toFixed(0)}g carbs</span>
                   <span class="pill-green">${item.protein_g.toFixed(0)}g prot</span>
                   <span class="pill-yellow">${item.fat_g.toFixed(0)}g fat</span>
+                  ${(item.fibre_g||item.fiber_g) ? `<span class="pill-teal">${(item.fibre_g||item.fiber_g||0).toFixed(0)}g fibre</span>` : ''}
                 </div>
               </div>
               <button class="mli-del" onclick="deleteItem('${key}', ${item.id})">
@@ -1269,14 +1372,17 @@ function renderCalendar() {
     const totCarb    = day.items.reduce((s,i)=>s+i.carbs_g,0);
     const totProtein = day.items.reduce((s,i)=>s+(i.protein_g||0),0);
     const totFat     = day.items.reduce((s,i)=>s+(i.fat_g||0),0);
+    const totFibre   = day.items.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
     const isToday = key === todayISO;
     const hasDat  = day.items.length > 0 || day.weight;
     const proteinGoal = goals.proteinGoal || Math.round(goals.calGoal * 0.15 / 4);
     const fatGoal     = goals.fatGoal     || Math.round(goals.calGoal * 0.3  / 9);
+    const fibreGoal   = goals.fibreGoal   || 30;
     const calPct     = Math.min(totCal     / goals.calGoal  * 100, 100).toFixed(1);
     const carbPct    = Math.min(totCarb    / goals.carbGoal * 100, 100).toFixed(1);
     const proteinPct = Math.min(totProtein / proteinGoal    * 100, 100).toFixed(1);
     const fatPct     = Math.min(totFat     / fatGoal        * 100, 100).toFixed(1);
+    const fibrePct   = Math.min(totFibre   / fibreGoal      * 100, 100).toFixed(1);
 
     const dow = date.toLocaleDateString('en-US', { weekday:'short' });
     const dm  = date.toLocaleDateString('en-US', { month:'short' });
@@ -1313,6 +1419,10 @@ function renderCalendar() {
             <div class="cal-bar-label"><span>Fat</span><span style="color:var(--yellow)">${totFat.toFixed(0)}g</span></div>
             <div class="cal-bar-track cal-bar-fat"><div class="cal-bar-fill" style="width:${fatPct}%"></div></div>
           </div>
+          <div class="cal-bar-wrap" style="min-width:calc(50% - 3px)">
+            <div class="cal-bar-label"><span>Fibre</span><span style="color:var(--teal)">${totFibre.toFixed(0)}g</span></div>
+            <div class="cal-bar-track cal-bar-fibre"><div class="cal-bar-fill" style="width:${fibrePct}%"></div></div>
+          </div>
         </div>
         <div class="cal-items-count" style="display:flex;align-items:center;justify-content:space-between">
           <span>${day.items.length} item${day.items.length!==1?'s':''} logged</span>
@@ -1336,6 +1446,8 @@ function calNav(dir) {
    ANALYTICS
 ════════════════════════════════════════ */
 function renderAnalytics() {
+  renderBMI();
+  renderWeeklySummaries();
   // build dataset: days with both cal and weight, sorted
   const keys = Object.keys(db).sort();
   const calSeries  = [];
@@ -1345,6 +1457,7 @@ function renderAnalytics() {
 
   const proteinSeries = [];
   const fatSeries     = [];
+  const fibreSeries   = [];
   const weightTrend   = [];
   const stepsTrend    = [];
 
@@ -1354,10 +1467,12 @@ function renderAnalytics() {
     const totCarb    = d.items?.reduce((s,i)=>s+i.carbs_g,0)||0;
     const totProtein = d.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0;
     const totFat     = d.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0;
+    const totFibre   = d.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0;
     if (totCal > 0) {
-      calSeries.push({ date: k, cal: totCal, carb: totCarb, protein: totProtein, fat: totFat });
+      calSeries.push({ date: k, cal: totCal, carb: totCarb, protein: totProtein, fat: totFat, fibre: totFibre });
       if (totProtein > 0) proteinSeries.push({ date: k, val: totProtein });
       if (totFat     > 0) fatSeries.push({ date: k, val: totFat });
+      if (totFibre   > 0) fibreSeries.push({ date: k, val: totFibre });
     }
     if (d.weight) { weightSeries[k] = d.weight; weightTrend.push({ date: k, val: d.weight }); }
     if (d.steps)  stepsTrend.push({ date: k, val: d.steps });
@@ -1572,6 +1687,25 @@ function renderAnalytics() {
       }]
     },
     options: lineOpts('#F9A825', goals.fatGoal)
+  });
+
+  // fibre trend
+  if (fibreTrendInst) fibreTrendInst.destroy();
+  const fibreDates = fibreSeries.slice(-30);
+  fibreTrendInst = new Chart(document.getElementById('fibreTrendChart'), {
+    type: 'line',
+    data: {
+      labels: fibreDates.map(d => d.date.slice(5)),
+      datasets: [{
+        label: 'Fibre (g)',
+        data: fibreDates.map(d => d.val),
+        borderColor: '#00695C',
+        backgroundColor: 'rgba(0,105,92,0.1)',
+        fill: true, tension: 0.35, pointRadius: 3,
+        pointBackgroundColor: '#00695C',
+      }]
+    },
+    options: lineOpts('#00695C', goals.fibreGoal || 30)
   });
 
   // weight trend
@@ -1827,6 +1961,7 @@ function openDayDetail(key) {
   const totCarb    = day.items.reduce((s,i)=>s+i.carbs_g,0);
   const totProtein = day.items.reduce((s,i)=>s+(i.protein_g||0),0);
   const totFat     = day.items.reduce((s,i)=>s+(i.fat_g||0),0);
+  const totFibre   = day.items.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
   document.getElementById('dayModalTitle').textContent = label;
   const mealOrder = ['Breakfast','Lunch','Dinner','Snack'];
   const mealEmoji = { Breakfast:'🌅', Lunch:'☀️', Dinner:'🌙', Snack:'🍎' };
@@ -1841,6 +1976,7 @@ function openDayDetail(key) {
       <div class="dmm dmm-carb"><div class="dmm-val">${totCarb.toFixed(0)}g</div><div class="dmm-lbl">Carbs</div></div>
       <div class="dmm dmm-protein"><div class="dmm-val">${totProtein.toFixed(0)}g</div><div class="dmm-lbl">Protein</div></div>
       <div class="dmm dmm-fat"><div class="dmm-val">${totFat.toFixed(0)}g</div><div class="dmm-lbl">Fat</div></div>
+      <div class="dmm dmm-fibre"><div class="dmm-val">${totFibre.toFixed(0)}g</div><div class="dmm-lbl">Fibre</div></div>
     </div>
     ${day.weight ? `<div style="font-size:13px;color:var(--text-2);font-weight:600;margin-bottom:6px">⚖️ Weight: ${day.weight} ${goals.units}</div>` : ''}
     ${day.steps  ? `<div style="font-size:13px;color:var(--blue);font-weight:600;margin-bottom:14px">👟 Steps: ${day.steps.toLocaleString()}</div>` : ''}`;
@@ -1868,6 +2004,7 @@ function openDayDetail(key) {
                 <span class="pill-blue">${item.carbs_g.toFixed(0)}g carbs</span>
                 <span class="pill-green">${(item.protein_g||0).toFixed(0)}g prot</span>
                 <span class="pill-yellow">${(item.fat_g||0).toFixed(0)}g fat</span>
+                ${(item.fibre_g||item.fiber_g) ? `<span class="pill-teal">${(item.fibre_g||item.fiber_g||0).toFixed(0)}g fibre</span>` : ''}
               </div>
             </div>`).join('')}
         </div>`;
@@ -1894,10 +2031,148 @@ function showToast(msg, type = '') {
 /* ════════════════════════════════════════
    EXPORT
 ════════════════════════════════════════ */
+/* ════════════════════════════════════════
+   BMI TRACKER
+════════════════════════════════════════ */
+function parseCmHeight(str) {
+  // accepts "178", "178cm", "5ft10", "5'10", "5ft 10in", "5 10" etc.
+  str = str.trim().toLowerCase().replace(/,/,'.');
+  const cm = parseFloat(str.replace('cm',''));
+  if (!isNaN(cm) && cm > 50) return cm;
+  // feet/inches
+  const m1 = str.match(/(\d+)\s*(?:ft|'|feet)\s*(\d+)?(?:\s*(?:in|"|inches))?/);
+  if (m1) { const ft = parseFloat(m1[1])||0; const ins = parseFloat(m1[2])||0; return ft*30.48 + ins*2.54; }
+  const m2 = str.match(/^(\d+)\s+(\d+)$/);
+  if (m2) { return parseFloat(m2[1])*30.48 + parseFloat(m2[2])*2.54; }
+  return null;
+}
+function saveBMIHeight() {
+  const raw = document.getElementById('bmiHeightInp').value;
+  const cm  = parseCmHeight(raw);
+  if (!cm || cm < 100 || cm > 250) { showToast('Enter a valid height (e.g. 178cm or 5ft 10in)', 'error'); return; }
+  goals.heightCm = cm;
+  localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
+  showToast('Height saved ✓', 'success');
+  renderBMI();
+}
+function renderBMI() {
+  const el = document.getElementById('bmiDisplay');
+  const h  = goals.heightCm;
+  if (!h) { el.innerHTML = '<div style="font-size:13px;opacity:.8;margin-bottom:12px">Enter your height below to calculate BMI from your logged weight.</div>'; return; }
+  // get latest logged weight
+  const keys = Object.keys(db).sort();
+  let latestWeight = null, latestDate = null;
+  for (let i = keys.length-1; i >= 0; i--) { if (db[keys[i]]?.weight) { latestWeight = db[keys[i]].weight; latestDate = keys[i]; break; } }
+  if (!latestWeight) { el.innerHTML = '<div style="font-size:13px;opacity:.8;margin-bottom:12px">No weight logged yet — log your weight in the Today tab.</div>'; return; }
+  const weightKg = goals.units === 'kg' ? latestWeight : latestWeight * 0.453592;
+  const hm       = h / 100;
+  const bmi      = weightKg / (hm * hm);
+  const cats     = [
+    { label: 'Underweight', max: 18.5, col: '#90CAF9' },
+    { label: 'Normal',      max: 25,   col: '#A5D6A7' },
+    { label: 'Overweight',  max: 30,   col: '#FFCC80' },
+    { label: 'Obese',       max: 999,  col: '#EF9A9A' },
+  ];
+  const cat = cats.find(c => bmi < c.max);
+  const segs = cats.map((ct,i) => {
+    const active = ct.label === cat.label;
+    return `<div class="bmi-seg${active?' active':''}" style="background:${ct.col}"></div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="bmi-val">${bmi.toFixed(1)}</div>
+    <div class="bmi-cat">${cat.label} · from ${latestDate}</div>
+    <div class="bmi-scale">${segs}</div>
+    <div style="display:flex;gap:16px;font-size:11px;opacity:.75;margin-bottom:10px">
+      <span>< 18.5 Underweight</span><span>18.5–25 Normal</span><span>25–30 Overweight</span><span>> 30 Obese</span>
+    </div>
+    <div style="font-size:12px;opacity:.8">Height: ${h.toFixed(0)}cm · Weight: ${latestWeight} ${goals.units}</div>`;
+  // pre-fill height input with current value
+  const ftTotal = h / 2.54; const ft = Math.floor(ftTotal/12); const ins = Math.round(ftTotal%12);
+  document.getElementById('bmiHeightInp').value = goals.units === 'kg' ? h.toFixed(0) + 'cm' : ft + 'ft ' + ins + 'in';
+}
+
+/* ════════════════════════════════════════
+   WEEKLY SUMMARIES
+════════════════════════════════════════ */
+function renderWeeklySummaries() {
+  const el = document.getElementById('weeklySummaries');
+  if (!el) return;
+  const allKeys = Object.keys(db).sort().reverse(); // newest first
+  if (!allKeys.length) { el.innerHTML = ''; return; }
+
+  // group into ISO weeks (Mon–Sun)
+  function getMonday(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const day = d.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    d.setDate(d.getDate() + diff);
+    return isoDate(d);
+  }
+  const weeks = {};
+  allKeys.forEach(k => {
+    const mon = getMonday(k);
+    if (!weeks[mon]) weeks[mon] = [];
+    weeks[mon].push(k);
+  });
+
+  const weekKeys = Object.keys(weeks).sort().reverse().slice(0, 8); // last 8 weeks
+  let html = '<div class="sec-label" style="margin-top:4px">Weekly Summaries</div>';
+
+  weekKeys.forEach(mon => {
+    const days     = weeks[mon];
+    const monDate  = new Date(mon + 'T00:00:00');
+    const sunDate  = new Date(monDate); sunDate.setDate(sunDate.getDate() + 6);
+    const rangeStr = monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' – ' + sunDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+    let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, daysLogged=0;
+    let wStart=null, wEnd=null;
+    const sortedDays = days.slice().sort();
+    sortedDays.forEach(k => {
+      const d = db[k];
+      const dc = (d.items||[]).reduce((s,i)=>s+i.calories,0);
+      if (dc > 0) {
+        totCal     += dc;
+        totCarb    += (d.items||[]).reduce((s,i)=>s+i.carbs_g,0);
+        totProtein += (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
+        totFat     += (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
+        totFibre   += (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
+        daysLogged++;
+      }
+      if (d.steps) totSteps += d.steps;
+      if (d.weight) { if (!wStart) wStart = d.weight; wEnd = d.weight; }
+    });
+    if (!daysLogged && !totSteps) return;
+    const avgCal  = daysLogged ? Math.round(totCal/daysLogged) : 0;
+    const wDelta  = (wStart && wEnd && wStart !== wEnd) ? ((wEnd-wStart)>0?'+':'')+(wEnd-wStart).toFixed(1)+' '+goals.units : null;
+
+    html += `
+      <div class="week-card">
+        <div class="week-card-header">
+          <span class="week-card-title">Week of ${monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+          <span class="week-card-range">${rangeStr}</span>
+        </div>
+        <div class="week-macro-grid">
+          <div class="wmg wmg-cal"><div class="wmg-val">${Math.round(totCal).toLocaleString()}</div><div class="wmg-lbl">Total Cal</div></div>
+          <div class="wmg wmg-cal" style="border-color:#FFCDD2"><div class="wmg-val" style="color:var(--text-2)">${avgCal}</div><div class="wmg-lbl">Avg Cal/day</div></div>
+          <div class="wmg wmg-carb"><div class="wmg-val">${Math.round(totCarb)}g</div><div class="wmg-lbl">Carbs</div></div>
+          <div class="wmg wmg-protein"><div class="wmg-val">${Math.round(totProtein)}g</div><div class="wmg-lbl">Protein</div></div>
+          <div class="wmg wmg-fat"><div class="wmg-val">${Math.round(totFat)}g</div><div class="wmg-lbl">Fat</div></div>
+          <div class="wmg wmg-fibre"><div class="wmg-val">${Math.round(totFibre)}g</div><div class="wmg-lbl">Fibre</div></div>
+        </div>
+        <div class="week-weight-row">
+          <span>📅 ${daysLogged} day${daysLogged!==1?'s':''} logged</span>
+          ${totSteps ? `<span>👟 ${totSteps.toLocaleString()} steps</span>` : ''}
+          ${wDelta   ? `<span>⚖️ ${wDelta}</span>` : ''}
+        </div>
+      </div>`;
+  });
+  el.innerHTML = html;
+}
+
 function buildExportRows() {
   const keys = Object.keys(db).sort();
   const rows = [];
-  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Steps','Weight','Weight_Unit','Items_Count','Items_Detail']);
+  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Items_Count','Items_Detail']);
   keys.forEach(key => {
     const day = db[key];
     if (!day) return;
@@ -1905,6 +2180,7 @@ function buildExportRows() {
     const totCarb    = (day.items||[]).reduce((s,i)=>s+i.carbs_g,0);
     const totProtein = (day.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
     const totFat     = (day.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
+    const totFibre   = (day.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
     const detail     = (day.items||[]).map(i=>`${i.name}(${Math.round(i.calories)}cal)`).join('; ');
     rows.push([
       key,
@@ -1912,6 +2188,7 @@ function buildExportRows() {
       totCarb.toFixed(1),
       totProtein.toFixed(1),
       totFat.toFixed(1),
+      totFibre.toFixed(1),
       day.steps || '',
       day.weight || '',
       goals.units,

@@ -743,7 +743,11 @@ a { color: inherit; text-decoration: none; }
               <option value="kg">kg</option>
             </select>
           </div>
-          <div style="flex:2"></div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--red);margin-bottom:5px">🎯 Target Weight</div>
+            <input class="inp" id="targetWeightInp" type="text" inputmode="decimal" placeholder="e.g. 175" autocomplete="off" oninput="this.value=this.value.replace(',','.');saveGoals()" style="padding:10px">
+          </div>
+          <div style="flex:1"></div>
         </div>
       </div>
 
@@ -837,11 +841,25 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <div class="chart-card">
-        <div class="card-title">Weight — Trend</div>
+        <div class="card-title">Macro Split — Average</div>
+        <div id="macroSplitEmpty" class="empty-state" style="padding:20px 0 8px;display:none">
+          <div class="es-icon">🥧</div>Log at least 1 day of food to see your macro split.
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:0 0 160px;position:relative">
+            <canvas id="macroSplitChart" height="160"></canvas>
+          </div>
+          <div id="macroSplitLegend" style="flex:1;display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+        <div id="macroSplitKcal" style="margin-top:10px;font-size:12px;color:var(--text-3);line-height:1.6"></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Weight — Trend & Target</div>
         <div id="weightChartEmpty" class="empty-state" style="padding:20px 0 8px;display:none">
           <div class="es-icon">⚖️</div>Log weight on at least 2 days to see the trend.
         </div>
-        <canvas id="weightTrendChart" height="200"></canvas>
+        <canvas id="weightTrendChart" height="220"></canvas>
       </div>
 
       <div class="chart-card">
@@ -947,15 +965,15 @@ let activeTab = 'search';
 let calMonth = new Date();
 let currentResult = null;
 let selectedMealType = 'Breakfast';
-let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null;
+let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null, macroSplitChartInst = null;
 
 function loadDB() {
   try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; }
 }
 function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 function loadGoals() {
-  try { return JSON.parse(localStorage.getItem(GOAL_KEY)) || { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, units: 'lbs' }; }
-  catch { return { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, units: 'lbs' }; }
+  try { return JSON.parse(localStorage.getItem(GOAL_KEY)) || { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, targetWeight: null, units: 'lbs' }; }
+  catch { return { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, targetWeight: null, units: 'lbs' }; }
 }
 function saveGoals() {
   goals.calGoal     = parseInt(document.getElementById('calGoalInp').value)     || 2000;
@@ -964,7 +982,9 @@ function saveGoals() {
   goals.fatGoal     = parseInt(document.getElementById('fatGoalInp').value)     || 65;
   goals.fibreGoal   = parseInt(document.getElementById('fibreGoalInp').value)   || 30;
   goals.stepsGoal   = parseInt(document.getElementById('stepsGoalInp').value)   || 10000;
-  goals.units       = document.getElementById('unitsSel').value;
+  goals.units        = document.getElementById('unitsSel').value;
+  const twRaw = document.getElementById('targetWeightInp').value.replace(',','.');
+  goals.targetWeight = parseFloat(twRaw) || null;
   localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
   document.getElementById('weightUnit').textContent = goals.units;
   renderToday();
@@ -993,7 +1013,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('fatGoalInp').value     = goals.fatGoal     || 65;
   document.getElementById('fibreGoalInp').value   = goals.fibreGoal   || 30;
   document.getElementById('stepsGoalInp').value   = goals.stepsGoal   || 10000;
-  document.getElementById('unitsSel').value       = goals.units;
+  document.getElementById('unitsSel').value         = goals.units;
+  if (goals.targetWeight) document.getElementById('targetWeightInp').value = goals.targetWeight;
   document.getElementById('weightUnit').textContent = goals.units;
 
   // show api modal if no key
@@ -1719,26 +1740,53 @@ function renderAnalytics() {
   } else {
     weightChartEmpty.style.display = 'none';
     weightCanvas.style.display = 'block';
-    const wtMin = Math.min(...wtDates.map(d=>d.val));
-    const wtMax = Math.max(...wtDates.map(d=>d.val));
-    const wtPad = (wtMax - wtMin) * 0.15 || 1;
+    const tw     = goals.targetWeight || null;
+    const allVals = wtDates.map(d=>d.val).concat(tw ? [tw] : []);
+    const wtMin  = Math.min(...allVals);
+    const wtMax  = Math.max(...allVals);
+    const wtPad  = (wtMax - wtMin) * 0.18 || 1;
+    const datasets = [
+      {
+        label: `Weight (${goals.units})`,
+        data: wtDates.map(d => d.val),
+        borderColor: '#C62828',
+        backgroundColor: 'rgba(198,40,40,0.08)',
+        fill: true, tension: 0.3, pointRadius: 4,
+        pointBackgroundColor: '#C62828',
+        borderWidth: 2.5,
+        order: 1,
+      }
+    ];
+    if (tw) {
+      datasets.push({
+        label: `Target (${tw} ${goals.units})`,
+        data: wtDates.map(() => tw),
+        borderColor: '#1565C0',
+        borderWidth: 2,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0,
+        order: 2,
+      });
+    }
     weightTrendInst = new Chart(weightCanvas, {
       type: 'line',
-      data: {
-        labels: wtDates.map(d => d.date.slice(5)),
-        datasets: [{
-          label: `Weight (${goals.units})`,
-          data: wtDates.map(d => d.val),
-          borderColor: '#C62828',
-          backgroundColor: 'rgba(198,40,40,0.08)',
-          fill: true, tension: 0.3, pointRadius: 4,
-          pointBackgroundColor: '#C62828',
-          borderWidth: 2.5,
-        }]
-      },
+      data: { labels: wtDates.map(d => d.date.slice(5)), datasets },
       options: {
         responsive: true,
-        plugins: { legend: { display: false } },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            display: !!tw,
+            labels: { boxWidth: 14, font: { size: 11 }, color: '#4A6080' }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + ' ' + goals.units
+            }
+          }
+        },
         scales: {
           x: { ticks: { maxTicksLimit: 10 }, grid: { display: false } },
           y: {
@@ -1749,6 +1797,100 @@ function renderAnalytics() {
         }
       }
     });
+  }
+
+  // ── MACRO SPLIT PIE ──
+  if (macroSplitChartInst) macroSplitChartInst.destroy();
+  const macroSplitEmpty  = document.getElementById('macroSplitEmpty');
+  const macroSplitCanvas = document.getElementById('macroSplitChart');
+  const macroLegendEl    = document.getElementById('macroSplitLegend');
+  const macroKcalEl      = document.getElementById('macroSplitKcal');
+
+  // average across all logged days
+  const macroAllKeys = Object.keys(db).sort();
+  let mTotCarb=0, mTotProtein=0, mTotFat=0, mTotFibre=0, mDays=0;
+  macroAllKeys.forEach(k => {
+    const d = db[k];
+    const dc = (d.items||[]).reduce((s,i)=>s+i.calories,0);
+    if (dc > 0) {
+      mTotCarb    += (d.items||[]).reduce((s,i)=>s+i.carbs_g,0);
+      mTotProtein += (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
+      mTotFat     += (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
+      mTotFibre   += (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
+      mDays++;
+    }
+  });
+
+  if (mDays === 0) {
+    macroSplitEmpty.style.display  = 'block';
+    macroSplitCanvas.style.display = 'none';
+    macroLegendEl.innerHTML = '';
+    macroKcalEl.innerHTML   = '';
+  } else {
+    macroSplitEmpty.style.display  = 'none';
+    macroSplitCanvas.style.display = 'block';
+    const avgCarb    = mTotCarb    / mDays;
+    const avgProtein = mTotProtein / mDays;
+    const avgFat     = mTotFat     / mDays;
+    const avgFibre   = mTotFibre   / mDays;
+    // calories per gram: carb=4, protein=4, fat=9, fibre=2 (partial)
+    const cCarb    = avgCarb    * 4;
+    const cProtein = avgProtein * 4;
+    const cFat     = avgFat     * 9;
+    const cFibre   = avgFibre   * 2;
+    const cTotal   = cCarb + cProtein + cFat + cFibre;
+    const pCarb    = cTotal > 0 ? (cCarb    / cTotal * 100).toFixed(1) : 0;
+    const pProtein = cTotal > 0 ? (cProtein / cTotal * 100).toFixed(1) : 0;
+    const pFat     = cTotal > 0 ? (cFat     / cTotal * 100).toFixed(1) : 0;
+    const pFibre   = cTotal > 0 ? (cFibre   / cTotal * 100).toFixed(1) : 0;
+
+    macroSplitChartInst = new Chart(macroSplitCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['Carbs', 'Protein', 'Fat', 'Fibre'],
+        datasets: [{
+          data: [cCarb, cProtein, cFat, cFibre],
+          backgroundColor: ['#1565C0', '#2E7D32', '#F9A825', '#00695C'],
+          borderColor: '#fff',
+          borderWidth: 3,
+          hoverOffset: 6,
+        }]
+      },
+      options: {
+        responsive: false,
+        cutout: '62%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const pcts = [pCarb, pProtein, pFat, pFibre];
+                return ` ${ctx.label}: ${pcts[ctx.dataIndex]}% (${Math.round(ctx.raw)} kcal/day avg)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const items = [
+      { label: 'Carbs',   val: avgCarb,    pct: pCarb,    col: '#1565C0', kcal: cCarb    },
+      { label: 'Protein', val: avgProtein, pct: pProtein, col: '#2E7D32', kcal: cProtein },
+      { label: 'Fat',     val: avgFat,     pct: pFat,     col: '#F9A825', kcal: cFat     },
+      { label: 'Fibre',   val: avgFibre,   pct: pFibre,   col: '#00695C', kcal: cFibre   },
+    ];
+    macroLegendEl.innerHTML = items.map(it => `
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${it.col};flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-size:12.5px;font-weight:700;color:var(--text)">${it.label} <span style="color:${it.col}">${it.pct}%</span></div>
+          <div style="font-size:11px;color:var(--text-3)">${it.val.toFixed(1)}g avg/day</div>
+        </div>
+      </div>`).join('');
+
+    macroKcalEl.innerHTML = `Averaged over <strong>${mDays}</strong> logged day${mDays!==1?'s':''} · 
+      Total avg cal from macros: <strong>${Math.round(cTotal)}</strong> kcal/day<br>
+      <span style="font-size:11px;color:var(--text-3)">Fibre calories estimated at 2 kcal/g (partial fermentation)</span>`;
   }
 
   // steps trend

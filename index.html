@@ -437,11 +437,21 @@ a { color: inherit; text-decoration: none; }
 /* ═══════════════════════════════
    PROGRESS RING
 ═══════════════════════════════ */
-.ring-wrap { display: flex; justify-content: center; gap: 24px; margin-bottom: 14px; }
-.ring-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.ring-item svg { width: 68px; height: 68px; transform: rotate(-90deg); }
-.ring-item .ring-bg { fill: none; stroke: var(--border); stroke-width: 6; }
-.ring-item .ring-fg { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .6s ease; stroke-dashoffset: 100; }
+.ring-wrap { display: flex; justify-content: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.ring-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.ring-donut {
+  position: relative; width: 68px; height: 68px; border-radius: 50%;
+  background: conic-gradient(var(--ring-color, #ccc) 0deg, var(--border) 0deg);
+  transition: background 0.7s ease;
+}
+.ring-donut::after {
+  content: ''; position: absolute; inset: 9px;
+  background: var(--bg); border-radius: 50%;
+}
+.ring-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; z-index: 1;
+}
 .ring-cal .ring-fg { stroke: var(--red); }
 .ring-carb .ring-fg { stroke: var(--blue); }
 .ring-protein .ring-fg { stroke: var(--green); }
@@ -609,60 +619,50 @@ a { color: inherit; text-decoration: none; }
     <!-- ── SCREEN: TODAY ── -->
     <div class="screen" id="screen-today">
       <!-- rings -->
-      <div class="ring-wrap" id="ringsWrap" style="gap:12px">
+      <div class="ring-wrap" id="ringsWrap">
         <div class="ring-item">
-          <svg viewBox="0 0 36 36">
-            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
-            <circle class="ring-fg ring-cal" id="ringCal" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
-          </svg>
-          <div class="ring-center">
-            <div class="ring-val" id="ringCalVal" style="color:var(--red)">0</div>
-            <div class="ring-lbl">Cals</div>
-            <div id="ringCalPct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
+          <div class="ring-donut" id="ringCal" style="--ring-color:var(--red)">
+            <div class="ring-center">
+              <div class="ring-val" id="ringCalVal" style="color:var(--red);font-size:11px;font-weight:800;line-height:1">0</div>
+              <div class="ring-lbl" style="font-size:7.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-3)">Cals</div>
+              <div id="ringCalPct" style="font-size:8px;color:var(--red);font-weight:700">0%</div>
+            </div>
           </div>
         </div>
         <div class="ring-item">
-          <svg viewBox="0 0 36 36">
-            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
-            <circle class="ring-fg ring-carb" id="ringCarb" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
-          </svg>
-          <div class="ring-center">
-            <div class="ring-val" id="ringCarbVal" style="color:var(--blue)">0g</div>
-            <div class="ring-lbl">Carbs</div>
-            <div id="ringCarbPct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
+          <div class="ring-donut" id="ringCarb" style="--ring-color:var(--blue)">
+            <div class="ring-center">
+              <div class="ring-val" id="ringCarbVal" style="color:var(--blue);font-size:11px;font-weight:800;line-height:1">0g</div>
+              <div class="ring-lbl" style="font-size:7.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-3)">Carbs</div>
+              <div id="ringCarbPct" style="font-size:8px;color:var(--blue);font-weight:700">0%</div>
+            </div>
           </div>
         </div>
         <div class="ring-item">
-          <svg viewBox="0 0 36 36">
-            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
-            <circle class="ring-fg ring-protein" id="ringProtein" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
-          </svg>
-          <div class="ring-center">
-            <div class="ring-val" id="ringProteinVal" style="color:var(--green)">0g</div>
-            <div class="ring-lbl">Protein</div>
-            <div id="ringProteinPct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
+          <div class="ring-donut" id="ringProtein" style="--ring-color:var(--green)">
+            <div class="ring-center">
+              <div class="ring-val" id="ringProteinVal" style="color:var(--green);font-size:11px;font-weight:800;line-height:1">0g</div>
+              <div class="ring-lbl" style="font-size:7.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-3)">Prot</div>
+              <div id="ringProteinPct" style="font-size:8px;color:var(--green);font-weight:700">0%</div>
+            </div>
           </div>
         </div>
         <div class="ring-item">
-          <svg viewBox="0 0 36 36">
-            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
-            <circle class="ring-fg ring-fat" id="ringFat" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
-          </svg>
-          <div class="ring-center">
-            <div class="ring-val" id="ringFatVal" style="color:var(--yellow)">0g</div>
-            <div class="ring-lbl">Fat</div>
-            <div id="ringFatPct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
+          <div class="ring-donut" id="ringFat" style="--ring-color:var(--yellow)">
+            <div class="ring-center">
+              <div class="ring-val" id="ringFatVal" style="color:var(--yellow);font-size:11px;font-weight:800;line-height:1">0g</div>
+              <div class="ring-lbl" style="font-size:7.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-3)">Fat</div>
+              <div id="ringFatPct" style="font-size:8px;color:var(--yellow);font-weight:700">0%</div>
+            </div>
           </div>
         </div>
         <div class="ring-item">
-          <svg viewBox="0 0 36 36">
-            <circle class="ring-bg" cx="18" cy="18" r="15.9"/>
-            <circle class="ring-fg ring-fibre" id="ringFibre" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="100"/>
-          </svg>
-          <div class="ring-center">
-            <div class="ring-val" id="ringFibreVal" style="color:var(--teal)">0g</div>
-            <div class="ring-lbl">Fibre</div>
-            <div id="ringFibrePct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
+          <div class="ring-donut" id="ringFibre" style="--ring-color:var(--teal)">
+            <div class="ring-center">
+              <div class="ring-val" id="ringFibreVal" style="color:var(--teal);font-size:11px;font-weight:800;line-height:1">0g</div>
+              <div class="ring-lbl" style="font-size:7.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-3)">Fibre</div>
+              <div id="ringFibrePct" style="font-size:8px;color:var(--teal);font-weight:700">0%</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1263,15 +1263,17 @@ function renderToday() {
   const proteinPct = Math.min(totProtein / proteinGoal    * 100, 100);
   const fatPct     = Math.min(totFat     / fatGoal        * 100, 100);
   const fibrePct   = Math.min(totFibre   / fibreGoal      * 100, 100);
-  // Use setAttribute for SVG compatibility; min 4% arc so colour always visible
+  // conic-gradient rings — works perfectly in Safari, Chrome, Edge
   function setRing(id, pct, pctElId) {
-    const minPct   = 4;
-    const effective = pct < 0.1 ? 0 : Math.max(minPct, pct);
-    const offset   = 100 - effective;
+    const effective = Math.min(Math.max(pct, 0), 100);
+    const deg = effective / 100 * 360;
     const el = document.getElementById(id);
-    if (el) el.setAttribute('stroke-dashoffset', offset);
+    if (el) {
+      const color = el.style.getPropertyValue('--ring-color') || '#ccc';
+      el.style.background = `conic-gradient(${color} ${deg.toFixed(1)}deg, var(--border) ${deg.toFixed(1)}deg)`;
+    }
     const pEl = document.getElementById(pctElId);
-    if (pEl) pEl.textContent = Math.round(pct) + '%';
+    if (pEl) pEl.textContent = Math.round(effective) + '%';
   }
   setRing('ringCal',     calPct,     'ringCalPct');
   setRing('ringCarb',    carbPct,    'ringCarbPct');

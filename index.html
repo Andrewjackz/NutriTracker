@@ -439,9 +439,9 @@ a { color: inherit; text-decoration: none; }
 ═══════════════════════════════ */
 .ring-wrap { display: flex; justify-content: center; gap: 24px; margin-bottom: 14px; }
 .ring-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.ring-item svg { width: 72px; height: 72px; transform: rotate(-90deg); }
+.ring-item svg { width: 68px; height: 68px; transform: rotate(-90deg); }
 .ring-item .ring-bg { fill: none; stroke: var(--border); stroke-width: 6; }
-.ring-item .ring-fg { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+.ring-item .ring-fg { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .6s ease; stroke-dashoffset: 100; }
 .ring-cal .ring-fg { stroke: var(--red); }
 .ring-carb .ring-fg { stroke: var(--blue); }
 .ring-protein .ring-fg { stroke: var(--green); }
@@ -618,6 +618,7 @@ a { color: inherit; text-decoration: none; }
           <div class="ring-center">
             <div class="ring-val" id="ringCalVal" style="color:var(--red)">0</div>
             <div class="ring-lbl">Cals</div>
+            <div id="ringCalPct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
           </div>
         </div>
         <div class="ring-item">
@@ -628,6 +629,7 @@ a { color: inherit; text-decoration: none; }
           <div class="ring-center">
             <div class="ring-val" id="ringCarbVal" style="color:var(--blue)">0g</div>
             <div class="ring-lbl">Carbs</div>
+            <div id="ringCarbPct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
           </div>
         </div>
         <div class="ring-item">
@@ -638,6 +640,7 @@ a { color: inherit; text-decoration: none; }
           <div class="ring-center">
             <div class="ring-val" id="ringProteinVal" style="color:var(--green)">0g</div>
             <div class="ring-lbl">Protein</div>
+            <div id="ringProteinPct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
           </div>
         </div>
         <div class="ring-item">
@@ -648,6 +651,7 @@ a { color: inherit; text-decoration: none; }
           <div class="ring-center">
             <div class="ring-val" id="ringFatVal" style="color:var(--yellow)">0g</div>
             <div class="ring-lbl">Fat</div>
+            <div id="ringFatPct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
           </div>
         </div>
         <div class="ring-item">
@@ -658,6 +662,7 @@ a { color: inherit; text-decoration: none; }
           <div class="ring-center">
             <div class="ring-val" id="ringFibreVal" style="color:var(--teal)">0g</div>
             <div class="ring-lbl">Fibre</div>
+            <div id="ringFibrePct" style="font-size:9px;color:var(--text-3);font-weight:600">0%</div>
           </div>
         </div>
       </div>
@@ -1258,11 +1263,21 @@ function renderToday() {
   const proteinPct = Math.min(totProtein / proteinGoal    * 100, 100);
   const fatPct     = Math.min(totFat     / fatGoal        * 100, 100);
   const fibrePct   = Math.min(totFibre   / fibreGoal      * 100, 100);
-  document.getElementById('ringCal').style.strokeDashoffset     = 100 - calPct;
-  document.getElementById('ringCarb').style.strokeDashoffset    = 100 - carbPct;
-  document.getElementById('ringProtein').style.strokeDashoffset = 100 - proteinPct;
-  document.getElementById('ringFat').style.strokeDashoffset     = 100 - fatPct;
-  document.getElementById('ringFibre').style.strokeDashoffset   = 100 - fibrePct;
+  // Use setAttribute for SVG compatibility; min 4% arc so colour always visible
+  function setRing(id, pct, pctElId) {
+    const minPct   = 4;
+    const effective = pct < 0.1 ? 0 : Math.max(minPct, pct);
+    const offset   = 100 - effective;
+    const el = document.getElementById(id);
+    if (el) el.setAttribute('stroke-dashoffset', offset);
+    const pEl = document.getElementById(pctElId);
+    if (pEl) pEl.textContent = Math.round(pct) + '%';
+  }
+  setRing('ringCal',     calPct,     'ringCalPct');
+  setRing('ringCarb',    carbPct,    'ringCarbPct');
+  setRing('ringProtein', proteinPct, 'ringProteinPct');
+  setRing('ringFat',     fatPct,     'ringFatPct');
+  setRing('ringFibre',   fibrePct,   'ringFibrePct');
 
   // weight + steps display
   const wd = document.getElementById('savedWeightDisplay');

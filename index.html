@@ -709,6 +709,13 @@ a { color: inherit; text-decoration: none; }
         <div id="savedStepsDisplay" style="display:none;margin-top:4px;font-size:13px;color:var(--blue);font-weight:600"></div>
       </div>
 
+      <!-- daily notes -->
+      <div class="card">
+        <div class="card-title">📝 Daily Notes</div>
+        <textarea class="inp" id="notesInput" rows="3" placeholder="How are you feeling? Exercise, sleep, energy levels…" autocomplete="off" style="resize:none;line-height:1.5;font-size:14px" oninput="autoSaveNotes()"></textarea>
+        <div id="notesSavedDisplay" style="display:none;margin-top:6px;font-size:12px;color:var(--text-3)">✓ Saved</div>
+      </div>
+
       <!-- goal settings -->
       <div class="card">
         <div class="card-title">Daily Goals</div>
@@ -1298,6 +1305,12 @@ function renderToday() {
   } else {
     sd.style.display = 'none';
   }
+  // notes
+  const notesEl = document.getElementById('notesInput');
+  if (notesEl) {
+    notesEl.value = day.notes || '';
+    document.getElementById('notesSavedDisplay').style.display = day.notes ? 'block' : 'none';
+  }
 
   // log
   const logEl = document.getElementById('todayLog');
@@ -1373,6 +1386,20 @@ function saveSteps() {
   setDay(key, day);
   showToast('Steps saved ✓', 'success');
   renderToday();
+}
+
+let notesSaveTimer = null;
+function autoSaveNotes() {
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer = setTimeout(() => {
+    const v   = document.getElementById('notesInput').value;
+    const key = todayKey();
+    const day = getDay(key);
+    day.notes = v;
+    setDay(key, day);
+    const nd = document.getElementById('notesSavedDisplay');
+    if (nd) { nd.style.display = v ? 'block' : 'none'; }
+  }, 800); // auto-saves 800ms after you stop typing
 }
 
 function deleteItem(key, id) {
@@ -2331,7 +2358,7 @@ function renderWeeklySummaries() {
 function buildExportRows() {
   const keys = Object.keys(db).sort();
   const rows = [];
-  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Items_Count','Items_Detail']);
+  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Items_Count','Notes','Items_Detail']);
   keys.forEach(key => {
     const day = db[key];
     if (!day) return;
@@ -2352,6 +2379,7 @@ function buildExportRows() {
       day.weight || '',
       goals.units,
       (day.items||[]).length,
+      day.notes || '',
       detail
     ]);
   });

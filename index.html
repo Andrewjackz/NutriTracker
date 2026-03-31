@@ -556,6 +556,30 @@ a { color: inherit; text-decoration: none; }
 .dmm-protein .dmm-val { color: var(--green); }
 .dmm-fat .dmm-val { color: var(--yellow); }
 .dmm-fibre .dmm-val { color: var(--teal); }
+
+/* ═══════════════════════════════
+   BACKUP BANNER
+═══════════════════════════════ */
+.backup-banner {
+  background: linear-gradient(135deg, #F9A825 0%, #F57F17 100%);
+  color: #fff; padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-shrink: 0;
+  animation: slideDown .3s ease;
+}
+@keyframes slideDown { from { transform: translateY(-100%); opacity:0; } to { transform: translateY(0); opacity:1; } }
+.backup-banner p { font-size: 12.5px; font-weight: 600; line-height: 1.35; flex: 1; }
+.backup-banner p span { font-weight: 400; opacity: .85; font-size: 11.5px; display: block; }
+.backup-now-btn {
+  background: rgba(255,255,255,.25); border: 1.5px solid rgba(255,255,255,.5);
+  color: #fff; padding: 7px 12px; border-radius: 8px;
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  flex-shrink: 0;
+}
+.backup-dismiss {
+  background: none; border: none; color: rgba(255,255,255,.7);
+  font-size: 18px; padding: 0 2px; flex-shrink: 0; line-height: 1;
+}
 </style>
 </head>
 <body>
@@ -581,6 +605,15 @@ a { color: inherit; text-decoration: none; }
       </button>
     </div>
   </header>
+
+  <!-- ════ BACKUP BANNER ════ -->
+  <div class="backup-banner" id="backupBanner" style="display:none">
+    <p>💾 Backup reminder
+      <span id="backupBannerSub">It's been a while since your last backup.</span>
+    </p>
+    <button class="backup-now-btn" onclick="exportJSON()">Back up now</button>
+    <button class="backup-dismiss" onclick="dismissBackupBanner()" title="Dismiss">×</button>
+  </div>
 
   <!-- ════ SCREENS ════ -->
   <div class="screens">
@@ -808,6 +841,21 @@ a { color: inherit; text-decoration: none; }
       <div class="sec-label" style="color:#fff;opacity:0;height:0;margin:0"></div>
       <div id="weeklySummaries"></div>
 
+      <!-- Backup & Restore -->
+      <div class="card" style="margin-bottom:14px;border-color:#FFE0B2">
+        <div class="card-title" style="color:var(--yellow)">💾 Backup & Restore</div>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:6px;line-height:1.5">Full backup of all your data — food logs, weights, steps, notes and settings. Use this when changing phones.</p>
+        <div id="lastBackupInfo" style="font-size:12px;color:var(--text-3);margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--yellow);color:#fff;box-shadow:0 4px 14px rgba(249,168,37,.3)" onclick="exportJSON()">⬇ Backup JSON</button>
+          <label class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--surface2);color:var(--blue);border:1.5px solid var(--blue);text-align:center;cursor:pointer;margin:0">
+            ⬆ Restore JSON
+            <input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
+          </label>
+        </div>
+        <p style="font-size:11.5px;color:var(--text-3);line-height:1.5">💡 Tip: save the backup file to iCloud Drive so it's always accessible.</p>
+      </div>
+
       <!-- Export -->
       <div class="card" style="margin-bottom:14px">
         <div class="card-title">Export Data</div>
@@ -966,10 +1014,11 @@ a { color: inherit; text-decoration: none; }
 /* ════════════════════════════════════════
    STATE & STORAGE
 ════════════════════════════════════════ */
-const DB_KEY   = 'nt_data_v2';
-const GOAL_KEY = 'nt_goals_v1';
-const API_KEY  = 'nt_api_key';
-const HIST_KEY = 'nt_history';
+const DB_KEY      = 'nt_data_v2';
+const GOAL_KEY    = 'nt_goals_v1';
+const API_KEY     = 'nt_api_key';
+const HIST_KEY    = 'nt_history';
+const BACKUP_KEY  = 'nt_last_backup';
 
 let db       = loadDB();
 let goals    = loadGoals();
@@ -1039,6 +1088,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   renderToday();
   renderCalendar();
+  checkBackupReminder();
 });
 
 /* ════════════════════════════════════════
@@ -1220,7 +1270,7 @@ function addToLog() {
 /* search history */
 function addToHistory(q) {
   let h = getHistory();
-  h = [q, ...h.filter(x => x !== q)].slice(0, 8);
+  h = [q, ...h.filter(x => x !== q)].slice(0, 20);
   localStorage.setItem(HIST_KEY, JSON.stringify(h));
   renderHistory();
 }
@@ -2384,6 +2434,124 @@ function buildExportRows() {
     ]);
   });
   return rows;
+}
+
+/* ════════════════════════════════════════
+   JSON BACKUP & RESTORE
+════════════════════════════════════════ */
+function exportJSON() {
+  const payload = {
+    version:   2,
+    exported:  new Date().toISOString(),
+    db:        db,
+    goals:     goals,
+    history:   (() => { try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch { return []; } })()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url; a.download = `nutritrack_backup_${date}.json`; a.click();
+  URL.revokeObjectURL(url);
+  // record backup timestamp
+  const now = Date.now();
+  localStorage.setItem(BACKUP_KEY, now);
+  updateLastBackupInfo();
+  hideBanner();
+  showToast('Backup downloaded ✓ — save to iCloud Drive!', 'success');
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const payload = JSON.parse(e.target.result);
+      if (!payload.db || !payload.goals) throw new Error('Invalid backup file');
+      // confirm before overwriting
+      const days = Object.keys(payload.db).length;
+      if (!confirm(`Restore ${days} days of data from ${payload.exported ? payload.exported.slice(0,10) : 'this backup'}?
+
+This will REPLACE all current data.`)) return;
+      db = payload.db;
+      goals = payload.goals;
+      localStorage.setItem(DB_KEY,   JSON.stringify(db));
+      localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
+      if (payload.history) localStorage.setItem(HIST_KEY, JSON.stringify(payload.history));
+      // reload all UI
+      document.getElementById('calGoalInp').value     = goals.calGoal     || 2000;
+      document.getElementById('carbGoalInp').value    = goals.carbGoal    || 250;
+      document.getElementById('proteinGoalInp').value = goals.proteinGoal || 120;
+      document.getElementById('fatGoalInp').value     = goals.fatGoal     || 65;
+      document.getElementById('fibreGoalInp').value   = goals.fibreGoal   || 30;
+      document.getElementById('stepsGoalInp').value   = goals.stepsGoal   || 10000;
+      document.getElementById('unitsSel').value       = goals.units       || 'lbs';
+      document.getElementById('weightUnit').textContent = goals.units || 'lbs';
+      if (goals.targetWeight) document.getElementById('targetWeightInp').value = goals.targetWeight;
+      renderHistory();
+      renderToday();
+      renderCalendar();
+      hideBanner();
+      showToast(`Restored ${days} days of data ✓`, 'success');
+    } catch(err) {
+      showToast('Restore failed: ' + err.message, 'error');
+    }
+    event.target.value = ''; // reset file input
+  };
+  reader.readAsText(file);
+}
+
+/* ════════════════════════════════════════
+   BACKUP REMINDER
+════════════════════════════════════════ */
+const REMINDER_DAYS = 7; // show reminder after 7 days without backup
+
+function checkBackupReminder() {
+  updateLastBackupInfo();
+  const last = parseInt(localStorage.getItem(BACKUP_KEY) || '0');
+  if (!last) {
+    // never backed up — check if there's meaningful data
+    const hasDays = Object.keys(db).length >= 3;
+    if (hasDays) showBanner('You have never backed up your data.');
+    return;
+  }
+  const daysSince = (Date.now() - last) / (1000 * 60 * 60 * 24);
+  if (daysSince >= REMINDER_DAYS) {
+    showBanner(`Last backup was ${Math.floor(daysSince)} days ago.`);
+  }
+}
+
+function showBanner(msg) {
+  const banner = document.getElementById('backupBanner');
+  const sub    = document.getElementById('backupBannerSub');
+  if (sub) sub.textContent = msg;
+  if (banner) banner.style.display = 'flex';
+}
+function hideBanner() {
+  const banner = document.getElementById('backupBanner');
+  if (banner) banner.style.display = 'none';
+}
+function dismissBackupBanner() {
+  hideBanner();
+  // snooze for 2 days
+  localStorage.setItem(BACKUP_KEY + '_snooze', Date.now() + 2 * 24 * 60 * 60 * 1000);
+}
+
+function updateLastBackupInfo() {
+  const el = document.getElementById('lastBackupInfo');
+  if (!el) return;
+  const last = parseInt(localStorage.getItem(BACKUP_KEY) || '0');
+  if (!last) {
+    el.textContent = '⚠️ Never backed up';
+    el.style.color = 'var(--red)';
+  } else {
+    const d = new Date(last);
+    const daysSince = Math.floor((Date.now() - last) / (1000 * 60 * 60 * 24));
+    const label = daysSince === 0 ? 'today' : daysSince === 1 ? 'yesterday' : `${daysSince} days ago`;
+    el.textContent = `✓ Last backup: ${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} (${label})`;
+    el.style.color = daysSince >= REMINDER_DAYS ? 'var(--red)' : 'var(--green)';
+  }
 }
 
 function exportCSV() {

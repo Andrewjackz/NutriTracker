@@ -477,6 +477,27 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-2); transition: all .15s;
 }
 .meal-type-btn.sel { background: var(--blue-lt); border-color: var(--blue); color: var(--blue); }
+
+/* ─── exercise toggle ─── */
+.ex-toggle-wrap { display: flex; gap: 8px; align-items: stretch; }
+.ex-btn {
+  flex: 1; padding: 14px 8px; border-radius: var(--r-sm);
+  font-size: 15px; font-weight: 700; border: 2px solid var(--border);
+  background: var(--surface2); color: var(--text-3);
+  transition: all .2s; cursor: pointer; text-align: center; line-height: 1.3;
+}
+.ex-btn.sel-yes { background: var(--green-lt); border-color: var(--green); color: var(--green); }
+.ex-btn.sel-no  { background: var(--red-lt);   border-color: var(--red);   color: var(--red);   }
+.ex-month-counter {
+  background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dk) 100%);
+  border-radius: var(--r-sm); padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px; margin-top: 10px;
+  box-shadow: var(--shadow);
+}
+.ex-month-counter .emc-val { font-size: 28px; font-weight: 800; color: #fff; line-height: 1; }
+.ex-month-counter .emc-info { flex: 1; }
+.ex-month-counter .emc-label { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.85); }
+.ex-month-counter .emc-sub   { font-size: 11px; color: rgba(255,255,255,.6); margin-top: 2px; }
 /* ═══════════════════════════════
    BMI & WEEKLY SUMMARY
 ═══════════════════════════════ */
@@ -747,6 +768,23 @@ a { color: inherit; text-decoration: none; }
         <div class="card-title">📝 Daily Notes</div>
         <textarea class="inp" id="notesInput" rows="3" placeholder="How are you feeling? Exercise, sleep, energy levels…" autocomplete="off" style="resize:none;line-height:1.5;font-size:14px" oninput="autoSaveNotes()"></textarea>
         <div id="notesSavedDisplay" style="display:none;margin-top:6px;font-size:12px;color:var(--text-3)">✓ Saved</div>
+      </div>
+
+      <!-- daily exercise -->
+      <div class="card">
+        <div class="card-title">💪 Exercise Today</div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">Strength / Stretch / Mobility done today?</div>
+        <div class="ex-toggle-wrap">
+          <button class="ex-btn" id="exYesBtn" onclick="setExercise(true)">✅ Yes<br><span style="font-size:11px;font-weight:400">Done it!</span></button>
+          <button class="ex-btn" id="exNoBtn"  onclick="setExercise(false)">❌ No<br><span style="font-size:11px;font-weight:400">Rest day</span></button>
+        </div>
+        <div class="ex-month-counter" id="exMonthCounter">
+          <div class="emc-val" id="exMonthCount">0</div>
+          <div class="emc-info">
+            <div class="emc-label" id="exMonthLabel">days this month</div>
+            <div class="emc-sub" id="exMonthSub">Keep it up!</div>
+          </div>
+        </div>
       </div>
 
       <!-- goal settings -->
@@ -1361,6 +1399,8 @@ function renderToday() {
     notesEl.value = day.notes || '';
     document.getElementById('notesSavedDisplay').style.display = day.notes ? 'block' : 'none';
   }
+  // exercise toggle state
+  renderExerciseUI();
 
   // log
   const logEl = document.getElementById('todayLog');
@@ -1452,6 +1492,57 @@ function autoSaveNotes() {
   }, 800); // auto-saves 800ms after you stop typing
 }
 
+function setExercise(done) {
+  const key = todayKey();
+  const day = getDay(key);
+  // toggle off if clicking same value
+  if (day.exercise === done) {
+    day.exercise = null;
+  } else {
+    day.exercise = done;
+  }
+  setDay(key, day);
+  renderExerciseUI();
+  if (day.exercise === true)  showToast('Great work — exercise logged! 💪', 'success');
+  if (day.exercise === false) showToast('Rest day logged', '');
+  if (day.exercise === null)  showToast('Exercise cleared', '');
+}
+
+function renderExerciseUI() {
+  const key  = todayKey();
+  const day  = getDay(key);
+  const yBtn = document.getElementById('exYesBtn');
+  const nBtn = document.getElementById('exNoBtn');
+  if (!yBtn) return;
+  yBtn.className = 'ex-btn' + (day.exercise === true  ? ' sel-yes' : '');
+  nBtn.className = 'ex-btn' + (day.exercise === false ? ' sel-no'  : '');
+
+  // monthly counter — current calendar month
+  const now   = new Date();
+  const yr    = now.getFullYear();
+  const mo    = now.getMonth();
+  const monthName = now.toLocaleDateString('en-US', { month: 'long' });
+  let count = 0, total = 0;
+  Object.keys(db).forEach(k => {
+    const d = new Date(k + 'T00:00:00');
+    if (d.getFullYear() === yr && d.getMonth() === mo) {
+      total++;
+      if (db[k].exercise === true) count++;
+    }
+  });
+  const daysInMonth = new Date(yr, mo + 1, 0).getDate();
+  const dayOfMonth  = now.getDate();
+  const pct = dayOfMonth > 0 ? Math.round(count / dayOfMonth * 100) : 0;
+
+  document.getElementById('exMonthCount').textContent = count;
+  document.getElementById('exMonthLabel').textContent = `exercise days in ${monthName}`;
+  const sub = count === 0 ? 'Start today!' :
+              pct >= 80   ? '🔥 Excellent consistency!' :
+              pct >= 50   ? '👍 Good going — keep it up!' :
+                            '💡 Try to build the habit!';
+  document.getElementById('exMonthSub').textContent = sub;
+}
+
 function deleteItem(key, id) {
   const day = getDay(key);
   day.items = day.items.filter(i => i.id !== id);
@@ -1513,6 +1604,8 @@ function renderCalendar() {
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
               ${day.weight ? `<div class="cal-weight">⚖️ ${day.weight} ${goals.units}</div>` : `<span style="font-size:11px;color:var(--text-3)">No weight</span>`}
               ${day.steps ? `<div style="font-size:12px;color:var(--blue);font-weight:600">👟 ${day.steps.toLocaleString()}</div>` : ''}
+              ${day.exercise === true  ? `<div style="font-size:12px;color:var(--green);font-weight:700">💪 Exercised</div>` : ''}
+              ${day.exercise === false ? `<div style="font-size:11px;color:var(--text-3)">Rest day</div>` : ''}
             </div>
           </div>
         </div>
@@ -2360,7 +2453,7 @@ function renderWeeklySummaries() {
     const sunDate  = new Date(monDate); sunDate.setDate(sunDate.getDate() + 6);
     const rangeStr = monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' – ' + sunDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
-    let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, daysLogged=0;
+    let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, exDays=0, daysLogged=0;
     let wStart=null, wEnd=null;
     const sortedDays = days.slice().sort();
     sortedDays.forEach(k => {
@@ -2375,6 +2468,7 @@ function renderWeeklySummaries() {
         daysLogged++;
       }
       if (d.steps) totSteps += d.steps;
+      if (db[k].exercise === true) exDays++;
       if (d.weight) { if (!wStart) wStart = d.weight; wEnd = d.weight; }
     });
     if (!daysLogged && !totSteps) return;
@@ -2398,6 +2492,7 @@ function renderWeeklySummaries() {
         <div class="week-weight-row">
           <span>📅 ${daysLogged} day${daysLogged!==1?'s':''} logged</span>
           ${totSteps ? `<span>👟 ${totSteps.toLocaleString()} steps</span>` : ''}
+          ${exDays   ? `<span>💪 ${exDays} exercise day${exDays!==1?'s':''}</span>` : ''}
           ${wDelta   ? `<span>⚖️ ${wDelta}</span>` : ''}
         </div>
       </div>`;
@@ -2408,7 +2503,7 @@ function renderWeeklySummaries() {
 function buildExportRows() {
   const keys = Object.keys(db).sort();
   const rows = [];
-  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Items_Count','Notes','Items_Detail']);
+  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Exercise','Items_Count','Notes','Items_Detail']);
   keys.forEach(key => {
     const day = db[key];
     if (!day) return;
@@ -2426,6 +2521,7 @@ function buildExportRows() {
       totFat.toFixed(1),
       totFibre.toFixed(1),
       day.steps || '',
+      day.exercise === true ? 'Yes' : day.exercise === false ? 'No' : '',
       day.weight || '',
       goals.units,
       (day.items||[]).length,

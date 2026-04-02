@@ -700,6 +700,44 @@ a { color: inherit; text-decoration: none; }
 .corr-neutral    { background: var(--surface2); color: var(--text-3); }
 .corr-weak-neg   { background: #FFF8E1; color: #E65100; }
 .corr-strong-neg { background: #FFEBEE; color: #B71C1C; }
+
+/* ── full 7×7 correlation heatmap ── */
+.full-corr-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
+.full-corr-table { border-collapse: collapse; font-size: 11px; min-width: 100%; }
+.full-corr-table th.row-hdr {
+  font-size: 10px; font-weight: 700; color: var(--text-2);
+  padding: 5px 8px 5px 4px; text-align: left; white-space: nowrap;
+  border-bottom: 1.5px solid var(--border);
+  position: sticky; left: 0; background: var(--surface); z-index: 1;
+}
+.full-corr-table th.col-hdr {
+  font-size: 9.5px; font-weight: 700; color: var(--text-2);
+  padding: 4px 3px; text-align: center; min-width: 48px;
+  border-bottom: 1.5px solid var(--border); writing-mode: horizontal-tb;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52px;
+}
+.full-corr-table td.row-lbl {
+  font-size: 10px; font-weight: 700; color: var(--text-2);
+  padding: 4px 8px 4px 4px; white-space: nowrap;
+  position: sticky; left: 0; background: var(--surface); z-index: 1;
+  border-right: 1.5px solid var(--border);
+}
+.full-corr-table td.corr-cell {
+  padding: 3px; text-align: center; min-width: 48px;
+}
+.corr-cell-inner {
+  border-radius: 6px; padding: 4px 2px; font-size: 10.5px; font-weight: 700;
+  line-height: 1.2; display: block;
+}
+.corr-self { background: var(--border); color: var(--text-3); }
+.corr-sp  { background: #1B5E20; color: #fff; }   /* strong pos ≥0.7 */
+.corr-mp  { background: #4CAF50; color: #fff; }   /* mod pos 0.4-0.7 */
+.corr-wp  { background: #C8E6C9; color: #2E7D32; } /* weak pos 0.2-0.4 */
+.corr-n   { background: var(--surface2); color: var(--text-3); } /* neutral */
+.corr-wn  { background: #FFECB3; color: #E65100; } /* weak neg */
+.corr-mn  { background: #FF8F00; color: #fff; }    /* mod neg */
+.corr-sn  { background: #B71C1C; color: #fff; }    /* strong neg ≤-0.7 */
+.corr-na  { background: var(--surface2); color: var(--text-3); font-weight: 400; } /* not enough data */
 </style>
 </head>
 <body>
@@ -1172,6 +1210,22 @@ a { color: inherit; text-decoration: none; }
           <div class="es-icon">📉</div>Log steps and weight on at least 2 days to see this chart.
         </div>
         <canvas id="stWtChart" height="240"></canvas>
+      </div>
+
+      <!-- Full 7×7 correlation heatmap -->
+      <div class="chart-card" id="fullCorrCard">
+        <div class="card-title">Full 7 × 7 Correlation Matrix</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Pearson r between every pair of variables (same-day, no lag). Diagonal = self (always 1.0). Colour intensity = strength.</div>
+        <div class="full-corr-wrap" id="fullCorrMatrix"></div>
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;font-size:10px">
+          <span style="background:#1B5E20;color:#fff;padding:2px 7px;border-radius:4px">≥0.7 strong +</span>
+          <span style="background:#4CAF50;color:#fff;padding:2px 7px;border-radius:4px">0.4–0.7 mod +</span>
+          <span style="background:#C8E6C9;color:#2E7D32;padding:2px 7px;border-radius:4px">0.2–0.4 weak +</span>
+          <span style="background:var(--surface2);color:var(--text-3);padding:2px 7px;border-radius:4px;border:1px solid var(--border)">neutral</span>
+          <span style="background:#FFECB3;color:#E65100;padding:2px 7px;border-radius:4px">weak −</span>
+          <span style="background:#FF8F00;color:#fff;padding:2px 7px;border-radius:4px">mod −</span>
+          <span style="background:#B71C1C;color:#fff;padding:2px 7px;border-radius:4px">≤−0.7 strong −</span>
+        </div>
       </div>
 
       <!-- Personal net-cal regression — at the end for Andrew -->
@@ -2108,6 +2162,7 @@ function renderAnalytics() {
   renderWeeklySummaries();
   renderStreaks();
   renderNetScatter();
+  renderFullCorrMatrix();
   // build dataset: days with both cal and weight, sorted
   const keys = Object.keys(db).sort();
   const calSeries  = [];
@@ -2963,6 +3018,102 @@ function renderAnalytics() {
       }
     });
   }
+}
+
+/* ════════════════════════════════════════
+   FULL 7×7 CORRELATION MATRIX
+════════════════════════════════════════ */
+function renderFullCorrMatrix() {
+  const el = document.getElementById('fullCorrMatrix');
+  if (!el) return;
+
+  // Build daily data arrays — all same-day, all dates with at least calories logged
+  const allKeys = Object.keys(db).sort();
+
+  // Variable definitions — each returns a value or null for a given date key
+  const vars = [
+    { short: 'Cal',     name: '🔥 Calories',    fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+i.calories,0)||0; return v>0?v:null; } },
+    { short: 'Carbs',   name: '🌾 Carbs',        fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+i.carbs_g,0)||0; return v>0?v:null; } },
+    { short: 'Prot',    name: '💪 Protein',      fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0; return v>0?v:null; } },
+    { short: 'Fat',     name: '🥑 Fat',          fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0; return v>0?v:null; } },
+    { short: 'Fibre',   name: '🥦 Fibre',        fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0; return v>0?v:null; } },
+    { short: 'Steps',   name: '👟 Steps',        fn: k => db[k]?.steps || null },
+    { short: 'Net Cal', name: '⚡ Net Cal',      fn: k => { const d=db[k]; const cal=d?.items?.reduce((s,i)=>s+i.calories,0)||0; if(!cal) return null; return cal - calcBurn(d?.steps, d?.weight, goals.units); } },
+  ];
+
+  const N = vars.length;
+
+  // Pre-compute per-variable arrays across all keys
+  const varData = vars.map(v => allKeys.map(k => v.fn(k)));
+
+  // Compute r for each pair
+  function pairR(ai, bi) {
+    if (ai === bi) return 1.0; // diagonal
+    const pairs = allKeys
+      .map((_, i) => [varData[ai][i], varData[bi][i]])
+      .filter(([a, b]) => a !== null && b !== null);
+    if (pairs.length < 3) return null;
+    const xs = pairs.map(p => p[0]);
+    const ys = pairs.map(p => p[1]);
+    const n = xs.length;
+    const mx = xs.reduce((s,x)=>s+x,0)/n;
+    const my = ys.reduce((s,y)=>s+y,0)/n;
+    const num  = xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0);
+    const denX = Math.sqrt(xs.reduce((s,x)=>s+(x-mx)**2,0));
+    const denY = Math.sqrt(ys.reduce((s,y)=>s+(y-my)**2,0));
+    return (denX*denY===0) ? null : num/(denX*denY);
+  }
+
+  function cellClass(r, isSelf) {
+    if (isSelf) return 'corr-self';
+    if (r === null) return 'corr-na';
+    if (r >= 0.7)  return 'corr-sp';
+    if (r >= 0.4)  return 'corr-mp';
+    if (r >= 0.2)  return 'corr-wp';
+    if (r <= -0.7) return 'corr-sn';
+    if (r <= -0.4) return 'corr-mn';
+    if (r <= -0.2) return 'corr-wn';
+    return 'corr-n';
+  }
+  function cellText(r, isSelf) {
+    if (isSelf) return '1.00';
+    if (r === null) return '—';
+    return (r >= 0 ? '+' : '') + r.toFixed(2);
+  }
+
+  if (allKeys.length < 3) {
+    el.innerHTML = '<div class="empty-state" style="padding:16px 0"><div class="es-icon">📊</div>Log at least 3 days to see the full matrix.</div>';
+    return;
+  }
+
+  // Header row
+  let html = '<table class="full-corr-table"><thead><tr>';
+  html += '<th class="col-hdr" style="min-width:52px"></th>'; // top-left empty
+  vars.forEach(v => {
+    html += `<th class="col-hdr" title="${v.name}">${v.short}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  // Data rows
+  for (let i = 0; i < N; i++) {
+    html += `<tr><td class="row-lbl">${vars[i].name}</td>`;
+    for (let j = 0; j < N; j++) {
+      const isSelf = i === j;
+      const r      = pairR(i, j);
+      const cls    = cellClass(r, isSelf);
+      const txt    = cellText(r, isSelf);
+      // count pairs for tooltip
+      const pairCount = isSelf ? allKeys.filter(k => varData[i][allKeys.indexOf(k)] !== null).length
+        : allKeys.filter((_, idx) => varData[i][idx] !== null && varData[j][idx] !== null).length;
+      html += `<td class="corr-cell" title="${vars[i].short} vs ${vars[j].short}: r=${txt} (n=${pairCount})">
+        <span class="corr-cell-inner ${cls}">${txt}</span>
+      </td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
 }
 
 /* ════════════════════════════════════════

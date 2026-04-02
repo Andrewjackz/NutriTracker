@@ -367,7 +367,7 @@ a { color: inherit; text-decoration: none; }
 
 .cal-month-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .cal-month-title { font-family: var(--ff-serif); font-size: 20px; font-weight: 600; color: var(--text); }
 .cal-nav-btn {
@@ -376,6 +376,55 @@ a { color: inherit; text-decoration: none; }
   display: flex; align-items: center; justify-content: center;
   color: var(--blue); box-shadow: var(--shadow-sm);
 }
+
+/* ── calendar view toggle ── */
+.cal-view-toggle {
+  display: flex; gap: 6px; margin-bottom: 12px;
+}
+.cal-view-btn {
+  flex: 1; padding: 8px; border-radius: var(--r-xs);
+  font-size: 12px; font-weight: 700; border: 1.5px solid var(--border);
+  background: var(--surface2); color: var(--text-2); cursor: pointer;
+  transition: all .15s;
+}
+.cal-view-btn.active { background: var(--blue-lt); border-color: var(--blue); color: var(--blue); }
+
+/* ── monthly grid calendar ── */
+.cal-grid-wrap { background: var(--surface); border-radius: var(--r); border: 1.5px solid var(--border); padding: 12px; box-shadow: var(--shadow-sm); margin-bottom: 12px; }
+.cal-grid-dow { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 4px; }
+.cal-grid-dow span { text-align: center; font-size: 10px; font-weight: 700; color: var(--text-3); letter-spacing: 0.5px; text-transform: uppercase; padding: 4px 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+.cal-cell {
+  border-radius: 8px; padding: 4px 2px; min-height: 52px;
+  display: flex; flex-direction: column; align-items: center;
+  cursor: pointer; transition: background .15s; position: relative;
+}
+.cal-cell:active { background: var(--blue-lt); }
+.cal-cell.empty { cursor: default; }
+.cal-cell.is-today { background: var(--blue-lt); border: 1.5px solid var(--blue); }
+.cal-cell .cc-num { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 4px; }
+.cal-cell.is-today .cc-num { color: var(--blue); }
+.cal-cell.empty .cc-num { color: transparent; }
+.cal-cell.future .cc-num { color: var(--text-3); }
+.cc-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; }
+.cc-dot { width: 8px; height: 8px; border-radius: 50%; }
+.cc-dot-ex   { background: var(--green); }
+.cc-dot-water{ background: #0288D1; }
+.cc-dot-food { background: var(--red); opacity: .6; }
+.cc-dot-none { background: var(--border); }
+
+/* legend */
+.cal-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; background: var(--surface); border-radius: var(--r-sm); border: 1.5px solid var(--border); }
+.cal-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--text-2); }
+.cal-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* month summary strip */
+.cal-month-summary {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;
+}
+.cms-tile { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--r-sm); padding: 10px; text-align: center; box-shadow: var(--shadow-sm); }
+.cms-tile .cms-val { font-size: 22px; font-weight: 800; line-height: 1; }
+.cms-tile .cms-lbl { font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-3); margin-top: 3px; }
 
 /* ═══════════════════════════════
    SCREEN 4 — ANALYTICS
@@ -867,7 +916,34 @@ a { color: inherit; text-decoration: none; }
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       </div>
-      <div id="calDayList"></div>
+
+      <!-- view toggle -->
+      <div class="cal-view-toggle">
+        <button class="cal-view-btn" id="calViewGrid" onclick="setCalView('grid')">📅 Monthly Grid</button>
+        <button class="cal-view-btn active" id="calViewList" onclick="setCalView('list')">📋 Day List</button>
+      </div>
+
+      <!-- grid view -->
+      <div id="calGridView" style="display:none">
+        <div class="cal-legend">
+          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--green)"></div>Exercise</div>
+          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#0288D1"></div>Water 1L+</div>
+          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--red);opacity:.6"></div>Food logged</div>
+          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--border)"></div>Nothing</div>
+        </div>
+        <div class="cal-month-summary" id="calMonthSummary"></div>
+        <div class="cal-grid-wrap">
+          <div class="cal-grid-dow">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+      </div>
+
+      <!-- list view -->
+      <div id="calListView">
+        <div id="calDayList"></div>
+      </div>
     </div>
 
     <!-- ── SCREEN: ANALYTICS ── -->
@@ -1612,7 +1688,90 @@ function deleteItem(key, id) {
 /* ════════════════════════════════════════
    CALENDAR
 ════════════════════════════════════════ */
-let calYear, calMonthIdx;
+let calYear, calMonthIdx, calView = 'list';
+
+function setCalView(v) {
+  calView = v;
+  document.getElementById('calGridView').style.display = v === 'grid' ? 'block' : 'none';
+  document.getElementById('calListView').style.display = v === 'list' ? 'block' : 'none';
+  document.getElementById('calViewGrid').className = 'cal-view-btn' + (v === 'grid' ? ' active' : '');
+  document.getElementById('calViewList').className = 'cal-view-btn' + (v === 'list' ? ' active' : '');
+  renderCalendar();
+}
+
+function renderCalGrid() {
+  const now       = new Date();
+  const todayISO  = isoDate(now);
+  const firstDay  = new Date(calYear, calMonthIdx, 1);
+  const lastDay   = new Date(calYear, calMonthIdx + 1, 0);
+  const daysInMo  = lastDay.getDate();
+
+  // Monday-first grid: getDay() returns 0=Sun, map to Mon=0..Sun=6
+  const startDow = (firstDay.getDay() + 6) % 7; // offset blanks
+
+  // monthly summary counters
+  let exCount = 0, waterCount = 0, foodCount = 0;
+
+  // build cells
+  let cells = '';
+  // blank cells before 1st
+  for (let b = 0; b < startDow; b++) {
+    cells += '<div class="cal-cell empty"><div class="cc-num">·</div></div>';
+  }
+
+  for (let d = 1; d <= daysInMo; d++) {
+    const date    = new Date(calYear, calMonthIdx, d);
+    const key     = isoDate(date);
+    const day     = getDay(key);
+    const isFuture = key > todayISO;
+    const isToday  = key === todayISO;
+    const hasFood  = (day.items||[]).length > 0;
+    const hasEx    = day.exercise === true;
+    const hasWater = day.water    === true;
+    const hasAny   = hasFood || hasEx || hasWater || day.weight;
+
+    if (hasEx)    exCount++;
+    if (hasWater) waterCount++;
+    if (hasFood)  foodCount++;
+
+    // dot row
+    let dots = '';
+    if (!isFuture && hasAny) {
+      if (hasEx)    dots += '<div class="cc-dot cc-dot-ex"></div>';
+      if (hasWater) dots += '<div class="cc-dot cc-dot-water"></div>';
+      if (hasFood)  dots += '<div class="cc-dot cc-dot-food"></div>';
+      if (!hasEx && !hasWater && !hasFood) dots += '<div class="cc-dot cc-dot-none"></div>';
+    }
+
+    const cls = ['cal-cell', isToday ? 'is-today' : '', isFuture ? 'future' : ''].filter(Boolean).join(' ');
+    cells += `<div class="${cls}" onclick="${!isFuture ? `openDayDetail('${key}')` : ''}">
+      <div class="cc-num">${d}</div>
+      <div class="cc-dots">${dots}</div>
+    </div>`;
+  }
+
+  document.getElementById('calGrid').innerHTML = cells;
+
+  // month summary tiles
+  const pctEx    = daysInMo > 0 ? Math.round(exCount    / Math.min(new Date().getDate(), daysInMo) * 100) : 0;
+  const pctWater = daysInMo > 0 ? Math.round(waterCount / Math.min(new Date().getDate(), daysInMo) * 100) : 0;
+  const isCurrentMonth = calYear === now.getFullYear() && calMonthIdx === now.getMonth();
+  const divisor = isCurrentMonth ? now.getDate() : daysInMo;
+
+  document.getElementById('calMonthSummary').innerHTML = `
+    <div class="cms-tile">
+      <div class="cms-val" style="color:var(--green)">${exCount}</div>
+      <div class="cms-lbl">💪 Exercise days</div>
+    </div>
+    <div class="cms-tile">
+      <div class="cms-val" style="color:#0288D1">${waterCount}</div>
+      <div class="cms-lbl">💧 Hydrated days</div>
+    </div>
+    <div class="cms-tile">
+      <div class="cms-val" style="color:var(--red)">${foodCount}</div>
+      <div class="cms-lbl">🍽️ Food logged</div>
+    </div>`;
+}
 
 function renderCalendar() {
   const now = new Date();
@@ -1702,6 +1861,7 @@ function renderCalendar() {
   }
 
   document.getElementById('calDayList').innerHTML = html;
+  if (calView === 'grid') renderCalGrid();
 }
 
 function calNav(dir) {
@@ -1709,6 +1869,7 @@ function calNav(dir) {
   if (calMonthIdx > 11) { calMonthIdx = 0; calYear++; }
   if (calMonthIdx < 0)  { calMonthIdx = 11; calYear--; }
   renderCalendar();
+  if (calView === 'grid') renderCalGrid();
 }
 
 /* ════════════════════════════════════════

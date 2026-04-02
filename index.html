@@ -862,14 +862,8 @@ a { color: inherit; text-decoration: none; }
           <input class="inp" id="stepsInput" type="number" inputmode="numeric" placeholder="Steps today" autocomplete="off" style="flex:1">
           <button class="weight-save-btn" style="background:var(--blue)" onclick="saveSteps()">Save ✓</button>
         </div>
-        <div class="weight-row" style="margin-top:8px">
-          <span style="font-size:13px;font-weight:700;color:var(--text-2);white-space:nowrap">🔥</span>
-          <input class="inp" id="burnInput" type="number" inputmode="numeric" placeholder="Exercise calories burned" autocomplete="off" style="flex:1">
-          <button class="weight-save-btn" style="background:var(--red)" onclick="saveBurn()">Save ✓</button>
-        </div>
         <div id="savedWeightDisplay" style="display:none;margin-top:8px;font-size:13px;color:var(--green);font-weight:600"></div>
         <div id="savedStepsDisplay" style="display:none;margin-top:4px;font-size:13px;color:var(--blue);font-weight:600"></div>
-        <div id="savedBurnDisplay" style="display:none;margin-top:4px;font-size:13px;color:var(--red);font-weight:600"></div>
         <div id="netCalDisplay" style="display:none;margin-top:6px"></div>
       </div>
 
@@ -1145,9 +1139,9 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <div class="chart-card">
-        <div class="card-title">Net Calories — Trend</div>
-        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px">Calories consumed minus exercise burn. Bars above zero = surplus.</div>
-        <canvas id="netCalTrendChart" height="200"></canvas>
+        <div class="card-title">Calories Consumed vs Net Calories</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px;line-height:1.5">Blue bars = calories consumed · Red/green line = net calories (consumed − estimated walk burn using MET formula × your logged weight). Above zero = surplus, below = deficit.</div>
+        <canvas id="netCalTrendChart" height="220"></canvas>
       </div>
 
       <div class="chart-card" id="corrCard">
@@ -1178,6 +1172,20 @@ a { color: inherit; text-decoration: none; }
           <div class="es-icon">📉</div>Log steps and weight on at least 2 days to see this chart.
         </div>
         <canvas id="stWtChart" height="240"></canvas>
+      </div>
+
+      <!-- Personal net-cal regression — at the end for Andrew -->
+      <div id="netEqCard2" class="equation-card" style="display:none;margin-top:4px"></div>
+      <div class="chart-card">
+        <div class="card-title">Net Calories → Next Day Weight Change</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">
+          Yesterday's <em>net</em> calories (consumed − walk burn) vs this morning's weight change. Net-neutral = your personal break-even point accounting for activity.
+        </div>
+        <canvas id="netScatterChart" height="280"></canvas>
+        <div id="netChartEmpty" class="empty-state" style="padding:24px 0 12px">
+          <div class="es-icon">🔬</div>
+          Log at least 3 days with calories, steps and weight to see this chart.
+        </div>
       </div>
     </div>
   </div><!-- /screens -->
@@ -1249,11 +1257,26 @@ const TMPL_KEY    = 'nt_templates';
 
 let db       = loadDB();
 let goals    = loadGoals();
+
+// Brisk walk calorie burn: MET=3.8, kcal = MET × weight_kg × hours
+// steps → hours: ~100 steps/min brisk → steps/100/60 hrs
+// Simplified: kcal = steps × 0.00057 × weight_kg
+// Falls back to 0.04 kcal/step if no weight logged
+function calcBurn(steps, weightInUnits, units) {
+  if (!steps) return 0;
+  let weightKg;
+  if (weightInUnits) {
+    weightKg = units === 'kg' ? weightInUnits : weightInUnits / 2.205;
+  } else {
+    weightKg = 80; // fallback ~176 lbs
+  }
+  return Math.round(steps * 0.00057 * weightKg);
+}
 let activeTab = 'search';
 let calMonth = new Date();
 let currentResult = null;
 let selectedMealType = 'Breakfast';
-let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null, macroSplitChartInst = null, netCalTrendInst = null;
+let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null, macroSplitChartInst = null, netCalTrendInst = null, netScatterChartInst = null;
 
 function loadDB() {
   try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; }
@@ -1624,21 +1647,25 @@ function renderToday() {
   } else {
     sd.style.display = 'none';
   }
-  // burn + net cal
-  const bd = document.getElementById('savedBurnDisplay');
+  // auto-calculate burn from steps using weight-adjusted MET formula
   const nd = document.getElementById('netCalDisplay');
-  if (day.burn) {
-    document.getElementById('burnInput').value = day.burn;
-    if (bd) { bd.style.display = 'block'; bd.textContent = `🔥 Burned: ${day.burn} cal`; }
-    const net = totCal - day.burn;
+  if (day.steps && totCal > 0) {
+    const burn = calcBurn(day.steps, day.weight, goals.units);
+    const net  = totCal - burn;
+    const weightNote = day.weight ? `${day.weight} ${goals.units}` : 'est. 80kg';
     if (nd) {
       nd.style.display = 'block';
       const cls = net > 200 ? 'positive' : net < -200 ? 'negative' : 'neutral';
-      const lbl = net > 200 ? '📈 Calorie surplus' : net < -200 ? '📉 Calorie deficit' : '⚖️ Near neutral';
-      nd.innerHTML = `<div class="net-cal-banner ${cls}"><span style="font-weight:700">${lbl}</span><span style="font-size:15px;font-weight:800">${net > 0 ? '+' : ''}${net} cal net</span></div>`;
+      const lbl = net > 200 ? '📈 Surplus' : net < -200 ? '📉 Deficit' : '⚖️ Near neutral';
+      nd.innerHTML = `<div class="net-cal-banner ${cls}">
+        <div>
+          <span style="font-weight:700;font-size:13px">${lbl}</span>
+          <div style="font-size:11px;opacity:.75">🔥 ${burn} cal burned · ${day.steps.toLocaleString()} steps · ${weightNote}</div>
+        </div>
+        <span style="font-size:16px;font-weight:800">${net > 0 ? '+' : ''}${net} net</span>
+      </div>`;
     }
   } else {
-    if (bd) bd.style.display = 'none';
     if (nd) nd.style.display = 'none';
   }
   // notes
@@ -1725,17 +1752,6 @@ function saveSteps() {
   day.steps = v;
   setDay(key, day);
   showToast('Steps saved ✓', 'success');
-  renderToday();
-}
-
-function saveBurn() {
-  const v = parseInt(document.getElementById('burnInput').value);
-  if (!v || v <= 0) { showToast('Enter valid calories burned', 'error'); return; }
-  const key = todayKey();
-  const day = getDay(key);
-  day.burn = v;
-  setDay(key, day);
-  showToast('Exercise burn saved 🔥', 'success');
   renderToday();
 }
 
@@ -2091,6 +2107,7 @@ function renderAnalytics() {
   renderBMI();
   renderWeeklySummaries();
   renderStreaks();
+  renderNetScatter();
   // build dataset: days with both cal and weight, sorted
   const keys = Object.keys(db).sort();
   const calSeries  = [];
@@ -2112,7 +2129,8 @@ function renderAnalytics() {
     const totProtein = d.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0;
     const totFat     = d.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0;
     const totFibre   = d.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0;
-    const netCal     = totCal > 0 ? totCal - (d.burn||0) : null;
+    const burn        = calcBurn(d.steps, d.weight, goals.units);
+    const netCal     = totCal > 0 ? totCal - burn : null;
     if (totCal > 0) {
       calSeries.push({ date: k, cal: totCal, carb: totCarb, protein: totProtein, fat: totFat, fibre: totFibre });
       if (totProtein > 0) proteinSeries.push({ date: k, val: totProtein });
@@ -2289,33 +2307,72 @@ function renderAnalytics() {
   // ── net cal trend chart ──
   if (!netCalTrendInst) netCalTrendInst = null;
   if (netCalTrendInst) { netCalTrendInst.destroy(); netCalTrendInst = null; }
-  const netCalDates = netCalSeries.slice(-30);
-  if (netCalDates.length >= 2) {
-    const netVals = netCalDates.map(d => d.val);
-    const ncLabels = netCalDates.map(d => d.date.slice(5));
+  // build combined consumed + net series aligned on same dates
+  const ncDates30 = calSeries.slice(-30);
+  if (ncDates30.length >= 2) {
+    const ncLabels   = ncDates30.map(d => d.date.slice(5));
+    const consumed   = ncDates30.map(d => d.cal);
+    const netVals    = ncDates30.map(d => {
+      const dayD = db[d.date];
+      const burn = calcBurn(dayD?.steps, dayD?.weight, goals.units);
+      return d.cal - burn;
+    });
     netCalTrendInst = new Chart(document.getElementById('netCalTrendChart'), {
       type: 'bar',
       data: {
         labels: ncLabels,
         datasets: [
           {
-            label: 'Net Calories',
-            data: netVals,
-            backgroundColor: netVals.map(v => v > 0 ? 'rgba(211,47,47,0.65)' : 'rgba(46,125,50,0.65)'),
+            label: 'Consumed',
+            data: consumed,
+            backgroundColor: 'rgba(21,101,192,0.55)',
             borderRadius: 5,
-            order: 1,
+            order: 2,
             type: 'bar',
+            yAxisID: 'y',
           },
-          { ...rollingDataset(ncLabels, netVals, 'rgba(21,101,192,0.8)', '7-day avg'), type: 'line' }
+          {
+            label: 'Net Cal',
+            data: netVals,
+            borderColor: netVals.map(v => v > 0 ? 'rgba(211,47,47,0.85)' : 'rgba(46,125,50,0.85)'),
+            backgroundColor: netVals.map(v => v > 0 ? 'rgba(211,47,47,0.15)' : 'rgba(46,125,50,0.15)'),
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: netVals.map(v => v > 0 ? '#D32F2F' : '#2E7D32'),
+            fill: false,
+            tension: 0.3,
+            type: 'line',
+            order: 1,
+            yAxisID: 'y',
+          },
+          { ...rollingDataset(ncLabels, netVals, 'rgba(13,71,161,0.75)', '7d avg net'), type: 'line', order: 0, yAxisID: 'y' }
         ]
       },
       options: {
         responsive: true,
         interaction: { mode: 'index', intersect: false },
-        plugins: { legend: { display: true, labels: { boxWidth: 12, font: { size: 10 }, color: 'var(--text-3)' } } },
+        plugins: {
+          legend: { display: true, labels: { boxWidth: 12, font: { size: 10 }, color: 'var(--text-3)' } },
+          tooltip: {
+            callbacks: {
+              afterBody: (items) => {
+                const consumed = items.find(i=>i.dataset.label==='Consumed');
+                const net = items.find(i=>i.dataset.label==='Net Cal');
+                if (consumed && net) {
+                  const burn = Math.round(consumed.raw - net.raw);
+                  return [`🔥 Est. burn: ${burn} cal`];
+                }
+                return [];
+              }
+            }
+          }
+        },
         scales: {
           x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
-          y: { grid: { color: '#E3F2FD' }, ticks: { callback: v => v > 0 ? '+'+v : v } }
+          y: {
+            grid: { color: '#E3F2FD' },
+            ticks: { callback: v => v >= 0 ? v : v }
+          }
         }
       }
     });
@@ -2358,7 +2415,7 @@ function renderAnalytics() {
     { name: '🥑 Fat (g)',       vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+(it.fat_g||0),0)||null; }) },
     { name: '🥦 Fibre (g)',     vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+(it.fibre_g||it.fiber_g||0),0)||null; }) },
     { name: '👟 Steps',         vals: wKeys.slice(1).map((_,i) => db[wKeys[i]]?.steps||null) },
-    { name: '🔥 Net Cal',       vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; const cal=d?.items?.reduce((s,it)=>s+it.calories,0)||0; return cal>0?cal-(d?.burn||0):null; }) },
+    { name: '🔥 Net Cal',       vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; const cal=d?.items?.reduce((s,it)=>s+it.calories,0)||0; const burn=calcBurn(d?.steps,d?.weight,goals.units); return cal>0?cal-burn:null; }) },
   ];
   const deltaY = wKeys.slice(1).map((k,i) => weightSeries[k] - weightSeries[wKeys[i]]);
 
@@ -2909,6 +2966,142 @@ function renderAnalytics() {
 }
 
 /* ════════════════════════════════════════
+   NET CAL SCATTER — PERSONAL REGRESSION
+════════════════════════════════════════ */
+function renderNetScatter() {
+  const keys2        = Object.keys(db).sort();
+  const wSeries2     = {};
+  const netByDate    = {};
+
+  keys2.forEach(k => {
+    const d = db[k];
+    const totCal = d.items?.reduce((s,i)=>s+i.calories,0)||0;
+    if (d.weight) wSeries2[k] = d.weight;
+    if (totCal > 0) {
+      const burn  = calcBurn(d.steps, d.weight, goals.units);
+      netByDate[k] = totCal - burn;
+    }
+  });
+
+  const wKeys2 = Object.keys(wSeries2).sort();
+  const netScatterData = [];
+  for (let i = 1; i < wKeys2.length; i++) {
+    const k     = wKeys2[i];
+    const kPrev = wKeys2[i-1];
+    const delta = wSeries2[k] - wSeries2[kPrev];
+    const net   = netByDate[kPrev] ?? null;
+    if (net !== null) netScatterData.push({ x: net, y: +delta.toFixed(2), date: k });
+  }
+
+  const eqCard2    = document.getElementById('netEqCard2');
+  const chartEmpty2 = document.getElementById('netChartEmpty');
+
+  if (netScatterData.length >= 3) {
+    chartEmpty2.style.display = 'none';
+
+    // linear regression
+    const n2   = netScatterData.length;
+    const sx2  = netScatterData.reduce((s,p)=>s+p.x,0);
+    const sy2  = netScatterData.reduce((s,p)=>s+p.y,0);
+    const sxy2 = netScatterData.reduce((s,p)=>s+p.x*p.y,0);
+    const sx22 = netScatterData.reduce((s,p)=>s+p.x*p.x,0);
+    const m2   = (n2*sxy2 - sx2*sy2) / (n2*sx22 - sx2*sx2);
+    const b2   = (sy2 - m2*sx2) / n2;
+
+    // R²
+    const yMean2  = sy2/n2;
+    const ss_tot2 = netScatterData.reduce((s,p)=>s+(p.y-yMean2)**2,0);
+    const ss_res2 = netScatterData.reduce((s,p)=>s+(p.y-(m2*p.x+b2))**2,0);
+    const r22     = ss_tot2 > 0 ? 1 - ss_res2/ss_tot2 : 0;
+
+    const sign2      = b2 >= 0 ? '+' : '';
+    const netNeutral2 = Math.abs(m2) > 0.000001 ? Math.round(-b2 / m2) : null;
+
+    eqCard2.style.display = 'block';
+    eqCard2.innerHTML = `
+      <div class="eq-title">Net-Cal Lagged Regression (Personal)</div>
+      <div class="eq-formula">Δ Weight = ${m2.toFixed(5)} × Net Cal ${sign2}${b2.toFixed(3)}</div>
+      <div class="eq-stats">
+        <div class="eq-stat"><div class="es-val">R² ${r22.toFixed(3)}</div><div class="es-lbl">Fit Quality</div></div>
+        <div class="eq-stat"><div class="es-val">${n2}</div><div class="es-lbl">Points</div></div>
+        <div class="eq-stat"><div class="es-val">${netNeutral2 ? netNeutral2.toLocaleString() : '—'}</div><div class="es-lbl">Net-Neutral</div></div>
+      </div>
+      ${netNeutral2 && netNeutral2 > -5000 && netNeutral2 < 10000 ? `
+      <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.15);border-radius:10px;font-size:12.5px;line-height:1.5">
+        🎯 <strong>Your net-neutral:</strong> ~${netNeutral2.toLocaleString()} net cal/day — this is what you can consume (after walk burn) without gaining or losing weight.<br>
+        <span style="opacity:.75;font-size:11.5px">More active days → higher allowance · Less active → lower allowance</span>
+      </div>` : ''}`;
+
+    // chart
+    const xMin2 = Math.min(...netScatterData.map(p=>p.x));
+    const xMax2 = Math.max(...netScatterData.map(p=>p.x));
+    const rLine2 = [{ x: xMin2, y: m2*xMin2+b2 }, { x: xMax2, y: m2*xMax2+b2 }];
+
+    if (netScatterChartInst) netScatterChartInst.destroy();
+    netScatterChartInst = new Chart(document.getElementById('netScatterChart'), {
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: 'Daily Data',
+            data: netScatterData,
+            backgroundColor: 'rgba(46,125,50,0.65)',
+            pointRadius: 6, pointHoverRadius: 8,
+            borderColor: '#2E7D32', borderWidth: 1.5,
+          },
+          {
+            label: 'Regression',
+            data: rLine2,
+            type: 'line',
+            borderColor: 'var(--red)',
+            borderWidth: 2.5,
+            borderDash: [5,3],
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+          },
+          ...(netNeutral2 && netNeutral2 > -5000 && netNeutral2 < 10000 ? [{
+            label: 'Net Neutral',
+            data: [{ x: netNeutral2, y: Math.min(...netScatterData.map(p=>p.y)) - 0.1 },
+                   { x: netNeutral2, y: Math.max(...netScatterData.map(p=>p.y)) + 0.1 }],
+            type: 'line',
+            borderColor: '#F9A825',
+            borderWidth: 2,
+            borderDash: [4,4],
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+          }] : [])
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                if (ctx.dataset.label === 'Regression') return null;
+                if (ctx.dataset.label === 'Net Neutral') return `Net-neutral: ${Math.round(ctx.raw.x).toLocaleString()} net cal`;
+                return `${ctx.raw.date || ''} · ${Math.round(ctx.raw.x).toLocaleString()} net cal → ${ctx.raw.y > 0 ? '+' : ''}${ctx.raw.y} ${goals.units}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Previous Day Net Calories', font: { family: "'Outfit'" } }, grid: { color: '#E3F2FD' } },
+          y: { title: { display: true, text: `Weight Change (${goals.units})`, font: { family: "'Outfit'" } }, grid: { color: '#E3F2FD' } }
+        }
+      }
+    });
+  } else {
+    eqCard2.style.display = 'none';
+    chartEmpty2.style.display = 'block';
+    if (netScatterChartInst) { netScatterChartInst.destroy(); netScatterChartInst = null; }
+  }
+}
+
+/* ════════════════════════════════════════
    DAY DETAIL MODAL
 ════════════════════════════════════════ */
 function openDayDetail(key) {
@@ -3259,7 +3452,7 @@ function renderWeeklySummaries() {
 function buildExportRows() {
   const keys = Object.keys(db).sort();
   const rows = [];
-  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Exercise_Burn_Cal','Exercise','Water_1L+','Medicated','Items_Count','Notes','Items_Detail']);
+  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Est_Burn_Cal','Net_Cal','Weight','Weight_Unit','Exercise','Water_1L+','Medicated','Items_Count','Notes','Items_Detail']);
   keys.forEach(key => {
     const day = db[key];
     if (!day) return;
@@ -3277,7 +3470,8 @@ function buildExportRows() {
       totFat.toFixed(1),
       totFibre.toFixed(1),
       day.steps || '',
-      day.burn  || '',
+      day.steps ? calcBurn(day.steps, day.weight, goals.units) : '',
+      (() => { const cal=(day.items||[]).reduce((s,i)=>s+i.calories,0); const burn=calcBurn(day.steps,day.weight,goals.units); return cal>0?cal-burn:''; })(),
       day.exercise === true ? 'Yes' : day.exercise === false ? 'No' : '',
       day.water    === true ? 'Yes' : day.water    === false ? 'No' : '',
       day.meds     === true ? 'Yes' : day.meds     === false ? 'No' : '',

@@ -586,8 +586,25 @@ a { color: inherit; text-decoration: none; }
 .wmg-fat .wmg-val { color: var(--yellow); }
 .wmg-fibre .wmg-val { color: var(--teal); }
 .wmg-steps .wmg-val { color: var(--text-2); }
-.week-weight-row { display: flex; gap: 16px; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+.week-weight-row { display: flex; gap: 16px; font-size: 12.5px; color: var(--text-2); margin-top: 6px; flex-wrap: wrap; }
 .week-weight-row span { font-weight: 700; }
+
+/* ── streak cards ── */
+.streak-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.streak-card {
+  background: var(--surface); border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); padding: 12px 14px;
+  box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+}
+.streak-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--streak-color, var(--blue));
+}
+.streak-card .sc-icon { font-size: 20px; margin-bottom: 4px; }
+.streak-card .sc-val  { font-size: 28px; font-weight: 800; line-height: 1; color: var(--streak-color, var(--blue)); }
+.streak-card .sc-lbl  { font-size: 10px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-3); margin-top: 2px; }
+.streak-card .sc-best { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+.streak-card .sc-fire { font-size: 11px; font-weight: 700; margin-top: 4px; }
 
 /* ═══════════════════════════════
    DAY DETAIL MODAL
@@ -974,6 +991,9 @@ a { color: inherit; text-decoration: none; }
         <div class="stat-tile"><div class="stv" id="statAvgCal">—</div><div class="stl">Avg Cals</div></div>
         <div class="stat-tile"><div class="stv" id="statWeightDelta">—</div><div class="stl">Weight Δ</div></div>
       </div>
+
+      <!-- Streak Counters -->
+      <div id="streakSection" style="margin-bottom:4px"></div>
 
       <!-- BMI Tracker -->
       <div class="bmi-card" id="bmiCard">
@@ -1944,6 +1964,7 @@ function calNav(dir) {
 function renderAnalytics() {
   renderBMI();
   renderWeeklySummaries();
+  renderStreaks();
   // build dataset: days with both cal and weight, sorted
   const keys = Object.keys(db).sort();
   const calSeries  = [];
@@ -2116,40 +2137,69 @@ function renderAnalytics() {
   // cal trend
   if (calTrendInst) calTrendInst.destroy();
   const trendDates = calSeries.slice(-30);
+  const calLabels = trendDates.map(d => d.date.slice(5));
+  const calGoalDs = goalDataset(calLabels, goals.calGoal, 'rgba(211,47,47,0.7)');
   calTrendInst = new Chart(document.getElementById('calTrendChart'), {
     type: 'bar',
     data: {
-      labels: trendDates.map(d => d.date.slice(5)),
-      datasets: [{
-        label: 'Calories',
-        data: trendDates.map(d => d.cal),
-        backgroundColor: trendDates.map(d => d.cal > goals.calGoal ? 'rgba(211,47,47,0.75)' : 'rgba(21,101,192,0.65)'),
-        borderRadius: 6,
-      }]
+      labels: calLabels,
+      datasets: [
+        {
+          label: 'Calories',
+          data: trendDates.map(d => d.cal),
+          backgroundColor: trendDates.map(d => d.cal > goals.calGoal ? 'rgba(211,47,47,0.75)' : 'rgba(21,101,192,0.65)'),
+          borderRadius: 6,
+          order: 1,
+          type: 'bar',
+        },
+        ...(calGoalDs ? [{ ...calGoalDs, label: `Goal (${goals.calGoal.toLocaleString()})`, type: 'line' }] : [])
+      ]
     },
     options: {
       responsive: true,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { display: false },
-        annotation: {}
+        legend: { display: true, labels: { boxWidth: 12, font: { size: 10 }, color: 'var(--text-3)', filter: i => i.datasetIndex === 1 } }
       },
       scales: {
         x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
-        y: { grid: { color: '#E3F2FD' } }
+        y: { grid: { color: '#E3F2FD' }, suggestedMax: goals.calGoal * 1.25 }
       }
     }
   });
 
-  // helper: standard line chart options
+  // helper: build a target-line dataset
+  function goalDataset(labels, goalVal, color) {
+    if (!goalVal) return null;
+    return {
+      label: 'Goal',
+      data: labels.map(() => goalVal),
+      borderColor: color,
+      borderWidth: 1.8,
+      borderDash: [5, 4],
+      pointRadius: 0,
+      fill: false,
+      tension: 0,
+      order: 0,
+    };
+  }
+
+  // helper: standard line chart options with optional goal line
   function lineOpts(color, goalVal) {
     return {
       responsive: true,
-      plugins: { legend: { display: false } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: !!goalVal,
+          labels: { boxWidth: 12, font: { size: 10 }, color: 'var(--text-3)' }
+        }
+      },
       scales: {
         x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
         y: {
           grid: { color: '#E3F2FD' },
-          ...(goalVal ? { suggestedMax: goalVal * 1.2 } : {})
+          ...(goalVal ? { suggestedMax: goalVal * 1.25 } : {})
         }
       }
     };
@@ -2157,18 +2207,16 @@ function renderAnalytics() {
 
   // carb trend
   if (carbTrendInst) carbTrendInst.destroy();
+  const carbLabels = trendDates.map(d => d.date.slice(5));
+  const carbGoalDs = goalDataset(carbLabels, goals.carbGoal, 'rgba(21,101,192,0.55)');
   carbTrendInst = new Chart(document.getElementById('carbTrendChart'), {
     type: 'line',
     data: {
-      labels: trendDates.map(d => d.date.slice(5)),
-      datasets: [{
-        label: 'Carbs (g)',
-        data: trendDates.map(d => d.carb),
-        borderColor: '#1565C0',
-        backgroundColor: 'rgba(21,101,192,0.1)',
-        fill: true, tension: 0.35, pointRadius: 3,
-        pointBackgroundColor: '#1565C0',
-      }]
+      labels: carbLabels,
+      datasets: [
+        { label: 'Carbs (g)', data: trendDates.map(d => d.carb), borderColor: '#1565C0', backgroundColor: 'rgba(21,101,192,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#1565C0', order: 1 },
+        ...(carbGoalDs ? [{ ...carbGoalDs, label: `Goal (${goals.carbGoal}g)` }] : [])
+      ]
     },
     options: lineOpts('#1565C0', goals.carbGoal)
   });
@@ -2176,18 +2224,16 @@ function renderAnalytics() {
   // protein trend
   if (proteinTrendInst) proteinTrendInst.destroy();
   const proteinDates = proteinSeries.slice(-30);
+  const proteinLabels = proteinDates.map(d => d.date.slice(5));
+  const proteinGoalDs = goalDataset(proteinLabels, goals.proteinGoal, 'rgba(46,125,50,0.55)');
   proteinTrendInst = new Chart(document.getElementById('proteinTrendChart'), {
     type: 'line',
     data: {
-      labels: proteinDates.map(d => d.date.slice(5)),
-      datasets: [{
-        label: 'Protein (g)',
-        data: proteinDates.map(d => d.val),
-        borderColor: '#2E7D32',
-        backgroundColor: 'rgba(46,125,50,0.1)',
-        fill: true, tension: 0.35, pointRadius: 3,
-        pointBackgroundColor: '#2E7D32',
-      }]
+      labels: proteinLabels,
+      datasets: [
+        { label: 'Protein (g)', data: proteinDates.map(d => d.val), borderColor: '#2E7D32', backgroundColor: 'rgba(46,125,50,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#2E7D32', order: 1 },
+        ...(proteinGoalDs ? [{ ...proteinGoalDs, label: `Goal (${goals.proteinGoal}g)` }] : [])
+      ]
     },
     options: lineOpts('#2E7D32', goals.proteinGoal)
   });
@@ -2195,18 +2241,16 @@ function renderAnalytics() {
   // fat trend
   if (fatTrendInst) fatTrendInst.destroy();
   const fatDates = fatSeries.slice(-30);
+  const fatLabels = fatDates.map(d => d.date.slice(5));
+  const fatGoalDs = goalDataset(fatLabels, goals.fatGoal, 'rgba(249,168,37,0.7)');
   fatTrendInst = new Chart(document.getElementById('fatTrendChart'), {
     type: 'line',
     data: {
-      labels: fatDates.map(d => d.date.slice(5)),
-      datasets: [{
-        label: 'Fat (g)',
-        data: fatDates.map(d => d.val),
-        borderColor: '#F9A825',
-        backgroundColor: 'rgba(249,168,37,0.12)',
-        fill: true, tension: 0.35, pointRadius: 3,
-        pointBackgroundColor: '#F9A825',
-      }]
+      labels: fatLabels,
+      datasets: [
+        { label: 'Fat (g)', data: fatDates.map(d => d.val), borderColor: '#F9A825', backgroundColor: 'rgba(249,168,37,0.12)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#F9A825', order: 1 },
+        ...(fatGoalDs ? [{ ...fatGoalDs, label: `Goal (${goals.fatGoal}g)` }] : [])
+      ]
     },
     options: lineOpts('#F9A825', goals.fatGoal)
   });
@@ -2214,20 +2258,19 @@ function renderAnalytics() {
   // fibre trend
   if (fibreTrendInst) fibreTrendInst.destroy();
   const fibreDates = fibreSeries.slice(-30);
+  const fibreLabels = fibreDates.map(d => d.date.slice(5));
+  const fibreGoalVal = goals.fibreGoal || 30;
+  const fibreGoalDs = goalDataset(fibreLabels, fibreGoalVal, 'rgba(0,105,92,0.6)');
   fibreTrendInst = new Chart(document.getElementById('fibreTrendChart'), {
     type: 'line',
     data: {
-      labels: fibreDates.map(d => d.date.slice(5)),
-      datasets: [{
-        label: 'Fibre (g)',
-        data: fibreDates.map(d => d.val),
-        borderColor: '#00695C',
-        backgroundColor: 'rgba(0,105,92,0.1)',
-        fill: true, tension: 0.35, pointRadius: 3,
-        pointBackgroundColor: '#00695C',
-      }]
+      labels: fibreLabels,
+      datasets: [
+        { label: 'Fibre (g)', data: fibreDates.map(d => d.val), borderColor: '#00695C', backgroundColor: 'rgba(0,105,92,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#00695C', order: 1 },
+        ...(fibreGoalDs ? [{ ...fibreGoalDs, label: `Goal (${fibreGoalVal}g)` }] : [])
+      ]
     },
-    options: lineOpts('#00695C', goals.fibreGoal || 30)
+    options: lineOpts('#00695C', fibreGoalVal)
   });
 
   // weight trend
@@ -2405,24 +2448,36 @@ function renderAnalytics() {
   } else {
     stepsChartEmpty.style.display = 'none';
     stepsCanvas.style.display = 'block';
+    const stepsGoalVal = goals.stepsGoal || 10000;
+    const stLabels    = stDates.map(d => d.date.slice(5));
+    const stGoalDs    = goalDataset(stLabels, stepsGoalVal, 'rgba(46,125,50,0.65)');
     stepsTrendInst = new Chart(stepsCanvas, {
       type: 'bar',
       data: {
-        labels: stDates.map(d => d.date.slice(5)),
-        datasets: [{
-          label: 'Steps',
-          data: stDates.map(d => d.val),
-          backgroundColor: stDates.map(d => d.val >= (goals.stepsGoal||10000) ? 'rgba(46,125,50,0.75)' : 'rgba(21,101,192,0.6)'),
-          borderRadius: 6,
-        }]
+        labels: stLabels,
+        datasets: [
+          {
+            label: 'Steps',
+            data: stDates.map(d => d.val),
+            backgroundColor: stDates.map(d => d.val >= stepsGoalVal ? 'rgba(46,125,50,0.75)' : 'rgba(21,101,192,0.6)'),
+            borderRadius: 6,
+            order: 1,
+            type: 'bar',
+          },
+          ...(stGoalDs ? [{ ...stGoalDs, label: `Goal (${stepsGoalVal.toLocaleString()})`, type: 'line' }] : [])
+        ]
       },
       options: {
         responsive: true,
-        plugins: { legend: { display: false } },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, labels: { boxWidth: 12, font: { size: 10 }, color: 'var(--text-3)', filter: i => i.datasetIndex === 1 } }
+        },
         scales: {
           x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
           y: {
             grid: { color: '#E3F2FD' },
+            suggestedMax: stepsGoalVal * 1.25,
             ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v }
           }
         }
@@ -2674,6 +2729,129 @@ function showToast(msg, type = '') {
 /* ════════════════════════════════════════
    EXPORT
 ════════════════════════════════════════ */
+/* ════════════════════════════════════════
+   STREAK COUNTERS
+════════════════════════════════════════ */
+function calcStreak(field) {
+  // field = 'exercise' | 'water' | 'meds'
+  // returns { current, best }
+  const today = isoDate(new Date());
+  const sortedKeys = Object.keys(db).sort().reverse(); // newest first
+  if (!sortedKeys.length) return { current: 0, best: 0 };
+
+  let current = 0, best = 0, inStreak = true;
+  let prevDate = null;
+
+  // Walk backwards from today
+  const allDates = [];
+  // Build list from earliest logged date to today
+  if (sortedKeys.length) {
+    const earliest = sortedKeys[sortedKeys.length - 1];
+    let d = new Date(earliest + 'T00:00:00');
+    const todayD = new Date(today + 'T00:00:00');
+    while (d <= todayD) {
+      allDates.push(isoDate(d));
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  let run = 0;
+  let bestRun = 0;
+  let curRun = 0;
+
+  for (let i = allDates.length - 1; i >= 0; i--) {
+    const k = allDates[i];
+    const hit = db[k] && db[k][field] === true;
+    if (hit) {
+      run++;
+      if (i === allDates.length - 1 || allDates[i+1] === allDates[i+1]) {
+        curRun = run; // still counting
+      }
+    } else {
+      bestRun = Math.max(bestRun, run);
+      if (curRun === 0 && run > 0) curRun = 0; // streak broken
+      run = 0;
+    }
+  }
+  bestRun = Math.max(bestRun, run);
+
+  // Current streak: walk back from today
+  let streak = 0;
+  for (let i = allDates.length - 1; i >= 0; i--) {
+    const k = allDates[i];
+    if (db[k] && db[k][field] === true) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return { current: streak, best: bestRun };
+}
+
+function streakEmoji(n) {
+  if (n >= 30) return '🏆 On fire!';
+  if (n >= 14) return '🔥 Great run!';
+  if (n >= 7)  return '⚡ One week!';
+  if (n >= 3)  return '💪 Building!';
+  if (n >= 1)  return '✅ Started!';
+  return '➕ Start today';
+}
+
+function renderStreaks() {
+  const el = document.getElementById('streakSection');
+  if (!el) return;
+
+  const ex    = calcStreak('exercise');
+  const water = calcStreak('water');
+  const meds  = calcStreak('meds');
+
+  // Also build a "food logging" streak — days with at least 1 item
+  const today = isoDate(new Date());
+  const allKeys = Object.keys(db).sort();
+  const allDates2 = [];
+  if (allKeys.length) {
+    let d = new Date(allKeys[0] + 'T00:00:00');
+    const todayD = new Date(today + 'T00:00:00');
+    while (d <= todayD) { allDates2.push(isoDate(d)); d.setDate(d.getDate()+1); }
+  }
+  let foodCur = 0, foodBest = 0, foodRun = 0;
+  for (let i = allDates2.length-1; i >= 0; i--) {
+    const k = allDates2[i];
+    const hit = db[k] && (db[k].items||[]).length > 0;
+    if (hit) { if (foodCur === 0 || i === allDates2.length-1) {} foodCur++; foodRun++; }
+    else { foodBest = Math.max(foodBest, foodRun); if (i === allDates2.length-1) foodCur = 0; foodRun = 0; }
+  }
+  // recalc foodCur walking back from today
+  let fc = 0;
+  for (let i = allDates2.length-1; i >= 0; i--) {
+    const k = allDates2[i];
+    if (db[k] && (db[k].items||[]).length > 0) fc++;
+    else break;
+  }
+  foodBest = Math.max(foodBest, foodRun);
+  const food = { current: fc, best: foodBest };
+
+  function card(icon, label, color, streakObj) {
+    return `<div class="streak-card" style="--streak-color:${color}">
+      <div class="sc-icon">${icon}</div>
+      <div class="sc-val">${streakObj.current}</div>
+      <div class="sc-lbl">${label} streak</div>
+      <div class="sc-best">Best: ${streakObj.best} day${streakObj.best!==1?'s':''}</div>
+      <div class="sc-fire">${streakEmoji(streakObj.current)}</div>
+    </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="sec-label" style="margin-top:0;margin-bottom:8px">🔥 Streaks</div>
+    <div class="streak-grid">
+      ${card('💪', 'Exercise',   'var(--green)',  ex)}
+      ${card('💧', 'Hydration',  '#0288D1',       water)}
+      ${card('💊', 'Medicated',  '#7B1FA2',       meds)}
+      ${card('🍽️', 'Food Log',   'var(--red)',    food)}
+    </div>`;
+}
+
 /* ════════════════════════════════════════
    BMI TRACKER
 ════════════════════════════════════════ */

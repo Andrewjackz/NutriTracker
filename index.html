@@ -668,6 +668,38 @@ a { color: inherit; text-decoration: none; }
   background: none; border: none; color: rgba(255,255,255,.7);
   font-size: 18px; padding: 0 2px; flex-shrink: 0; line-height: 1;
 }
+
+/* ── meal templates ── */
+.tmpl-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 20px; padding: 6px 10px 6px 12px;
+  font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  margin: 0 4px 6px 0; cursor: pointer; transition: border-color .15s;
+}
+.tmpl-chip:active { border-color: var(--blue); color: var(--blue); }
+.tmpl-chip .tmpl-del { font-size: 14px; color: var(--text-3); padding: 0 2px; line-height: 1; background: none; border: none; cursor: pointer; }
+
+/* ── net calories ── */
+.net-cal-banner {
+  border-radius: var(--r-sm); padding: 10px 14px; margin-top: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.net-cal-banner.positive { background: var(--red-lt); border: 1.5px solid #FFCDD2; }
+.net-cal-banner.negative { background: var(--green-lt); border: 1.5px solid #C8E6C9; }
+.net-cal-banner.neutral  { background: var(--blue-lt); border: 1.5px solid var(--blue-mid); }
+
+/* ── correlation matrix ── */
+.corr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.corr-table th { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-3); padding: 6px 8px; text-align: left; border-bottom: 1.5px solid var(--border); }
+.corr-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+.corr-table tr:last-child td { border-bottom: none; }
+.corr-val { display: inline-block; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 12px; }
+.corr-strong-pos { background: #E8F5E9; color: #1B5E20; }
+.corr-weak-pos   { background: #F1F8E9; color: #33691E; }
+.corr-neutral    { background: var(--surface2); color: var(--text-3); }
+.corr-weak-neg   { background: #FFF8E1; color: #E65100; }
+.corr-strong-neg { background: #FFEBEE; color: #B71C1C; }
 </style>
 </head>
 <body>
@@ -735,6 +767,10 @@ a { color: inherit; text-decoration: none; }
 
       <div class="sec-label">Recent Searches</div>
       <div class="history-wrap" id="searchHistory"></div>
+
+      <div class="sec-label">Meal Templates</div>
+      <div style="font-size:12px;color:var(--text-3);margin-bottom:8px">Save a search result as a template for quick re-logging.</div>
+      <div class="history-wrap" id="templatesWrap"></div>
     </div>
 
     <!-- ── SCREEN: TODAY ── -->
@@ -826,8 +862,15 @@ a { color: inherit; text-decoration: none; }
           <input class="inp" id="stepsInput" type="number" inputmode="numeric" placeholder="Steps today" autocomplete="off" style="flex:1">
           <button class="weight-save-btn" style="background:var(--blue)" onclick="saveSteps()">Save ✓</button>
         </div>
+        <div class="weight-row" style="margin-top:8px">
+          <span style="font-size:13px;font-weight:700;color:var(--text-2);white-space:nowrap">🔥</span>
+          <input class="inp" id="burnInput" type="number" inputmode="numeric" placeholder="Exercise calories burned" autocomplete="off" style="flex:1">
+          <button class="weight-save-btn" style="background:var(--red)" onclick="saveBurn()">Save ✓</button>
+        </div>
         <div id="savedWeightDisplay" style="display:none;margin-top:8px;font-size:13px;color:var(--green);font-weight:600"></div>
         <div id="savedStepsDisplay" style="display:none;margin-top:4px;font-size:13px;color:var(--blue);font-weight:600"></div>
+        <div id="savedBurnDisplay" style="display:none;margin-top:4px;font-size:13px;color:var(--red);font-weight:600"></div>
+        <div id="netCalDisplay" style="display:none;margin-top:6px"></div>
       </div>
 
       <!-- daily notes -->
@@ -1102,6 +1145,18 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <div class="chart-card">
+        <div class="card-title">Net Calories — Trend</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px">Calories consumed minus exercise burn. Bars above zero = surplus.</div>
+        <canvas id="netCalTrendChart" height="200"></canvas>
+      </div>
+
+      <div class="chart-card" id="corrCard">
+        <div class="card-title">Correlation Matrix</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Pearson r between each variable and your next-day weight change. Strong positive = more of this → weight up.</div>
+        <div id="corrMatrix"></div>
+      </div>
+
+      <div class="chart-card">
         <div class="card-title">Weight vs Calories — Dual Axis</div>
         <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11.5px;font-weight:600">
           <span style="color:#C62828">⚖️ Weight (left axis)</span>
@@ -1190,6 +1245,7 @@ const GOAL_KEY    = 'nt_goals_v1';
 const API_KEY     = 'nt_api_key';
 const HIST_KEY    = 'nt_history';
 const BACKUP_KEY  = 'nt_last_backup';
+const TMPL_KEY    = 'nt_templates';
 
 let db       = loadDB();
 let goals    = loadGoals();
@@ -1197,7 +1253,7 @@ let activeTab = 'search';
 let calMonth = new Date();
 let currentResult = null;
 let selectedMealType = 'Breakfast';
-let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null, macroSplitChartInst = null;
+let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null, macroSplitChartInst = null, netCalTrendInst = null;
 
 function loadDB() {
   try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; }
@@ -1257,6 +1313,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   renderHistory();
+  renderTemplates();
   renderToday();
   renderCalendar();
   checkBackupReminder();
@@ -1410,6 +1467,7 @@ function renderResult(r) {
         <span class="qty-unit">× serving (${r.qty_label})</span>
         <button class="add-btn" id="addToMealBtn" onclick="addToLog()">＋ Add to ${selectedMealType}</button>
       </div>
+      <button onclick="saveAsTemplate()" style="width:100%;margin-top:8px;padding:9px;border-radius:var(--r-xs);background:var(--surface2);border:1.5px solid var(--border);font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer">🔖 Save as Template</button>
     </div>`;
 }
 
@@ -1436,6 +1494,46 @@ function addToLog() {
   document.getElementById('resultEl').style.display = 'none';
   document.getElementById('foodSearchInput').value = '';
   currentResult = null;
+}
+
+/* ── meal templates ── */
+function getTemplates() {
+  try { return JSON.parse(localStorage.getItem(TMPL_KEY)) || []; } catch { return []; }
+}
+function saveAsTemplate() {
+  if (!currentResult) return;
+  const templates = getTemplates();
+  const r = currentResult;
+  const tmpl = { id: Date.now(), name: r.food, qty_label: r.qty_label, calories: r.calories, carbs_g: r.carbs_g, protein_g: r.protein_g, fat_g: r.fat_g, fibre_g: r.fiber_g||r.fibre_g||0 };
+  if (templates.find(t => t.name === tmpl.name)) { showToast('Template already saved', ''); return; }
+  templates.unshift(tmpl);
+  localStorage.setItem(TMPL_KEY, JSON.stringify(templates.slice(0, 30)));
+  renderTemplates();
+  showToast('Template saved 🔖', 'success');
+}
+function deleteTemplate(id) {
+  const templates = getTemplates().filter(t => t.id !== id);
+  localStorage.setItem(TMPL_KEY, JSON.stringify(templates));
+  renderTemplates();
+}
+function applyTemplate(id) {
+  const tmpl = getTemplates().find(t => t.id === id);
+  if (!tmpl) return;
+  currentResult = { ...tmpl, fiber_g: tmpl.fibre_g };
+  renderResult(currentResult);
+  document.getElementById('foodSearchInput').value = tmpl.name;
+  showToast(`${tmpl.name} loaded ✓`, 'success');
+}
+function renderTemplates() {
+  const el = document.getElementById('templatesWrap');
+  if (!el) return;
+  const templates = getTemplates();
+  if (!templates.length) { el.innerHTML = '<span style="font-size:13px;color:var(--text-3)">No templates yet — search for food and tap Save as Template</span>'; return; }
+  el.innerHTML = templates.map(t => `
+    <div class="tmpl-chip" onclick="applyTemplate(${t.id})">
+      🔖 ${t.name} <span style="color:var(--text-3);font-size:11px">${Math.round(t.calories)}cal</span>
+      <button class="tmpl-del" onclick="event.stopPropagation();deleteTemplate(${t.id})">×</button>
+    </div>`).join('');
 }
 
 /* search history */
@@ -1526,6 +1624,23 @@ function renderToday() {
   } else {
     sd.style.display = 'none';
   }
+  // burn + net cal
+  const bd = document.getElementById('savedBurnDisplay');
+  const nd = document.getElementById('netCalDisplay');
+  if (day.burn) {
+    document.getElementById('burnInput').value = day.burn;
+    if (bd) { bd.style.display = 'block'; bd.textContent = `🔥 Burned: ${day.burn} cal`; }
+    const net = totCal - day.burn;
+    if (nd) {
+      nd.style.display = 'block';
+      const cls = net > 200 ? 'positive' : net < -200 ? 'negative' : 'neutral';
+      const lbl = net > 200 ? '📈 Calorie surplus' : net < -200 ? '📉 Calorie deficit' : '⚖️ Near neutral';
+      nd.innerHTML = `<div class="net-cal-banner ${cls}"><span style="font-weight:700">${lbl}</span><span style="font-size:15px;font-weight:800">${net > 0 ? '+' : ''}${net} cal net</span></div>`;
+    }
+  } else {
+    if (bd) bd.style.display = 'none';
+    if (nd) nd.style.display = 'none';
+  }
   // notes
   const notesEl = document.getElementById('notesInput');
   if (notesEl) {
@@ -1610,6 +1725,17 @@ function saveSteps() {
   day.steps = v;
   setDay(key, day);
   showToast('Steps saved ✓', 'success');
+  renderToday();
+}
+
+function saveBurn() {
+  const v = parseInt(document.getElementById('burnInput').value);
+  if (!v || v <= 0) { showToast('Enter valid calories burned', 'error'); return; }
+  const key = todayKey();
+  const day = getDay(key);
+  day.burn = v;
+  setDay(key, day);
+  showToast('Exercise burn saved 🔥', 'success');
   renderToday();
 }
 
@@ -1977,6 +2103,7 @@ function renderAnalytics() {
   const fibreSeries   = [];
   const weightTrend   = [];
   const stepsTrend    = [];
+  const netCalSeries  = [];
 
   keys.forEach(k => {
     const d = db[k];
@@ -1985,11 +2112,13 @@ function renderAnalytics() {
     const totProtein = d.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0;
     const totFat     = d.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0;
     const totFibre   = d.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0;
+    const netCal     = totCal > 0 ? totCal - (d.burn||0) : null;
     if (totCal > 0) {
       calSeries.push({ date: k, cal: totCal, carb: totCarb, protein: totProtein, fat: totFat, fibre: totFibre });
       if (totProtein > 0) proteinSeries.push({ date: k, val: totProtein });
       if (totFat     > 0) fatSeries.push({ date: k, val: totFat });
       if (totFibre   > 0) fibreSeries.push({ date: k, val: totFibre });
+      if (netCal !== null) netCalSeries.push({ date: k, val: netCal });
     }
     if (d.weight) { weightSeries[k] = d.weight; weightTrend.push({ date: k, val: d.weight }); }
     if (d.steps)  stepsTrend.push({ date: k, val: d.steps });
@@ -2134,6 +2263,129 @@ function renderAnalytics() {
     if (scatterChartInst) { scatterChartInst.destroy(); scatterChartInst = null; }
   }
 
+  // ── helper: 7-day rolling average ──
+  function rollingAvg(data, n) {
+    return data.map((v, i) => {
+      const slice = data.slice(Math.max(0, i - n + 1), i + 1).filter(x => x != null);
+      return slice.length ? slice.reduce((s, x) => s + x, 0) / slice.length : null;
+    });
+  }
+  function rollingDataset(labels, data, color, label) {
+    const avgs = rollingAvg(data, 7);
+    return {
+      label: label || '7-day avg',
+      data: avgs,
+      borderColor: color,
+      borderWidth: 2,
+      borderDash: [3, 2],
+      pointRadius: 0,
+      fill: false,
+      tension: 0.4,
+      order: 0,
+      spanGaps: true,
+    };
+  }
+
+  // ── net cal trend chart ──
+  if (!netCalTrendInst) netCalTrendInst = null;
+  if (netCalTrendInst) { netCalTrendInst.destroy(); netCalTrendInst = null; }
+  const netCalDates = netCalSeries.slice(-30);
+  if (netCalDates.length >= 2) {
+    const netVals = netCalDates.map(d => d.val);
+    const ncLabels = netCalDates.map(d => d.date.slice(5));
+    netCalTrendInst = new Chart(document.getElementById('netCalTrendChart'), {
+      type: 'bar',
+      data: {
+        labels: ncLabels,
+        datasets: [
+          {
+            label: 'Net Calories',
+            data: netVals,
+            backgroundColor: netVals.map(v => v > 0 ? 'rgba(211,47,47,0.65)' : 'rgba(46,125,50,0.65)'),
+            borderRadius: 5,
+            order: 1,
+            type: 'bar',
+          },
+          { ...rollingDataset(ncLabels, netVals, 'rgba(21,101,192,0.8)', '7-day avg'), type: 'line' }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: true, labels: { boxWidth: 12, font: { size: 10 }, color: 'var(--text-3)' } } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 7 }, grid: { display: false } },
+          y: { grid: { color: '#E3F2FD' }, ticks: { callback: v => v > 0 ? '+'+v : v } }
+        }
+      }
+    });
+  }
+
+  // ── correlation matrix ──
+  function pearsonR(xs, ys) {
+    const n = xs.length;
+    if (n < 3) return null;
+    const mx = xs.reduce((s,x)=>s+x,0)/n;
+    const my = ys.reduce((s,y)=>s+y,0)/n;
+    const num   = xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0);
+    const denX  = Math.sqrt(xs.reduce((s,x)=>s+(x-mx)**2,0));
+    const denY  = Math.sqrt(ys.reduce((s,y)=>s+(y-my)**2,0));
+    return (denX*denY===0) ? null : num/(denX*denY);
+  }
+  function corrClass(r) {
+    if (r === null) return 'corr-neutral';
+    if (r >= 0.5)  return 'corr-strong-pos';
+    if (r >= 0.2)  return 'corr-weak-pos';
+    if (r <= -0.5) return 'corr-strong-neg';
+    if (r <= -0.2) return 'corr-weak-neg';
+    return 'corr-neutral';
+  }
+  function corrLabel(r) {
+    if (r === null) return '—';
+    if (r >= 0.5)  return `+${r.toFixed(2)} ↑↑`;
+    if (r >= 0.2)  return `+${r.toFixed(2)} ↑`;
+    if (r <= -0.5) return `${r.toFixed(2)} ↓↓`;
+    if (r <= -0.2) return `${r.toFixed(2)} ↓`;
+    return r.toFixed(2);
+  }
+
+  // Build lagged pairs: variable on day D vs weight change D+1 morning
+  const wKeys = weightKeys;
+  const corrVars = [
+    { name: '🔥 Calories',      vals: wKeys.slice(1).map((_,i) => calByDate[wKeys[i]]||null) },
+    { name: '🌾 Carbs (g)',     vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+it.carbs_g,0)||null; }) },
+    { name: '💪 Protein (g)',   vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+(it.protein_g||0),0)||null; }) },
+    { name: '🥑 Fat (g)',       vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+(it.fat_g||0),0)||null; }) },
+    { name: '🥦 Fibre (g)',     vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+(it.fibre_g||it.fiber_g||0),0)||null; }) },
+    { name: '👟 Steps',         vals: wKeys.slice(1).map((_,i) => db[wKeys[i]]?.steps||null) },
+    { name: '🔥 Net Cal',       vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; const cal=d?.items?.reduce((s,it)=>s+it.calories,0)||0; return cal>0?cal-(d?.burn||0):null; }) },
+  ];
+  const deltaY = wKeys.slice(1).map((k,i) => weightSeries[k] - weightSeries[wKeys[i]]);
+
+  const corrEl = document.getElementById('corrMatrix');
+  if (wKeys.length >= 5) {
+    let rows = corrVars.map(v => {
+      const pairs = v.vals.map((x,i) => x!==null ? [x, deltaY[i]] : null).filter(Boolean);
+      const r = pairs.length >= 3 ? pearsonR(pairs.map(p=>p[0]), pairs.map(p=>p[1])) : null;
+      return { name: v.name, r, n: pairs.length };
+    }).filter(v => v.r !== null);
+    rows.sort((a,b) => Math.abs(b.r) - Math.abs(a.r));
+    corrEl.innerHTML = `<table class="corr-table">
+      <thead><tr><th>Variable (vs next-day Δweight)</th><th>r</th><th>n</th></tr></thead>
+      <tbody>${rows.map(v=>`<tr>
+        <td style="font-weight:600;color:var(--text)">${v.name}</td>
+        <td><span class="corr-val ${corrClass(v.r)}">${corrLabel(v.r)}</span></td>
+        <td style="color:var(--text-3)">${v.n}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <div style="margin-top:10px;font-size:11px;color:var(--text-3);line-height:1.6">
+      ↑↑ Strong positive (r≥0.5) · ↑ Weak positive · — Neutral · ↓ Weak negative · ↓↓ Strong negative (r≤−0.5)<br>
+      All variables lagged by 1 day vs next morning's weight change.
+    </div>`;
+  } else {
+    corrEl.innerHTML = '<div class="empty-state" style="padding:16px 0"><div class="es-icon">📊</div>Need at least 5 weight measurements to compute correlations.</div>';
+  }
+
   // cal trend
   if (calTrendInst) calTrendInst.destroy();
   const trendDates = calSeries.slice(-30);
@@ -2215,6 +2467,7 @@ function renderAnalytics() {
       labels: carbLabels,
       datasets: [
         { label: 'Carbs (g)', data: trendDates.map(d => d.carb), borderColor: '#1565C0', backgroundColor: 'rgba(21,101,192,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#1565C0', order: 1 },
+        rollingDataset(carbLabels, trendDates.map(d=>d.carb), 'rgba(13,71,161,0.8)', '7-day avg'),
         ...(carbGoalDs ? [{ ...carbGoalDs, label: `Goal (${goals.carbGoal}g)` }] : [])
       ]
     },
@@ -2232,6 +2485,7 @@ function renderAnalytics() {
       labels: proteinLabels,
       datasets: [
         { label: 'Protein (g)', data: proteinDates.map(d => d.val), borderColor: '#2E7D32', backgroundColor: 'rgba(46,125,50,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#2E7D32', order: 1 },
+        rollingDataset(proteinLabels, proteinDates.map(d=>d.val), 'rgba(27,94,32,0.8)', '7-day avg'),
         ...(proteinGoalDs ? [{ ...proteinGoalDs, label: `Goal (${goals.proteinGoal}g)` }] : [])
       ]
     },
@@ -2249,6 +2503,7 @@ function renderAnalytics() {
       labels: fatLabels,
       datasets: [
         { label: 'Fat (g)', data: fatDates.map(d => d.val), borderColor: '#F9A825', backgroundColor: 'rgba(249,168,37,0.12)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#F9A825', order: 1 },
+        rollingDataset(fatLabels, fatDates.map(d=>d.val), 'rgba(230,81,0,0.8)', '7-day avg'),
         ...(fatGoalDs ? [{ ...fatGoalDs, label: `Goal (${goals.fatGoal}g)` }] : [])
       ]
     },
@@ -2267,6 +2522,7 @@ function renderAnalytics() {
       labels: fibreLabels,
       datasets: [
         { label: 'Fibre (g)', data: fibreDates.map(d => d.val), borderColor: '#00695C', backgroundColor: 'rgba(0,105,92,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#00695C', order: 1 },
+        rollingDataset(fibreLabels, fibreDates.map(d=>d.val), 'rgba(0,77,64,0.8)', '7-day avg'),
         ...(fibreGoalDs ? [{ ...fibreGoalDs, label: `Goal (${fibreGoalVal}g)` }] : [])
       ]
     },
@@ -2289,17 +2545,20 @@ function renderAnalytics() {
     const wtMin  = Math.min(...allVals);
     const wtMax  = Math.max(...allVals);
     const wtPad  = (wtMax - wtMin) * 0.18 || 1;
+    const wtVals = wtDates.map(d => d.val);
+    const wtLabels2 = wtDates.map(d => d.date.slice(5));
     const datasets = [
       {
         label: `Weight (${goals.units})`,
-        data: wtDates.map(d => d.val),
+        data: wtVals,
         borderColor: '#C62828',
         backgroundColor: 'rgba(198,40,40,0.08)',
         fill: true, tension: 0.3, pointRadius: 4,
         pointBackgroundColor: '#C62828',
         borderWidth: 2.5,
         order: 1,
-      }
+      },
+      rollingDataset(wtLabels2, wtVals, 'rgba(183,28,28,0.6)', '7-day avg'),
     ];
     if (tw) {
       datasets.push({
@@ -2464,6 +2723,7 @@ function renderAnalytics() {
             order: 1,
             type: 'bar',
           },
+          { ...rollingDataset(stLabels, stDates.map(d=>d.val), 'rgba(27,94,32,0.8)', '7-day avg'), type: 'line' },
           ...(stGoalDs ? [{ ...stGoalDs, label: `Goal (${stepsGoalVal.toLocaleString()})`, type: 'line' }] : [])
         ]
       },
@@ -2999,7 +3259,7 @@ function renderWeeklySummaries() {
 function buildExportRows() {
   const keys = Object.keys(db).sort();
   const rows = [];
-  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Exercise','Water_1L+','Medicated','Items_Count','Notes','Items_Detail']);
+  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Exercise_Burn_Cal','Exercise','Water_1L+','Medicated','Items_Count','Notes','Items_Detail']);
   keys.forEach(key => {
     const day = db[key];
     if (!day) return;
@@ -3017,6 +3277,7 @@ function buildExportRows() {
       totFat.toFixed(1),
       totFibre.toFixed(1),
       day.steps || '',
+      day.burn  || '',
       day.exercise === true ? 'Yes' : day.exercise === false ? 'No' : '',
       day.water    === true ? 'Yes' : day.water    === false ? 'No' : '',
       day.meds     === true ? 'Yes' : day.meds     === false ? 'No' : '',

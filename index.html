@@ -787,6 +787,23 @@ a { color: inherit; text-decoration: none; }
         </div>
       </div>
 
+      <!-- water tracker -->
+      <div class="card">
+        <div class="card-title">💧 Water Today</div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">Did you drink more than 1 litre today?</div>
+        <div class="ex-toggle-wrap">
+          <button class="ex-btn" id="waterYesBtn" onclick="setWater(true)">✅ Yes<br><span style="font-size:11px;font-weight:400">1L+ done!</span></button>
+          <button class="ex-btn" id="waterNoBtn"  onclick="setWater(false)">❌ No<br><span style="font-size:11px;font-weight:400">Drink up!</span></button>
+        </div>
+        <div class="ex-month-counter" id="waterMonthCounter" style="background:linear-gradient(135deg,#0288D1 0%,#01579B 100%)">
+          <div class="emc-val" id="waterMonthCount">0</div>
+          <div class="emc-info">
+            <div class="emc-label" id="waterMonthLabel">hydrated days this month</div>
+            <div class="emc-sub" id="waterMonthSub">Stay hydrated!</div>
+          </div>
+        </div>
+      </div>
+
       <!-- goal settings -->
       <div class="card">
         <div class="card-title">Daily Goals</div>
@@ -1401,6 +1418,7 @@ function renderToday() {
   }
   // exercise toggle state
   renderExerciseUI();
+  renderWaterUI();
 
   // log
   const logEl = document.getElementById('todayLog');
@@ -1508,6 +1526,47 @@ function setExercise(done) {
   if (day.exercise === null)  showToast('Exercise cleared', '');
 }
 
+function setWater(done) {
+  const key = todayKey();
+  const day = getDay(key);
+  day.water = day.water === done ? null : done;
+  setDay(key, day);
+  renderWaterUI();
+  if (day.water === true)  showToast('Hydration goal hit! 💧', 'success');
+  if (day.water === false) showToast('Keep drinking — you can do it!', '');
+  if (day.water === null)  showToast('Water cleared', '');
+}
+
+function renderWaterUI() {
+  const key  = todayKey();
+  const day  = getDay(key);
+  const yBtn = document.getElementById('waterYesBtn');
+  const nBtn = document.getElementById('waterNoBtn');
+  if (!yBtn) return;
+  yBtn.className = 'ex-btn' + (day.water === true  ? ' sel-yes' : '');
+  nBtn.className = 'ex-btn' + (day.water === false ? ' sel-no'  : '');
+
+  // monthly counter
+  const now      = new Date();
+  const yr       = now.getFullYear();
+  const mo       = now.getMonth();
+  const monthName = now.toLocaleDateString('en-US', { month: 'long' });
+  let count = 0;
+  const dayOfMonth = now.getDate();
+  Object.keys(db).forEach(k => {
+    const d = new Date(k + 'T00:00:00');
+    if (d.getFullYear() === yr && d.getMonth() === mo && db[k].water === true) count++;
+  });
+  const pct = dayOfMonth > 0 ? Math.round(count / dayOfMonth * 100) : 0;
+  document.getElementById('waterMonthCount').textContent = count;
+  document.getElementById('waterMonthLabel').textContent = `hydrated days in ${monthName}`;
+  const sub = count === 0 ? 'Start today!' :
+              pct >= 80   ? '🌊 Great hydration habit!' :
+              pct >= 50   ? '👍 Good — aim for daily!' :
+                            '💡 Try to hit 1L every day!';
+  document.getElementById('waterMonthSub').textContent = sub;
+}
+
 function renderExerciseUI() {
   const key  = todayKey();
   const day  = getDay(key);
@@ -1606,6 +1665,8 @@ function renderCalendar() {
               ${day.steps ? `<div style="font-size:12px;color:var(--blue);font-weight:600">👟 ${day.steps.toLocaleString()}</div>` : ''}
               ${day.exercise === true  ? `<div style="font-size:12px;color:var(--green);font-weight:700">💪 Exercised</div>` : ''}
               ${day.exercise === false ? `<div style="font-size:11px;color:var(--text-3)">Rest day</div>` : ''}
+              ${day.water === true  ? `<div style="font-size:12px;color:#0288D1;font-weight:700">💧 Hydrated</div>` : ''}
+              ${day.water === false ? `<div style="font-size:11px;color:var(--text-3)">💧 Not enough</div>` : ''}
             </div>
           </div>
         </div>
@@ -2453,7 +2514,7 @@ function renderWeeklySummaries() {
     const sunDate  = new Date(monDate); sunDate.setDate(sunDate.getDate() + 6);
     const rangeStr = monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' – ' + sunDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
-    let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, exDays=0, daysLogged=0;
+    let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, exDays=0, waterDays=0, daysLogged=0;
     let wStart=null, wEnd=null;
     const sortedDays = days.slice().sort();
     sortedDays.forEach(k => {
@@ -2469,6 +2530,7 @@ function renderWeeklySummaries() {
       }
       if (d.steps) totSteps += d.steps;
       if (db[k].exercise === true) exDays++;
+      if (db[k].water    === true) waterDays++;
       if (d.weight) { if (!wStart) wStart = d.weight; wEnd = d.weight; }
     });
     if (!daysLogged && !totSteps) return;
@@ -2492,7 +2554,8 @@ function renderWeeklySummaries() {
         <div class="week-weight-row">
           <span>📅 ${daysLogged} day${daysLogged!==1?'s':''} logged</span>
           ${totSteps ? `<span>👟 ${totSteps.toLocaleString()} steps</span>` : ''}
-          ${exDays   ? `<span>💪 ${exDays} exercise day${exDays!==1?'s':''}</span>` : ''}
+          ${exDays    ? `<span>💪 ${exDays} exercise day${exDays!==1?'s':''}</span>` : ''}
+          ${waterDays ? `<span>💧 ${waterDays} hydrated day${waterDays!==1?'s':''}</span>` : ''}
           ${wDelta   ? `<span>⚖️ ${wDelta}</span>` : ''}
         </div>
       </div>`;
@@ -2503,7 +2566,7 @@ function renderWeeklySummaries() {
 function buildExportRows() {
   const keys = Object.keys(db).sort();
   const rows = [];
-  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Exercise','Items_Count','Notes','Items_Detail']);
+  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Exercise','Water_1L+','Items_Count','Notes','Items_Detail']);
   keys.forEach(key => {
     const day = db[key];
     if (!day) return;
@@ -2522,6 +2585,7 @@ function buildExportRows() {
       totFibre.toFixed(1),
       day.steps || '',
       day.exercise === true ? 'Yes' : day.exercise === false ? 'No' : '',
+      day.water    === true ? 'Yes' : day.water    === false ? 'No' : '',
       day.weight || '',
       goals.units,
       (day.items||[]).length,

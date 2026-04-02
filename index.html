@@ -411,6 +411,7 @@ a { color: inherit; text-decoration: none; }
 .cc-dot-ex   { background: var(--green); }
 .cc-dot-water{ background: #0288D1; }
 .cc-dot-food { background: var(--red); opacity: .6; }
+.cc-dot-meds { background: #7B1FA2; }
 .cc-dot-none { background: var(--border); }
 
 /* legend */
@@ -853,6 +854,23 @@ a { color: inherit; text-decoration: none; }
         </div>
       </div>
 
+      <!-- meds tracker -->
+      <div class="card">
+        <div class="card-title">💊 Medicated Today</div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">Meds &amp; supplements taken today?</div>
+        <div class="ex-toggle-wrap">
+          <button class="ex-btn" id="medsYesBtn" onclick="setMeds(true)">✅ Yes<br><span style="font-size:11px;font-weight:400">All taken!</span></button>
+          <button class="ex-btn" id="medsNoBtn"  onclick="setMeds(false)">❌ No<br><span style="font-size:11px;font-weight:400">Don't forget!</span></button>
+        </div>
+        <div class="ex-month-counter" id="medsMonthCounter" style="background:linear-gradient(135deg,#7B1FA2 0%,#4A148C 100%)">
+          <div class="emc-val" id="medsMonthCount">0</div>
+          <div class="emc-info">
+            <div class="emc-label" id="medsMonthLabel">medicated days this month</div>
+            <div class="emc-sub" id="medsMonthSub">Stay consistent!</div>
+          </div>
+        </div>
+      </div>
+
       <!-- goal settings -->
       <div class="card">
         <div class="card-title">Daily Goals</div>
@@ -928,7 +946,8 @@ a { color: inherit; text-decoration: none; }
         <div class="cal-legend">
           <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--green)"></div>Exercise</div>
           <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#0288D1"></div>Water 1L+</div>
-          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--red);opacity:.6"></div>Food logged</div>
+          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#7B1FA2"></div>Medicated</div>
+          <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--red);opacity:.6"></div>Food</div>
           <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--border)"></div>Nothing</div>
         </div>
         <div class="cal-month-summary" id="calMonthSummary"></div>
@@ -1495,6 +1514,7 @@ function renderToday() {
   // exercise toggle state
   renderExerciseUI();
   renderWaterUI();
+  renderMedsUI();
 
   // log
   const logEl = document.getElementById('todayLog');
@@ -1643,6 +1663,46 @@ function renderWaterUI() {
   document.getElementById('waterMonthSub').textContent = sub;
 }
 
+function setMeds(done) {
+  const key = todayKey();
+  const day = getDay(key);
+  day.meds = day.meds === done ? null : done;
+  setDay(key, day);
+  renderMedsUI();
+  if (day.meds === true)  showToast('Medicated! 💊 All done.', 'success');
+  if (day.meds === false) showToast("Don't forget your meds!", '');
+  if (day.meds === null)  showToast('Meds cleared', '');
+}
+
+function renderMedsUI() {
+  const key  = todayKey();
+  const day  = getDay(key);
+  const yBtn = document.getElementById('medsYesBtn');
+  const nBtn = document.getElementById('medsNoBtn');
+  if (!yBtn) return;
+  yBtn.className = 'ex-btn' + (day.meds === true  ? ' sel-yes' : '');
+  nBtn.className = 'ex-btn' + (day.meds === false ? ' sel-no'  : '');
+
+  const now       = new Date();
+  const yr        = now.getFullYear();
+  const mo        = now.getMonth();
+  const monthName = now.toLocaleDateString('en-US', { month: 'long' });
+  let count = 0;
+  const dayOfMonth = now.getDate();
+  Object.keys(db).forEach(k => {
+    const d = new Date(k + 'T00:00:00');
+    if (d.getFullYear() === yr && d.getMonth() === mo && db[k].meds === true) count++;
+  });
+  const pct = dayOfMonth > 0 ? Math.round(count / dayOfMonth * 100) : 0;
+  document.getElementById('medsMonthCount').textContent = count;
+  document.getElementById('medsMonthLabel').textContent = `medicated days in ${monthName}`;
+  const sub = count === 0 ? 'Start today!' :
+              pct >= 90   ? '🌟 Perfect consistency!' :
+              pct >= 70   ? '👍 Almost there — stay on track!' :
+                            '⚠️ Try not to miss a day!';
+  document.getElementById('medsMonthSub').textContent = sub;
+}
+
 function renderExerciseUI() {
   const key  = todayKey();
   const day  = getDay(key);
@@ -1710,7 +1770,7 @@ function renderCalGrid() {
   const startDow = (firstDay.getDay() + 6) % 7; // offset blanks
 
   // monthly summary counters
-  let exCount = 0, waterCount = 0, foodCount = 0;
+  let exCount = 0, waterCount = 0, foodCount = 0, medsCount = 0;
 
   // build cells
   let cells = '';
@@ -1728,19 +1788,22 @@ function renderCalGrid() {
     const hasFood  = (day.items||[]).length > 0;
     const hasEx    = day.exercise === true;
     const hasWater = day.water    === true;
-    const hasAny   = hasFood || hasEx || hasWater || day.weight;
+    const hasMeds  = day.meds     === true;
+    const hasAny   = hasFood || hasEx || hasWater || hasMeds || day.weight;
 
     if (hasEx)    exCount++;
     if (hasWater) waterCount++;
     if (hasFood)  foodCount++;
+    if (hasMeds)  medsCount++;
 
     // dot row
     let dots = '';
     if (!isFuture && hasAny) {
       if (hasEx)    dots += '<div class="cc-dot cc-dot-ex"></div>';
       if (hasWater) dots += '<div class="cc-dot cc-dot-water"></div>';
+      if (hasMeds)  dots += '<div class="cc-dot cc-dot-meds"></div>';
       if (hasFood)  dots += '<div class="cc-dot cc-dot-food"></div>';
-      if (!hasEx && !hasWater && !hasFood) dots += '<div class="cc-dot cc-dot-none"></div>';
+      if (!hasEx && !hasWater && !hasMeds && !hasFood) dots += '<div class="cc-dot cc-dot-none"></div>';
     }
 
     const cls = ['cal-cell', isToday ? 'is-today' : '', isFuture ? 'future' : ''].filter(Boolean).join(' ');
@@ -1761,15 +1824,15 @@ function renderCalGrid() {
   document.getElementById('calMonthSummary').innerHTML = `
     <div class="cms-tile">
       <div class="cms-val" style="color:var(--green)">${exCount}</div>
-      <div class="cms-lbl">💪 Exercise days</div>
+      <div class="cms-lbl">💪 Exercise</div>
     </div>
     <div class="cms-tile">
       <div class="cms-val" style="color:#0288D1">${waterCount}</div>
-      <div class="cms-lbl">💧 Hydrated days</div>
+      <div class="cms-lbl">💧 Hydrated</div>
     </div>
     <div class="cms-tile">
-      <div class="cms-val" style="color:var(--red)">${foodCount}</div>
-      <div class="cms-lbl">🍽️ Food logged</div>
+      <div class="cms-val" style="color:#7B1FA2">${medsCount}</div>
+      <div class="cms-lbl">💊 Medicated</div>
     </div>`;
 }
 
@@ -1826,6 +1889,8 @@ function renderCalendar() {
               ${day.exercise === false ? `<div style="font-size:11px;color:var(--text-3)">Rest day</div>` : ''}
               ${day.water === true  ? `<div style="font-size:12px;color:#0288D1;font-weight:700">💧 Hydrated</div>` : ''}
               ${day.water === false ? `<div style="font-size:11px;color:var(--text-3)">💧 Not enough</div>` : ''}
+              ${day.meds  === true  ? `<div style="font-size:12px;color:#7B1FA2;font-weight:700">💊 Medicated</div>` : ''}
+              ${day.meds  === false ? `<div style="font-size:11px;color:var(--text-3)">💊 Missed meds</div>` : ''}
             </div>
           </div>
         </div>
@@ -2675,7 +2740,7 @@ function renderWeeklySummaries() {
     const sunDate  = new Date(monDate); sunDate.setDate(sunDate.getDate() + 6);
     const rangeStr = monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' – ' + sunDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
-    let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, exDays=0, waterDays=0, daysLogged=0;
+    let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, exDays=0, waterDays=0, medsDays=0, daysLogged=0;
     let wStart=null, wEnd=null;
     const sortedDays = days.slice().sort();
     sortedDays.forEach(k => {
@@ -2692,6 +2757,7 @@ function renderWeeklySummaries() {
       if (d.steps) totSteps += d.steps;
       if (db[k].exercise === true) exDays++;
       if (db[k].water    === true) waterDays++;
+      if (db[k].meds     === true) medsDays++;
       if (d.weight) { if (!wStart) wStart = d.weight; wEnd = d.weight; }
     });
     if (!daysLogged && !totSteps) return;
@@ -2717,6 +2783,7 @@ function renderWeeklySummaries() {
           ${totSteps ? `<span>👟 ${totSteps.toLocaleString()} steps</span>` : ''}
           ${exDays    ? `<span>💪 ${exDays} exercise day${exDays!==1?'s':''}</span>` : ''}
           ${waterDays ? `<span>💧 ${waterDays} hydrated day${waterDays!==1?'s':''}</span>` : ''}
+          ${medsDays  ? `<span>💊 ${medsDays} medicated day${medsDays!==1?'s':''}</span>` : ''}
           ${wDelta   ? `<span>⚖️ ${wDelta}</span>` : ''}
         </div>
       </div>`;
@@ -2727,7 +2794,7 @@ function renderWeeklySummaries() {
 function buildExportRows() {
   const keys = Object.keys(db).sort();
   const rows = [];
-  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Exercise','Water_1L+','Items_Count','Notes','Items_Detail']);
+  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Weight','Weight_Unit','Exercise','Water_1L+','Medicated','Items_Count','Notes','Items_Detail']);
   keys.forEach(key => {
     const day = db[key];
     if (!day) return;
@@ -2747,6 +2814,7 @@ function buildExportRows() {
       day.steps || '',
       day.exercise === true ? 'Yes' : day.exercise === false ? 'No' : '',
       day.water    === true ? 'Yes' : day.water    === false ? 'No' : '',
+      day.meds     === true ? 'Yes' : day.meds     === false ? 'No' : '',
       day.weight || '',
       goals.units,
       (day.items||[]).length,

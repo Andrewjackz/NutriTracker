@@ -1214,8 +1214,8 @@ a { color: inherit; text-decoration: none; }
 
       <!-- Full 7×7 correlation heatmap -->
       <div class="chart-card" id="fullCorrCard">
-        <div class="card-title">Full 7 × 7 Correlation Matrix</div>
-        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Pearson r between every pair of variables (same-day, no lag). Diagonal = self (always 1.0). Colour intensity = strength.</div>
+        <div class="card-title">Full 9 × 9 Correlation Matrix</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Pearson r between every pair of variables. Weight = same-day. Δ Wt+1 = next morning's weight change (lagged). Diagonal = self. Colour intensity = strength.</div>
         <div class="full-corr-wrap" id="fullCorrMatrix"></div>
         <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;font-size:10px">
           <span style="background:#1B5E20;color:#fff;padding:2px 7px;border-radius:4px">≥0.7 strong +</span>
@@ -3021,7 +3021,7 @@ function renderAnalytics() {
 }
 
 /* ════════════════════════════════════════
-   FULL 7×7 CORRELATION MATRIX
+   FULL 9×9 CORRELATION MATRIX
 ════════════════════════════════════════ */
 function renderFullCorrMatrix() {
   const el = document.getElementById('fullCorrMatrix');
@@ -3030,15 +3030,35 @@ function renderFullCorrMatrix() {
   // Build daily data arrays — all same-day, all dates with at least calories logged
   const allKeys = Object.keys(db).sort();
 
+  // Build a weight lookup for fast next-day delta access
+  const weightLookup = {};
+  allKeys.forEach(k => { if (db[k]?.weight) weightLookup[k] = db[k].weight; });
+
+  // Next-day weight change: weight on the calendar day AFTER k minus weight on k
+  // We look for the next key in allKeys that has a weight logged
+  function nextDayWeightDelta(k) {
+    const idx = allKeys.indexOf(k);
+    if (idx < 0 || idx === allKeys.length - 1) return null;
+    // find the next key with weight logged
+    for (let i = idx + 1; i < allKeys.length; i++) {
+      if (db[allKeys[i]]?.weight && db[k]?.weight) {
+        return db[allKeys[i]].weight - db[k].weight;
+      }
+    }
+    return null;
+  }
+
   // Variable definitions — each returns a value or null for a given date key
   const vars = [
-    { short: 'Cal',     name: '🔥 Calories',    fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+i.calories,0)||0; return v>0?v:null; } },
-    { short: 'Carbs',   name: '🌾 Carbs',        fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+i.carbs_g,0)||0; return v>0?v:null; } },
-    { short: 'Prot',    name: '💪 Protein',      fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0; return v>0?v:null; } },
-    { short: 'Fat',     name: '🥑 Fat',          fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0; return v>0?v:null; } },
-    { short: 'Fibre',   name: '🥦 Fibre',        fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0; return v>0?v:null; } },
-    { short: 'Steps',   name: '👟 Steps',        fn: k => db[k]?.steps || null },
-    { short: 'Net Cal', name: '⚡ Net Cal',      fn: k => { const d=db[k]; const cal=d?.items?.reduce((s,i)=>s+i.calories,0)||0; if(!cal) return null; return cal - calcBurn(d?.steps, d?.weight, goals.units); } },
+    { short: 'Cal',      name: '🔥 Calories',        fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+i.calories,0)||0; return v>0?v:null; } },
+    { short: 'Carbs',    name: '🌾 Carbs',            fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+i.carbs_g,0)||0; return v>0?v:null; } },
+    { short: 'Prot',     name: '💪 Protein',          fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0; return v>0?v:null; } },
+    { short: 'Fat',      name: '🥑 Fat',              fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0; return v>0?v:null; } },
+    { short: 'Fibre',    name: '🥦 Fibre',            fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0; return v>0?v:null; } },
+    { short: 'Steps',    name: '👟 Steps',            fn: k => db[k]?.steps || null },
+    { short: 'Net Cal',  name: '⚡ Net Cal',          fn: k => { const d=db[k]; const cal=d?.items?.reduce((s,i)=>s+i.calories,0)||0; if(!cal) return null; return cal - calcBurn(d?.steps, d?.weight, goals.units); } },
+    { short: 'Weight',   name: '⚖️ Weight',           fn: k => db[k]?.weight || null },
+    { short: 'Δ Wt+1',  name: '📈 Next-day Δ Weight', fn: k => nextDayWeightDelta(k) },
   ];
 
   const N = vars.length;

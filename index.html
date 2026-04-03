@@ -1085,17 +1085,6 @@ a { color: inherit; text-decoration: none; }
       <div id="weeklySummaries"></div>
 
       <div class="chart-card">
-        <div class="card-title">Yesterday's Calories → Today's Weight Change</div>
-        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Each point plots the previous day's calories against that morning's weight change. The regression reveals your net-neutral calorie level.</div>
-        <canvas id="scatterChart" height="280"></canvas>
-        <div id="chartEmpty" class="empty-state" style="padding:24px 0 12px">
-          <div class="es-icon">📊</div>
-          Log at least 3 days with both calories and weight to see your scatter plot.
-        </div>
-      </div>
-      <div id="equationCard" class="equation-card" style="display:none;margin-bottom:14px"></div>
-
-      <div class="chart-card">
         <div class="card-title">Daily Calories — Trend</div>
         <canvas id="calTrendChart" height="200"></canvas>
       </div>
@@ -1156,12 +1145,6 @@ a { color: inherit; text-decoration: none; }
         <canvas id="netCalTrendChart" height="220"></canvas>
       </div>
 
-      <div class="chart-card" id="corrCard">
-        <div class="card-title">Correlation Matrix</div>
-        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Pearson r between each variable and your next-day weight change. Strong positive = more of this → weight up.</div>
-        <div id="corrMatrix"></div>
-      </div>
-
       <div class="chart-card">
         <div class="card-title">Weight vs Calories — Dual Axis</div>
         <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11.5px;font-weight:600">
@@ -1186,21 +1169,32 @@ a { color: inherit; text-decoration: none; }
         <canvas id="stWtChart" height="240"></canvas>
       </div>
 
-      <!-- Full 7×7 correlation heatmap -->
-      <div class="chart-card" id="fullCorrCard">
-        <div class="card-title">Full 9 × 9 Correlation Matrix</div>
-        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Pearson r between every pair of variables. Weight = same-day. Δ Wt+1 = next morning's weight change (lagged). Diagonal = self. Colour intensity = strength.</div>
-        <div class="full-corr-wrap" id="fullCorrMatrix"></div>
-        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;font-size:10px">
-          <span style="background:#1B5E20;color:#fff;padding:2px 7px;border-radius:4px">≥0.7 strong +</span>
-          <span style="background:#4CAF50;color:#fff;padding:2px 7px;border-radius:4px">0.4–0.7 mod +</span>
-          <span style="background:#C8E6C9;color:#2E7D32;padding:2px 7px;border-radius:4px">0.2–0.4 weak +</span>
-          <span style="background:var(--surface2);color:var(--text-3);padding:2px 7px;border-radius:4px;border:1px solid var(--border)">neutral</span>
-          <span style="background:#FFECB3;color:#E65100;padding:2px 7px;border-radius:4px">weak −</span>
-          <span style="background:#FF8F00;color:#fff;padding:2px 7px;border-radius:4px">mod −</span>
-          <span style="background:#B71C1C;color:#fff;padding:2px 7px;border-radius:4px">≤−0.7 strong −</span>
+
+      <!-- Regression scatter charts grouped together -->
+      <div class="chart-card">
+        <div class="card-title">Yesterday's Calories → Today's Weight Change</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Each point plots the previous day's calories against that morning's weight change. The regression reveals your net-neutral calorie level.</div>
+        <canvas id="scatterChart" height="280"></canvas>
+        <div id="chartEmpty" class="empty-state" style="padding:24px 0 12px">
+          <div class="es-icon">📊</div>
+          Log at least 3 days with both calories and weight to see your scatter plot.
         </div>
       </div>
+      <div id="equationCard" class="equation-card" style="display:none;margin-bottom:14px"></div>
+
+      <!-- Exercise burn vs next-day weight change -->
+      <div class="chart-card">
+        <div class="card-title">Exercise Burn → Next Day Weight Change</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">
+          Yesterday's estimated exercise calorie burn (from steps) vs this morning's weight change. Shows whether more activity directly drives weight reduction the next day.
+        </div>
+        <canvas id="burnScatterChart" height="280"></canvas>
+        <div id="burnChartEmpty" class="empty-state" style="padding:24px 0 12px">
+          <div class="es-icon">👟</div>
+          Log at least 3 days with steps and weight to see this chart.
+        </div>
+      </div>
+      <div id="burnEqCard" class="equation-card" style="display:none;margin-bottom:14px"></div>
 
       <!-- Personal net-cal regression — at the end for Andrew -->
       <div class="chart-card">
@@ -1216,19 +1210,28 @@ a { color: inherit; text-decoration: none; }
       </div>
       <div id="netEqCard2" class="equation-card" style="display:none;margin-bottom:14px"></div>
 
-      <!-- Exercise burn vs next-day weight change -->
-      <div class="chart-card">
-        <div class="card-title">Exercise Burn → Next Day Weight Change</div>
-        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">
-          Yesterday's estimated exercise calorie burn (from steps) vs this morning's weight change. Shows whether more activity directly drives weight reduction the next day.
-        </div>
-        <canvas id="burnScatterChart" height="280"></canvas>
-        <div id="burnChartEmpty" class="empty-state" style="padding:24px 0 12px">
-          <div class="es-icon">👟</div>
-          Log at least 3 days with steps and weight to see this chart.
+      <!-- Correlation matrices -->
+      <div class="chart-card" id="corrCard">
+        <div class="card-title">Correlation Matrix</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Pearson r between each variable and your next-day weight change. Strong positive = more of this → weight up.</div>
+        <div id="corrMatrix"></div>
+      </div>
+
+      <!-- Full 7×7 correlation heatmap -->
+      <div class="chart-card" id="fullCorrCard">
+        <div class="card-title">Full 9 × 9 Correlation Matrix</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Pearson r between every pair of variables. Weight = same-day. Δ Wt+1 = next morning's weight change (lagged). Diagonal = self. Colour intensity = strength.</div>
+        <div class="full-corr-wrap" id="fullCorrMatrix"></div>
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;font-size:10px">
+          <span style="background:#1B5E20;color:#fff;padding:2px 7px;border-radius:4px">≥0.7 strong +</span>
+          <span style="background:#4CAF50;color:#fff;padding:2px 7px;border-radius:4px">0.4–0.7 mod +</span>
+          <span style="background:#C8E6C9;color:#2E7D32;padding:2px 7px;border-radius:4px">0.2–0.4 weak +</span>
+          <span style="background:var(--surface2);color:var(--text-3);padding:2px 7px;border-radius:4px;border:1px solid var(--border)">neutral</span>
+          <span style="background:#FFECB3;color:#E65100;padding:2px 7px;border-radius:4px">weak −</span>
+          <span style="background:#FF8F00;color:#fff;padding:2px 7px;border-radius:4px">mod −</span>
+          <span style="background:#B71C1C;color:#fff;padding:2px 7px;border-radius:4px">≤−0.7 strong −</span>
         </div>
       </div>
-      <div id="burnEqCard" class="equation-card" style="display:none;margin-bottom:14px"></div>
 
       <!-- Formula note -->
       <div class="card" style="margin-bottom:14px;border-color:var(--blue-mid)">

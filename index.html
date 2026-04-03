@@ -803,12 +803,12 @@ a { color: inherit; text-decoration: none; }
 
       <div id="resultEl" style="display:none"></div>
 
-      <div class="sec-label">Recent Searches</div>
-      <div class="history-wrap" id="searchHistory"></div>
-
       <div class="sec-label">Meal Templates</div>
       <div style="font-size:12px;color:var(--text-3);margin-bottom:8px">Save a search result as a template for quick re-logging.</div>
       <div class="history-wrap" id="templatesWrap"></div>
+
+      <div class="sec-label">Recent Searches</div>
+      <div class="history-wrap" id="searchHistory"></div>
     </div>
 
     <!-- ── SCREEN: TODAY ── -->
@@ -1059,8 +1059,6 @@ a { color: inherit; text-decoration: none; }
 
     <!-- ── SCREEN: ANALYTICS ── -->
     <div class="screen" id="screen-analytics">
-      <div id="equationCard" class="equation-card" style="display:none"></div>
-
       <div class="stat-grid" id="analyticsStats">
         <div class="stat-tile"><div class="stv" id="statDays">—</div><div class="stl">Days Logged</div></div>
         <div class="stat-tile"><div class="stv" id="statAvgCal">—</div><div class="stl">Avg Cals</div></div>
@@ -1086,31 +1084,6 @@ a { color: inherit; text-decoration: none; }
       <div class="sec-label" style="color:#fff;opacity:0;height:0;margin:0"></div>
       <div id="weeklySummaries"></div>
 
-      <!-- Backup & Restore -->
-      <div class="card" style="margin-bottom:14px;border-color:#FFE0B2">
-        <div class="card-title" style="color:var(--yellow)">💾 Backup & Restore</div>
-        <p style="font-size:13px;color:var(--text-2);margin-bottom:6px;line-height:1.5">Full backup of all your data — food logs, weights, steps, notes and settings. Use this when changing phones.</p>
-        <div id="lastBackupInfo" style="font-size:12px;color:var(--text-3);margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <button class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--yellow);color:#fff;box-shadow:0 4px 14px rgba(249,168,37,.3)" onclick="exportJSON()">⬇ Backup JSON</button>
-          <label class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--surface2);color:var(--blue);border:1.5px solid var(--blue);text-align:center;cursor:pointer;margin:0">
-            ⬆ Restore JSON
-            <input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
-          </label>
-        </div>
-        <p style="font-size:11.5px;color:var(--text-3);line-height:1.5">💡 Tip: save the backup file to iCloud Drive so it's always accessible.</p>
-      </div>
-
-      <!-- Export -->
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-title">Export Data</div>
-        <p style="font-size:13px;color:var(--text-2);margin-bottom:12px;line-height:1.5">Download all your logged data as a spreadsheet. One row per day with totals for calories, carbs, protein, fat and steps.</p>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" style="flex:1;padding:12px;font-size:14px" onclick="exportCSV()">⬇ CSV</button>
-          <button class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--green);color:#fff;box-shadow:0 4px 14px rgba(46,125,50,.3)" onclick="exportExcel()">⬇ Excel</button>
-        </div>
-      </div>
-
       <div class="chart-card">
         <div class="card-title">Yesterday's Calories → Today's Weight Change</div>
         <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Each point plots the previous day's calories against that morning's weight change. The regression reveals your net-neutral calorie level.</div>
@@ -1120,6 +1093,7 @@ a { color: inherit; text-decoration: none; }
           Log at least 3 days with both calories and weight to see your scatter plot.
         </div>
       </div>
+      <div id="equationCard" class="equation-card" style="display:none;margin-bottom:14px"></div>
 
       <div class="chart-card">
         <div class="card-title">Daily Calories — Trend</div>
@@ -1229,7 +1203,6 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <!-- Personal net-cal regression — at the end for Andrew -->
-      <div id="netEqCard2" class="equation-card" style="display:none;margin-top:4px"></div>
       <div class="chart-card">
         <div class="card-title">Net Calories → Next Day Weight Change</div>
         <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">
@@ -1241,6 +1214,7 @@ a { color: inherit; text-decoration: none; }
           Log at least 3 days with calories, steps and weight to see this chart.
         </div>
       </div>
+      <div id="netEqCard2" class="equation-card" style="display:none;margin-bottom:14px"></div>
     </div>
   </div><!-- /screens -->
 
@@ -1269,17 +1243,41 @@ a { color: inherit; text-decoration: none; }
   </nav>
 </div><!-- /app -->
 
-<!-- ════ API KEY MODAL ════ -->
+<!-- ════ SETTINGS MODAL ════ -->
 <div class="overlay" id="apiOverlay">
-  <div class="sheet">
+  <div class="sheet" style="max-height:88vh;overflow-y:auto">
     <div class="sheet-handle"></div>
-    <h2>🔑 Anthropic API Key</h2>
-    <p>Your key is stored locally on this device only — never sent anywhere except directly to Anthropic's API for food lookups.</p>
-    <div class="sheet-label">API KEY</div>
-    <input class="inp" type="password" id="apiKeyInput" placeholder="sk-ant-…" style="margin-bottom:14px">
-    <button class="btn btn-primary" onclick="saveApiKey()">Save & Continue</button>
-    <div style="margin-top:10px;text-align:center;font-size:12px;color:var(--text-3)">
+    <h2>⚙️ Settings</h2>
+
+    <div class="sheet-label" style="margin-bottom:6px">🔑 ANTHROPIC API KEY</div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:10px">Your key is stored locally on this device only — never sent anywhere except directly to Anthropic's API for food lookups.</p>
+    <input class="inp" type="password" id="apiKeyInput" placeholder="sk-ant-…" style="margin-bottom:10px">
+    <button class="btn btn-primary" onclick="saveApiKey()" style="margin-bottom:18px">Save API Key</button>
+    <div style="margin-bottom:18px;text-align:center;font-size:12px;color:var(--text-3)">
       Get a key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--blue);font-weight:600">console.anthropic.com</a>
+    </div>
+
+    <div style="border-top:1.5px solid var(--border);margin-bottom:16px"></div>
+
+    <div class="sheet-label" style="margin-bottom:6px">💾 BACKUP & RESTORE</div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:6px;line-height:1.5">Full backup of all your data — food logs, weights, steps, notes and settings. Use this when changing phones.</p>
+    <div id="lastBackupInfo" style="font-size:12px;color:var(--text-3);margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--yellow);color:#fff;box-shadow:0 4px 14px rgba(249,168,37,.3)" onclick="exportJSON()">⬇ Backup JSON</button>
+      <label class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--surface2);color:var(--blue);border:1.5px solid var(--blue);text-align:center;cursor:pointer;margin:0">
+        ⬆ Restore JSON
+        <input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
+      </label>
+    </div>
+    <p style="font-size:11.5px;color:var(--text-3);line-height:1.5;margin-bottom:18px">💡 Tip: save the backup file to iCloud Drive so it's always accessible.</p>
+
+    <div style="border-top:1.5px solid var(--border);margin-bottom:16px"></div>
+
+    <div class="sheet-label" style="margin-bottom:6px">📊 EXPORT DATA</div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:10px;line-height:1.5">Download all your logged data as a spreadsheet. One row per day with totals for all macros, steps, exercise, water and meds.</p>
+    <div style="display:flex;gap:8px;padding-bottom:8px">
+      <button class="btn btn-primary" style="flex:1;padding:12px;font-size:14px" onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--green);color:#fff;box-shadow:0 4px 14px rgba(46,125,50,.3)" onclick="exportExcel()">⬇ Excel</button>
     </div>
   </div>
 </div>
@@ -1403,6 +1401,7 @@ function showApiModal() {
   const k = localStorage.getItem(API_KEY) || '';
   document.getElementById('apiKeyInput').value = k;
   document.getElementById('apiOverlay').classList.remove('hidden');
+  updateLastBackupInfo();
 }
 function saveApiKey() {
   const v = document.getElementById('apiKeyInput').value.trim();

@@ -669,6 +669,27 @@ a { color: inherit; text-decoration: none; }
   font-size: 18px; padding: 0 2px; flex-shrink: 0; line-height: 1;
 }
 
+/* ── sunscreen reminder banner ── */
+.sunscreen-banner {
+  background: linear-gradient(135deg, #FF8F00 0%, #F57F17 100%);
+  color: #fff;
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 4px 16px rgba(245,127,23,.35);
+  flex-shrink: 0;
+  animation: slideDown .4s cubic-bezier(.22,1,.36,1);
+}
+.sunscreen-banner .sb-icon { font-size: 28px; flex-shrink: 0; }
+.sunscreen-banner .sb-text { flex: 1; }
+.sunscreen-banner .sb-title { font-size: 15px; font-weight: 800; line-height: 1.2; }
+.sunscreen-banner .sb-sub   { font-size: 11.5px; opacity: .85; margin-top: 2px; }
+.sunscreen-banner .sb-close {
+  background: rgba(255,255,255,.25); border: 1.5px solid rgba(255,255,255,.4);
+  color: #fff; width: 32px; height: 32px; border-radius: 50%;
+  font-size: 18px; line-height: 1; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
 /* ── meal templates ── */
 .tmpl-chip {
   display: inline-flex; align-items: center; gap: 6px;
@@ -771,6 +792,16 @@ a { color: inherit; text-decoration: none; }
     </p>
     <button class="backup-now-btn" onclick="exportJSON()">Back up now</button>
     <button class="backup-dismiss" onclick="dismissBackupBanner()" title="Dismiss">×</button>
+  </div>
+
+  <!-- ════ SUNSCREEN REMINDER ════ -->
+  <div class="sunscreen-banner" id="sunscreenBanner" style="display:none">
+    <div class="sb-icon">☀️</div>
+    <div class="sb-text">
+      <div class="sb-title">Don't forget your sunscreen!</div>
+      <div class="sb-sub">Apply SPF before heading out — your future self will thank you.</div>
+    </div>
+    <button class="sb-close" onclick="dismissSunscreen()">×</button>
   </div>
 
   <!-- ════ SCREENS ════ -->
@@ -1484,6 +1515,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderToday();
   renderCalendar();
   checkBackupReminder();
+  checkSunscreen();
 });
 
 /* ════════════════════════════════════════
@@ -4166,6 +4198,40 @@ This will REPLACE all current data.`)) return;
     event.target.value = ''; // reset file input
   };
   reader.readAsText(file);
+}
+
+/* ════════════════════════════════════════
+   SUNSCREEN REMINDER
+════════════════════════════════════════ */
+const SUNSCREEN_KEY = 'nt_sunscreen';
+
+function checkSunscreen() {
+  const now  = new Date();
+  const hour = now.getHours();
+  const min  = now.getMinutes();
+  // Only show after 08:30
+  if (hour < 8 || (hour === 8 && min < 30)) return;
+
+  const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const lastShown = localStorage.getItem(SUNSCREEN_KEY);
+
+  // Show once per day — if already dismissed today, don't show again
+  if (lastShown === todayStr) return;
+
+  const banner = document.getElementById('sunscreenBanner');
+  if (banner) banner.style.display = 'flex';
+}
+
+function dismissSunscreen() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  localStorage.setItem(SUNSCREEN_KEY, todayStr);
+  const banner = document.getElementById('sunscreenBanner');
+  if (banner) {
+    banner.style.transition = 'opacity .3s, transform .3s';
+    banner.style.opacity    = '0';
+    banner.style.transform  = 'translateY(-100%)';
+    setTimeout(() => { banner.style.display = 'none'; }, 320);
+  }
 }
 
 /* ════════════════════════════════════════

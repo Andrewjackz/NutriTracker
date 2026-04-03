@@ -900,6 +900,22 @@ a { color: inherit; text-decoration: none; }
           <input class="inp" id="stepsInput" type="number" inputmode="numeric" placeholder="Steps today" autocomplete="off" style="flex:1">
           <button class="weight-save-btn" style="background:var(--blue)" onclick="saveSteps()">Save ✓</button>
         </div>
+        <div style="border-top:1px solid var(--border);margin:10px 0 8px"></div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">🏃 Running (optional)</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:4px" id="runDistLabel">Distance (km)</div>
+            <input class="inp" id="runKmInput" type="text" inputmode="decimal" placeholder="e.g. 5.2" autocomplete="off" oninput="this.value=this.value.replace(',','.');" style="padding:10px">
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:4px" id="runPaceLabel">Pace (min/km)</div>
+            <input class="inp" id="runPaceInput" type="text" inputmode="decimal" placeholder="e.g. 5.30" autocomplete="off" oninput="this.value=this.value.replace(',','.');" style="padding:10px">
+          </div>
+          <div style="flex:0 0 auto;align-self:flex-end">
+            <button class="weight-save-btn" style="background:#7B1FA2" onclick="saveRun()">Save ✓</button>
+          </div>
+        </div>
+        <div id="savedRunDisplay" style="display:none;margin-bottom:6px;font-size:13px;color:#7B1FA2;font-weight:600"></div>
         <div id="savedWeightDisplay" style="display:none;margin-top:8px;font-size:13px;color:var(--green);font-weight:600"></div>
         <div id="savedStepsDisplay" style="display:none;margin-top:4px;font-size:13px;color:var(--blue);font-weight:600"></div>
         <div id="netCalDisplay" style="display:none;margin-top:6px"></div>
@@ -1140,6 +1156,24 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <div class="chart-card">
+        <div class="card-title">Running — Distance &amp; Pace Trend</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px">Bars = distance · Line = pace (lower = faster). Only days with a run logged.</div>
+        <div id="runChartEmpty" class="empty-state" style="padding:20px 0 8px;display:none">
+          <div class="es-icon">🏃</div>Log at least 2 runs to see the trend.
+        </div>
+        <canvas id="runTrendChart" height="220"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Burn Split — Running vs Walking</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px;line-height:1.5">Daily calorie burn stacked by source. Purple = running (MET 9.8) · Blue = walking (MET 3.8). Only days with steps or a run logged.</div>
+        <div id="burnSplitEmpty" class="empty-state" style="padding:20px 0 8px;display:none">
+          <div class="es-icon">🔥</div>Log steps or runs to see your burn split.
+        </div>
+        <canvas id="burnSplitChart" height="220"></canvas>
+      </div>
+
+      <div class="chart-card">
         <div class="card-title">Calories Consumed vs Net Calories</div>
         <div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px;line-height:1.5">Blue bars = calories consumed · Red/green line = net calories (consumed − estimated walk burn using MET formula × your logged weight). Above zero = surplus, below = deficit.</div>
         <canvas id="netCalTrendChart" height="220"></canvas>
@@ -1237,15 +1271,15 @@ a { color: inherit; text-decoration: none; }
       <div class="card" style="margin-bottom:14px;border-color:var(--blue-mid)">
         <div class="card-title" style="color:var(--blue)">📐 Exercise Burn Formula</div>
         <div style="font-size:13px;color:var(--text-2);line-height:1.7">
-          <strong>Formula:</strong> kcal = steps × 0.00057 × weight_kg<br>
-          <strong>Derivation:</strong> Based on MET (Metabolic Equivalent of Task) for brisk walking (MET = 3.8).<br>
-          MET formula: <em>kcal = MET × weight_kg × duration_hours</em><br>
-          Duration estimated as: steps ÷ 100 steps/min ÷ 60 min/hr<br>
-          Simplified: <em>kcal = 3.8 × weight_kg × (steps / 6000)</em> = <em>steps × 0.000633 × weight_kg</em><br>
-          Adjusted constant 0.00057 accounts for partial overhead and average stride variation.<br><br>
-          <strong>Example:</strong> 10,000 steps at 85 kg → 10,000 × 0.00057 × 85 = <strong>485 kcal</strong><br>
+          <strong>Total Burn = Running Burn + Walking Burn</strong><br><br>
+          <strong>🏃 Running burn:</strong> kcal = 9.8 × weight_kg × (km × pace_min_per_km ÷ 60)<br>
+          Based on MET = 9.8 for running. Running steps estimated at 900 steps/km.<br>
+          Example: 5 km @ 5:30 pace, 85 kg → 9.8 × 85 × (5 × 5.5 ÷ 60) = <strong>381 kcal</strong><br><br>
+          <strong>👟 Walking burn:</strong> kcal = (total steps − run steps) × 0.00057 × weight_kg<br>
+          Based on MET = 3.8 for brisk walking (100 steps/min).<br>
+          Example: 12,000 total steps, 4,500 run steps → 7,500 × 0.00057 × 85 = <strong>363 kcal</strong><br><br>
           <strong>Weight used:</strong> Same-day logged weight. Falls back to 80 kg if no weight recorded.<br><br>
-          <span style="font-size:11.5px;color:var(--text-3)">Note: This is an estimate. Actual burn varies with fitness level, terrain, pace and individual metabolism. Use as a directional guide, not a precise measurement.</span>
+          <span style="font-size:11.5px;color:var(--text-3)">Note: These are estimates. Actual burn varies with fitness level, terrain, running efficiency and individual metabolism. Use as a directional guide, not a precise measurement.</span>
         </div>
       </div>
     </div>
@@ -1343,25 +1377,44 @@ const TMPL_KEY    = 'nt_templates';
 let db       = loadDB();
 let goals    = loadGoals();
 
-// Brisk walk calorie burn: MET=3.8, kcal = MET × weight_kg × hours
-// steps → hours: ~100 steps/min brisk → steps/100/60 hrs
-// Simplified: kcal = steps × 0.00057 × weight_kg
-// Falls back to 0.04 kcal/step if no weight logged
-function calcBurn(steps, weightInUnits, units) {
-  if (!steps) return 0;
-  let weightKg;
-  if (weightInUnits) {
-    weightKg = units === 'kg' ? weightInUnits : weightInUnits / 2.205;
-  } else {
-    weightKg = 80; // fallback ~176 lbs
+// Calorie burn calculation — splits running and walking
+// Running:  MET=9.8, kcal = 9.8 × weight_kg × duration_hrs
+//           duration = km × pace_min_per_km / 60
+//           running steps ≈ km × 900
+// Walking:  remaining steps × 0.00057 × weight_kg (MET=3.8 derived)
+// Falls back to 80kg if no weight logged
+function calcBurn(steps, weightInUnits, units, runKm, runPaceMin) {
+  const weightKg = weightInUnits
+    ? (units === 'kg' ? weightInUnits : weightInUnits / 2.205)
+    : 80;
+
+  let runBurn = 0;
+  let runSteps = 0;
+  if (runKm && runKm > 0 && runPaceMin && runPaceMin > 0) {
+    const durationHrs = runKm * runPaceMin / 60;
+    runBurn  = Math.round(9.8 * weightKg * durationHrs);
+    runSteps = Math.round(runKm * 900);
   }
-  return Math.round(steps * 0.00057 * weightKg);
+
+  const walkSteps = Math.max(0, (steps || 0) - runSteps);
+  const walkBurn  = Math.round(walkSteps * 0.00057 * weightKg);
+
+  return runBurn + walkBurn;
+}
+
+// Helper: just the running portion of burn
+function calcRunBurn(runKm, runPaceMin, weightInUnits, units) {
+  if (!runKm || !runPaceMin || runKm <= 0 || runPaceMin <= 0) return 0;
+  const weightKg = weightInUnits
+    ? (units === 'kg' ? weightInUnits : weightInUnits / 2.205)
+    : 80;
+  return Math.round(9.8 * weightKg * (runKm * runPaceMin / 60));
 }
 let activeTab = 'search';
 let calMonth = new Date();
 let currentResult = null;
 let selectedMealType = 'Breakfast';
-let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null, macroSplitChartInst = null, netCalTrendInst = null, netScatterChartInst = null, burnScatterChartInst = null;
+let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null, macroSplitChartInst = null, netCalTrendInst = null, netScatterChartInst = null, burnScatterChartInst = null, runTrendChartInst = null, burnSplitChartInst = null;
 
 function loadDB() {
   try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; }
@@ -1383,6 +1436,12 @@ function saveGoals() {
   goals.targetWeight = parseFloat(twRaw) || null;
   localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
   document.getElementById('weightUnit').textContent = goals.units;
+  // update run distance/pace labels based on units
+  const isKm = goals.distUnit !== 'miles';
+  const distLbl = document.getElementById('runDistLabel');
+  const paceLbl = document.getElementById('runPaceLabel');
+  if (distLbl) distLbl.textContent = isKm ? 'Distance (km)' : 'Distance (miles)';
+  if (paceLbl) paceLbl.textContent = isKm ? 'Pace (min/km)' : 'Pace (min/mile)';
   renderToday();
 }
 
@@ -1841,6 +1900,23 @@ function saveSteps() {
   renderToday();
 }
 
+function saveRun() {
+  const kmRaw   = document.getElementById('runKmInput').value.replace(',','.');
+  const paceRaw = document.getElementById('runPaceInput').value.replace(',','.');
+  const km   = parseFloat(kmRaw);
+  const pace = parseFloat(paceRaw);
+  if (!km || km <= 0) { showToast('Enter a valid distance', 'error'); return; }
+  if (!pace || pace <= 0) { showToast('Enter a valid pace (min/km)', 'error'); return; }
+  const key = todayKey();
+  const day = getDay(key);
+  day.runKm   = km;
+  day.runPace = pace;
+  setDay(key, day);
+  const distUnit = goals.distUnit !== 'miles' ? 'km' : 'mi';
+  showToast(`Run saved: ${km}${distUnit} @ ${pace} min/${distUnit} 🏃`, 'success');
+  renderToday();
+}
+
 let notesSaveTimer = null;
 function autoSaveNotes() {
   clearTimeout(notesSaveTimer);
@@ -2193,6 +2269,8 @@ function renderAnalytics() {
   renderBMI();
   renderWeeklySummaries();
   renderStreaks();
+  renderRunTrend();
+  renderBurnSplit();
   renderNetScatter();
   renderFullCorrMatrix();
   renderBurnScatter();
@@ -2217,7 +2295,7 @@ function renderAnalytics() {
     const totProtein = d.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0;
     const totFat     = d.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0;
     const totFibre   = d.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0;
-    const burn        = calcBurn(d.steps, d.weight, goals.units);
+    const burn        = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
     const netCal     = totCal > 0 ? totCal - burn : null;
     if (totCal > 0) {
       calSeries.push({ date: k, cal: totCal, carb: totCarb, protein: totProtein, fat: totFat, fibre: totFibre });
@@ -2402,7 +2480,7 @@ function renderAnalytics() {
     const consumed   = ncDates30.map(d => d.cal);
     const netVals    = ncDates30.map(d => {
       const dayD = db[d.date];
-      const burn = calcBurn(dayD?.steps, dayD?.weight, goals.units);
+      const burn = calcBurn(dayD?.steps, dayD?.weight, goals.units, dayD?.runKm, dayD?.runPace);
       return d.cal - burn;
     });
     netCalTrendInst = new Chart(document.getElementById('netCalTrendChart'), {
@@ -2503,7 +2581,7 @@ function renderAnalytics() {
     { name: '🥑 Fat (g)',       vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+(it.fat_g||0),0)||null; }) },
     { name: '🥦 Fibre (g)',     vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+(it.fibre_g||it.fiber_g||0),0)||null; }) },
     { name: '👟 Steps',         vals: wKeys.slice(1).map((_,i) => db[wKeys[i]]?.steps||null) },
-    { name: '🔥 Net Cal',       vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; const cal=d?.items?.reduce((s,it)=>s+it.calories,0)||0; const burn=calcBurn(d?.steps,d?.weight,goals.units); return cal>0?cal-burn:null; }) },
+    { name: '🔥 Net Cal',       vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; const cal=d?.items?.reduce((s,it)=>s+it.calories,0)||0; const burn=calcBurn(d?.steps,d?.weight,goals.units,d?.runKm,d?.runPace); return cal>0?cal-burn:null; }) },
   ];
   const deltaY = wKeys.slice(1).map((k,i) => weightSeries[k] - weightSeries[wKeys[i]]);
 
@@ -3054,6 +3132,197 @@ function renderAnalytics() {
 }
 
 /* ════════════════════════════════════════
+   BURN SPLIT — RUNNING vs WALKING
+════════════════════════════════════════ */
+function renderBurnSplit() {
+  if (burnSplitChartInst) { burnSplitChartInst.destroy(); burnSplitChartInst = null; }
+  const splitEmpty  = document.getElementById('burnSplitEmpty');
+  const splitCanvas = document.getElementById('burnSplitChart');
+  if (!splitCanvas) return;
+
+  const allKeys = Object.keys(db).sort();
+
+  // Build series: days that have steps or a run
+  const splitDays = allKeys
+    .filter(k => db[k]?.steps || db[k]?.runKm)
+    .slice(-30)
+    .map(k => {
+      const d = db[k];
+      const weightKg = d.weight
+        ? (goals.units === 'kg' ? d.weight : d.weight / 2.205)
+        : 80;
+
+      // Running burn
+      let runBurn = 0;
+      let runSteps = 0;
+      if (d.runKm && d.runPace && d.runKm > 0 && d.runPace > 0) {
+        const durationHrs = d.runKm * d.runPace / 60;
+        runBurn  = Math.round(9.8 * weightKg * durationHrs);
+        runSteps = Math.round(d.runKm * 900);
+      }
+
+      // Walking burn — remaining steps
+      const walkSteps = Math.max(0, (d.steps || 0) - runSteps);
+      const walkBurn  = Math.round(walkSteps * 0.00057 * weightKg);
+
+      return {
+        date:     k.slice(5),
+        runBurn,
+        walkBurn,
+        total:    runBurn + walkBurn,
+      };
+    })
+    .filter(d => d.total > 0);
+
+  if (splitDays.length < 2) {
+    splitEmpty.style.display  = 'block';
+    splitCanvas.style.display = 'none';
+    return;
+  }
+  splitEmpty.style.display  = 'none';
+  splitCanvas.style.display = 'block';
+
+  burnSplitChartInst = new Chart(splitCanvas, {
+    type: 'bar',
+    data: {
+      labels: splitDays.map(d => d.date),
+      datasets: [
+        {
+          label: '🏃 Running',
+          data: splitDays.map(d => d.runBurn),
+          backgroundColor: 'rgba(123,31,162,0.75)',
+          borderRadius: 0,
+          stack: 'burn',
+        },
+        {
+          label: '👟 Walking',
+          data: splitDays.map(d => d.walkBurn),
+          backgroundColor: 'rgba(21,101,192,0.6)',
+          borderRadius: 5,
+          stack: 'burn',
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          labels: { boxWidth: 12, font: { size: 11 }, color: 'var(--text-3)' }
+        },
+        tooltip: {
+          callbacks: {
+            footer: items => {
+              const total = items.reduce((s, i) => s + i.raw, 0);
+              return `Total: ${Math.round(total)} kcal`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, ticks: { maxTicksLimit: 8 }, grid: { display: false } },
+        y: {
+          stacked: true,
+          grid: { color: '#E3F2FD' },
+          title: { display: true, text: 'kcal burned', font: { size: 11 }, color: 'var(--text-3)' }
+        }
+      }
+    }
+  });
+}
+
+/* ════════════════════════════════════════
+   RUNNING TREND CHART
+════════════════════════════════════════ */
+function renderRunTrend() {
+  if (runTrendChartInst) { runTrendChartInst.destroy(); runTrendChartInst = null, burnSplitChartInst = null; }
+  const runEmpty  = document.getElementById('runChartEmpty');
+  const runCanvas = document.getElementById('runTrendChart');
+  if (!runCanvas) return;
+
+  const allKeys = Object.keys(db).sort();
+  const runDays = allKeys
+    .filter(k => db[k]?.runKm && db[k]?.runPace)
+    .slice(-30)
+    .map(k => ({ date: k.slice(5), km: db[k].runKm, pace: db[k].runPace }));
+
+  if (runDays.length < 2) {
+    runEmpty.style.display  = 'block';
+    runCanvas.style.display = 'none';
+    return;
+  }
+  runEmpty.style.display  = 'none';
+  runCanvas.style.display = 'block';
+
+  const distUnit = goals.distUnit !== 'miles' ? 'km' : 'mi';
+  const paceUnit = goals.distUnit !== 'miles' ? 'min/km' : 'min/mi';
+
+  runTrendChartInst = new Chart(runCanvas, {
+    type: 'bar',
+    data: {
+      labels: runDays.map(d => d.date),
+      datasets: [
+        {
+          label: `Distance (${distUnit})`,
+          data: runDays.map(d => d.km),
+          backgroundColor: 'rgba(123,31,162,0.55)',
+          borderRadius: 5,
+          order: 2,
+          type: 'bar',
+          yAxisID: 'yDist',
+        },
+        {
+          label: `Pace (${paceUnit})`,
+          data: runDays.map(d => d.pace),
+          borderColor: '#F9A825',
+          backgroundColor: 'transparent',
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointBackgroundColor: '#F9A825',
+          fill: false,
+          tension: 0.3,
+          type: 'line',
+          order: 1,
+          yAxisID: 'yPace',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { boxWidth: 12, font: { size: 11 }, color: 'var(--text-3)' } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.dataset.label?.includes('Pace')) return `Pace: ${ctx.raw} ${paceUnit}`;
+              return `Distance: ${ctx.raw} ${distUnit}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8 }, grid: { display: false } },
+        yDist: {
+          type: 'linear', position: 'left',
+          grid: { color: '#E8D5F5' },
+          ticks: { color: '#7B1FA2' },
+          title: { display: true, text: `Distance (${distUnit})`, color: '#7B1FA2', font: { size: 11 } }
+        },
+        yPace: {
+          type: 'linear', position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#F9A825' },
+          title: { display: true, text: `Pace (${paceUnit})`, color: '#F9A825', font: { size: 11 } },
+          reverse: true // lower pace = faster, show at top
+        }
+      }
+    }
+  });
+}
+
+/* ════════════════════════════════════════
    EXERCISE BURN SCATTER — BURN vs Δ WEIGHT
 ════════════════════════════════════════ */
 function renderBurnScatter() {
@@ -3065,7 +3334,7 @@ function renderBurnScatter() {
     const d = db[k];
     if (d.weight) wSeries3[k] = d.weight;
     if (d.steps) {
-      burnByDate[k] = calcBurn(d.steps, d.weight, goals.units);
+      burnByDate[k] = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
     }
   });
 
@@ -3191,7 +3460,7 @@ function renderBurnScatter() {
   } else {
     eqCard3.style.display = 'none';
     chartEmpty3.style.display = 'block';
-    if (burnScatterChartInst) { burnScatterChartInst.destroy(); burnScatterChartInst = null; }
+    if (burnScatterChartInst) { burnScatterChartInst.destroy(); burnScatterChartInst = null, runTrendChartInst = null, burnSplitChartInst = null; }
   }
 }
 
@@ -3798,7 +4067,7 @@ function renderWeeklySummaries() {
 function buildExportRows() {
   const keys = Object.keys(db).sort();
   const rows = [];
-  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Est_Burn_Cal','Net_Cal','Weight','Weight_Unit','Exercise','Water_1L+','Medicated','Items_Count','Notes','Items_Detail']);
+  rows.push(['Date','Calories','Carbs_g','Protein_g','Fat_g','Fibre_g','Steps','Run_Dist','Run_Pace','Est_Burn_Cal','Net_Cal','Weight','Weight_Unit','Exercise','Water_1L+','Medicated','Items_Count','Notes','Items_Detail']);
   keys.forEach(key => {
     const day = db[key];
     if (!day) return;
@@ -3816,7 +4085,9 @@ function buildExportRows() {
       totFat.toFixed(1),
       totFibre.toFixed(1),
       day.steps || '',
-      day.steps ? calcBurn(day.steps, day.weight, goals.units) : '',
+      day.runKm || '',
+      day.runPace || '',
+      (day.steps || day.runKm) ? calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace) : '',
       (() => { const cal=(day.items||[]).reduce((s,i)=>s+i.calories,0); const burn=calcBurn(day.steps,day.weight,goals.units); return cal>0?cal-burn:''; })(),
       day.exercise === true ? 'Yes' : day.exercise === false ? 'No' : '',
       day.water    === true ? 'Yes' : day.water    === false ? 'No' : '',

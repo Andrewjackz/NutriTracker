@@ -3117,7 +3117,7 @@ function renderBurnScatter() {
       <div class="eq-stats">
         <div class="eq-stat"><div class="es-val">R² ${r23.toFixed(3)}</div><div class="es-lbl">Fit Quality</div></div>
         <div class="eq-stat"><div class="es-val">${n3}</div><div class="es-lbl">Points</div></div>
-        <div class="eq-stat"><div class="es-val">${neutralBurn ? neutralBurn.toLocaleString() : '—'}</div><div class="es-lbl">Neutral Burn Cal</div></div>
+        <div class="eq-stat"><div class="es-val">${neutralBurn ? neutralBurn.toLocaleString() : '—'}</div><div class="es-lbl">Neutral Burn Cal${neutralSteps ? '<br><span style="font-size:9px;opacity:.75">(~' + neutralSteps.toLocaleString() + ' steps)</span>' : ''}</div></div>
       </div>
       ${neutralBurn && neutralBurn > 0 && neutralBurn < 5000 ? `
       <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.15);border-radius:10px;font-size:12.5px;line-height:1.6">

@@ -2067,7 +2067,7 @@ function renderCalendar() {
   const maxCarb = Math.max(...Object.values(db).map(d => d.items?.reduce((s,i)=>s+i.carbs_g,0)||0), goals.carbGoal);
 
   let html = '';
-  for (let d = lastDay.getDate(); d >= 1; d--) {
+  for (let d = 1; d <= lastDay.getDate(); d++) {
     const date = new Date(calYear, calMonthIdx, d);
     const key  = isoDate(date);
     const day  = getDay(key);

@@ -1824,12 +1824,27 @@ function renderToday() {
   } else {
     sd.style.display = 'none';
   }
+  // run display — keep values in inputs and show confirmation line
+  const runDisp = document.getElementById('savedRunDisplay');
+  if (day.runKm) {
+    const distUnit = goals.distUnit !== 'miles' ? 'km' : 'mi';
+    document.getElementById('runKmInput').value   = day.runKm;
+    document.getElementById('runPaceInput').value = day.runPace || '';
+    if (runDisp) {
+      runDisp.style.display = 'block';
+      runDisp.textContent   = `🏃 ${day.runKm} ${distUnit} @ ${day.runPace} min/${distUnit}`;
+    }
+  } else {
+    if (runDisp) runDisp.style.display = 'none';
+  }
   // auto-calculate burn from steps using weight-adjusted MET formula
   const nd = document.getElementById('netCalDisplay');
-  if (day.steps && totCal > 0) {
-    const burn = calcBurn(day.steps, day.weight, goals.units);
+  if ((day.steps || day.runKm) && totCal > 0) {
+    const burn = calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace);
     const net  = totCal - burn;
     const weightNote = day.weight ? `${day.weight} ${goals.units}` : 'est. 80kg';
+    const distUnit   = goals.distUnit !== 'miles' ? 'km' : 'mi';
+    const runNote    = day.runKm ? ` · 🏃 ${day.runKm}${distUnit}` : '';
     if (nd) {
       nd.style.display = 'block';
       const cls = net > 200 ? 'positive' : net < -200 ? 'negative' : 'neutral';
@@ -1837,7 +1852,7 @@ function renderToday() {
       nd.innerHTML = `<div class="net-cal-banner ${cls}">
         <div>
           <span style="font-weight:700;font-size:13px">${lbl}</span>
-          <div style="font-size:11px;opacity:.75">🔥 ${burn} cal burned · ${day.steps.toLocaleString()} steps · ${weightNote}</div>
+          <div style="font-size:11px;opacity:.75">🔥 ${burn} cal burned · ${(day.steps||0).toLocaleString()} steps${runNote} · ${weightNote}</div>
         </div>
         <span style="font-size:16px;font-weight:800">${net > 0 ? '+' : ''}${net} net</span>
       </div>`;

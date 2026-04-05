@@ -1639,69 +1639,14 @@ a { color: inherit; text-decoration: none; }
       <div id="settingsDataStats" style="text-align:right;font-size:11px;color:var(--text-3);line-height:1.6"></div>
     </div>
 
-    <!-- changelog -->
-    <div style="display:flex;flex-direction:column;gap:1px">
-
-      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm) var(--r-sm) 0 0;padding:11px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.6</span>
-          <span style="font-size:10.5px;color:var(--text-3)">Apr 2026</span>
-        </div>
-        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
-          📷 Photo food search via Claude Vision · 📦 Barcode scan (photo-based, Open Food Facts + Claude fallback) · 🧮 Personal weight model with OLS regression &amp; stable weight matrix · 🔥 Running burn split from walking burn (stacked chart) · 🏃 Run distance &amp; pace logging with MET 9.8 formula
-        </div>
+    <!-- current version detail only -->
+    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:12px 14px">
+      <div style="font-size:12px;color:var(--text-2);line-height:1.7">
+        <strong>Search:</strong> Text · Photo (Claude Vision) · Barcode (photo → Claude reads code → Open Food Facts)<br>
+        <strong>Today:</strong> Macros + rings · Weight · Steps · Run (km + pace + MET burn) · Exercise · Water · Meds · Notes · Net cal<br>
+        <strong>Calendar:</strong> Monthly grid (exercise/water/meds/food dots) · Day list · Day detail modal<br>
+        <strong>Analytics:</strong> Streaks · BMI · Weekly summaries · 15 charts incl. burn split, running trend, dual-axis · Lagged scatter regressions (calories, burn, net cal) → Δweight · 9×9 correlation matrix · OLS personal weight model · Stable weight matrix
       </div>
-
-      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;padding:11px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.5</span>
-          <span style="font-size:10.5px;color:var(--text-3)">Mar 2026</span>
-        </div>
-        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
-          🧪 Full 9×9 correlation matrix · 📉 Three lagged scatter regressions (calories, burn, net cal) → next-day Δweight · ⚡ Net calories = consumed − weight-adjusted walk burn · 🍽️ Meal templates · 7-day rolling averages on all trend charts · Goal target lines
-        </div>
-      </div>
-
-      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;padding:11px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.4</span>
-          <span style="font-size:10.5px;color:var(--text-3)">Feb 2026</span>
-        </div>
-        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
-          🔥 Streak counters (exercise, hydration, meds, food) · 💊 Medicated yes/no tracker · 📅 Monthly calendar grid with coloured dots · 🏃 Running input (km + pace) added to Today tab · BMI tracker with colour-coded scale
-        </div>
-      </div>
-
-      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;padding:11px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.3</span>
-          <span style="font-size:10.5px;color:var(--text-3)">Jan 2026</span>
-        </div>
-        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
-          📊 Analytics tab: 11 charts incl. dual-axis, macro split doughnut, weight trend · Weekly summaries · Correlation matrix (variables vs Δweight) · Backup &amp; restore JSON · CSV + Excel export
-        </div>
-      </div>
-
-      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;padding:11px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.2</span>
-          <span style="font-size:10.5px;color:var(--text-3)">Dec 2025</span>
-        </div>
-        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
-          💧 Water tracker · 💪 Exercise yes/no with monthly counter · 📝 Daily notes · 👟 Steps logging · 🔥 Calorie progress rings · Net cal banner with surplus/deficit indicator
-        </div>
-      </div>
-
-      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;border-radius:0 0 var(--r-sm) var(--r-sm);padding:11px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:13px;font-weight:700;color:var(--text)">v1.0</span>
-          <span style="font-size:10.5px;color:var(--text-3)">Nov 2025</span>
-        </div>
-        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
-          🎉 Initial release · Claude AI food search · Macro logging (cal, carbs, protein, fat, fibre) · Meal types · Weight logging · Calendar view · Today tab with macro totals
-        </div>
-      </div>
-
     </div>
 
     <div style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:var(--r-sm);text-align:center">
@@ -2033,6 +1978,24 @@ function clearBarcodePhoto() {
   document.getElementById('barcodeFileInput').value = '';
 }
 
+// Resize image to max 1280px wide, return base64 jpeg
+function resizeImageForAPI(dataUrl, maxW) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.width);
+      const w = Math.round(img.width  * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = dataUrl;
+  });
+}
+
 async function doBarcodeSearch() {
   if (!barcodePhotoDataUrl) return;
   const apiKey = localStorage.getItem(API_KEY);
@@ -2048,11 +2011,12 @@ async function doBarcodeSearch() {
   document.getElementById('resultEl').style.display = 'none';
 
   try {
-    // Step 1: Claude Vision reads the barcode number from the photo
-    const base64    = barcodePhotoDataUrl.split(',')[1];
-    const mimeMatch = barcodePhotoDataUrl.match(/data:([^;]+);/);
-    const mediaType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    // Resize image before sending (iPhone photos are 3-5MB — too large for API)
+    const resized   = await resizeImageForAPI(barcodePhotoDataUrl, 1280);
+    const base64    = resized.split(',')[1];
+    const mediaType = 'image/jpeg';
 
+    // Step 1: Claude Vision reads the barcode number from the photo
     const visionResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -2063,22 +2027,34 @@ async function doBarcodeSearch() {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 100,
+        max_tokens: 150,
         messages: [{
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-            { type: 'text', text: 'Read the barcode number in this image. Reply with ONLY the numeric barcode digits, nothing else. If you cannot read a barcode, reply with "NONE".' }
+            { type: 'text', text: 'Read the barcode number visible in this image. Reply with ONLY the barcode digits and spaces/hyphens as printed, nothing else. Example reply: 0 09542 44793 9. If you cannot see a barcode, reply with exactly: NONE' }
           ]
         }]
       })
     });
 
+    if (!visionResp.ok) {
+      const errData = await visionResp.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `API error ${visionResp.status}`);
+    }
+
     const visionData = await visionResp.json();
-    const rawCode    = (visionData.content?.[0]?.text || '').trim().replace(/\D/g, '');
+    const rawText    = (visionData.content?.[0]?.text || '').trim();
+
+    if (!rawText || rawText.toUpperCase() === 'NONE') {
+      throw new Error('No barcode found in photo — try a closer, clearer shot with good lighting');
+    }
+
+    // Strip everything except digits
+    const rawCode = rawText.replace(/\D/g, '');
 
     if (!rawCode || rawCode.length < 6) {
-      throw new Error('Could not read a barcode from this photo — try a clearer, closer shot');
+      throw new Error(`Could not extract barcode digits from: "${rawText}"`);
     }
 
     const barcode = rawCode;
@@ -2087,11 +2063,17 @@ async function doBarcodeSearch() {
     document.getElementById('thinkingTxt').textContent = 'Looking up product…';
 
     // Step 2: Open Food Facts lookup
-    const offResp = await fetch(
-      `https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=product_name,nutriments,serving_size,product_quantity`,
-      { headers: { 'User-Agent': 'NutriTrack/1.0' } }
-    );
-    const offData = await offResp.json();
+    let offData = { status: 0 };
+    try {
+      const offResp = await fetch(
+        `https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=product_name,nutriments,serving_size,product_quantity`,
+        { headers: { 'User-Agent': 'NutriTrack/1.0' }, signal: AbortSignal.timeout(8000) }
+      );
+      if (offResp.ok) offData = await offResp.json();
+    } catch(offErr) {
+      // OFF unreachable — skip to Claude fallback
+      console.log('OFF lookup failed:', offErr.message);
+    }
 
     if (offData.status === 1 && offData.product) {
       const p  = offData.product;
@@ -2116,7 +2098,7 @@ async function doBarcodeSearch() {
     }
 
     // Step 3: Claude fallback if not in OFF
-    document.getElementById('thinkingTxt').textContent = 'Not in database — asking Claude…';
+    document.getElementById('thinkingTxt').textContent = 'Looking up barcode ' + barcode + ' with Claude…';
     const clResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -2132,15 +2114,19 @@ async function doBarcodeSearch() {
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-            { type: 'text', text: 'This product has barcode ' + barcode + '. Identify the product from the barcode and any visible packaging, then estimate nutrition per standard serving. Respond ONLY with valid JSON: {"food":"Name (serving)","qty_g":100,"qty_label":"1 serving","calories":150,"carbs_g":20,"protein_g":5,"fat_g":4,"fiber_g":1,"notes":"Source and confidence note"}' }
+            { type: 'text', text: 'The barcode number is ' + barcode + '. Using the barcode number and any visible packaging text in this image, identify the exact product and provide nutrition per standard serving. Respond ONLY with valid JSON — no markdown, no extra text: {"food":"Product name (serving)","qty_g":100,"qty_label":"1 serving","calories":150,"carbs_g":20,"protein_g":5,"fat_g":4,"fiber_g":1,"notes":"Product identification and confidence note"}' }
           ]
         }]
       })
     });
+    if (!clResp.ok) {
+      const errData = await clResp.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `Claude API error ${clResp.status}`);
+    }
     const clData  = await clResp.json();
     const raw     = clData.content?.[0]?.text || '';
     const match   = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Could not identify product from barcode');
+    if (!match) throw new Error('Claude could not identify product from barcode ' + barcode);
     const result  = JSON.parse(match[0]);
     currentResult = result;
     addToHistory('📦 ' + result.food);

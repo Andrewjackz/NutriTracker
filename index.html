@@ -800,6 +800,57 @@ a { color: inherit; text-decoration: none; }
 .sw-gain-2  { background: #FF8F00; color: #fff; }
 .sw-gain-3  { background: #B71C1C; color: #fff; }
 .sw-na      { background: var(--surface2); color: var(--text-3); }
+
+/* ── search mode toggle ── */
+.search-mode-toggle { display: flex; gap: 0; margin-bottom: 14px; border-radius: var(--r-sm); overflow: hidden; border: 1.5px solid var(--border); }
+.smt-btn {
+  flex: 1; padding: 10px 8px; border: none; background: var(--surface2);
+  color: var(--text-2); font-size: 13.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; transition: all .15s;
+}
+.smt-btn.active { background: var(--blue); color: #fff; }
+.smt-btn:first-child { border-right: 1px solid var(--border); }
+
+/* ── photo capture area ── */
+.photo-capture-wrap { display: none; }
+.photo-capture-wrap.active { display: block; }
+.photo-drop-zone {
+  border: 2.5px dashed var(--blue-mid); border-radius: var(--r);
+  background: var(--blue-lt); padding: 28px 16px; text-align: center;
+  cursor: pointer; transition: border-color .2s, background .2s;
+  position: relative; overflow: hidden;
+}
+.photo-drop-zone:active { background: var(--blue-mid); border-color: var(--blue); }
+.photo-drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.photo-drop-zone .pdz-icon { font-size: 40px; margin-bottom: 8px; }
+.photo-drop-zone .pdz-title { font-size: 15px; font-weight: 700; color: var(--blue); margin-bottom: 4px; }
+.photo-drop-zone .pdz-sub { font-size: 12.5px; color: var(--text-2); }
+.photo-preview-wrap {
+  position: relative; margin-top: 12px; border-radius: var(--r);
+  overflow: hidden; background: var(--surface); border: 1.5px solid var(--border);
+  display: none;
+}
+.photo-preview-wrap img { width: 100%; max-height: 260px; object-fit: cover; display: block; }
+.photo-preview-wrap .photo-clear-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(13,27,62,.6); color: #fff; border: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.photo-analyse-btn {
+  width: 100%; margin-top: 12px; padding: 14px;
+  background: var(--blue); color: #fff; border: none; border-radius: var(--r-sm);
+  font-size: 15px; font-weight: 700; box-shadow: 0 4px 14px rgba(21,101,192,.3);
+  transition: opacity .15s, transform .15s; display: none;
+}
+.photo-analyse-btn.visible { display: block; }
+.photo-analyse-btn:active { opacity: .85; transform: scale(.98); }
+
+/* text search wrap */
+.text-search-wrap { display: block; }
+.text-search-wrap.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -850,17 +901,20 @@ a { color: inherit; text-decoration: none; }
 
     <!-- ── SCREEN: SEARCH ── -->
     <div class="screen active" id="screen-search">
-      <div class="search-bar-wrap">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input class="inp" id="foodSearchInput" type="text" placeholder="e.g. 200g grilled chicken…"
-          autocomplete="off" autocorrect="off" spellcheck="false"
-          onkeydown="if(event.key==='Enter'){doSearch()}">
-        <button class="search-go-btn" onclick="doSearch()">Go</button>
+
+      <!-- mode toggle -->
+      <div class="search-mode-toggle">
+        <button class="smt-btn active" id="smtText" onclick="setSearchMode('text')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Text Search
+        </button>
+        <button class="smt-btn" id="smtPhoto" onclick="setSearchMode('photo')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Photo
+        </button>
       </div>
 
-      <!-- meal type -->
+      <!-- meal type (shared) -->
       <div class="meal-type-row" id="mealTypeSel">
         <button class="meal-type-btn sel" data-mt="Breakfast" onclick="selectMealType(this)">🌅 Breakfast</button>
         <button class="meal-type-btn" data-mt="Lunch" onclick="selectMealType(this)">☀️ Lunch</button>
@@ -868,9 +922,44 @@ a { color: inherit; text-decoration: none; }
         <button class="meal-type-btn" data-mt="Snack" onclick="selectMealType(this)">🍎 Snack</button>
       </div>
 
+      <!-- ── TEXT SEARCH ── -->
+      <div class="text-search-wrap" id="textSearchWrap">
+        <div class="search-bar-wrap">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input class="inp" id="foodSearchInput" type="text" placeholder="e.g. 200g grilled chicken…"
+            autocomplete="off" autocorrect="off" spellcheck="false"
+            onkeydown="if(event.key==='Enter'){doSearch()}">
+          <button class="search-go-btn" onclick="doSearch()">Go</button>
+        </div>
+      </div>
+
+      <!-- ── PHOTO SEARCH ── -->
+      <div class="photo-capture-wrap" id="photoSearchWrap">
+        <div class="photo-drop-zone" id="photoDropZone">
+          <input type="file" accept="image/*" capture="environment" id="photoFileInput" onchange="onPhotoSelected(event)">
+          <div class="pdz-icon">📷</div>
+          <div class="pdz-title">Take a photo or choose from library</div>
+          <div class="pdz-sub">Point your camera at the food — Claude will identify it and estimate the nutrition</div>
+        </div>
+        <div class="photo-preview-wrap" id="photoPreviewWrap">
+          <img id="photoPreviewImg" src="" alt="Food photo">
+          <button class="photo-clear-btn" onclick="clearPhoto()">×</button>
+        </div>
+        <button class="photo-analyse-btn" id="photoAnalyseBtn" onclick="doPhotoSearch()">
+          🔍 Analyse Nutrition
+        </button>
+        <div style="margin-top:8px;font-size:11.5px;color:var(--text-3);text-align:center;line-height:1.5">
+          You can also add a quantity hint below the photo — e.g. "large bowl" or "200g"
+        </div>
+        <input class="inp" id="photoHintInput" type="text" placeholder="Optional: quantity hint (e.g. large bowl, 200g…)" autocomplete="off" style="margin-top:8px;display:none">
+      </div>
+
+      <!-- shared: thinking + result -->
       <div id="thinkingEl" class="thinking" style="display:none">
         <div class="thinking-dots"><span></span><span></span><span></span></div>
-        <span class="t-txt">Looking up nutrition data…</span>
+        <span class="t-txt" id="thinkingTxt">Looking up nutrition data…</span>
       </div>
 
       <div id="resultEl" style="display:none"></div>
@@ -879,7 +968,7 @@ a { color: inherit; text-decoration: none; }
       <div style="font-size:12px;color:var(--text-3);margin-bottom:8px">Save a search result as a template for quick re-logging.</div>
       <div class="history-wrap" id="templatesWrap"></div>
 
-      <div class="sec-label">Recent Searches</div>
+      <div class="sec-label" id="recentSearchesLabel">Recent Searches</div>
       <div class="history-wrap" id="searchHistory"></div>
     </div>
 
@@ -1712,6 +1801,134 @@ Respond ONLY with valid JSON like this, no markdown, no extra text:
     showToast('Error: ' + e.message, 'error');
   } finally {
     document.getElementById('thinkingEl').style.display = 'none';
+  }
+}
+
+/* ════════════════════════════════════════
+   SEARCH MODE TOGGLE
+════════════════════════════════════════ */
+let searchMode = 'text';
+let photoDataUrl = null;
+
+function setSearchMode(mode) {
+  searchMode = mode;
+  document.getElementById('smtText').classList.toggle('active', mode === 'text');
+  document.getElementById('smtPhoto').classList.toggle('active', mode === 'photo');
+  document.getElementById('textSearchWrap').classList.toggle('hidden', mode !== 'text');
+  document.getElementById('photoSearchWrap').classList.toggle('active', mode === 'photo');
+  document.getElementById('recentSearchesLabel').style.display = mode === 'text' ? '' : 'none';
+  document.getElementById('searchHistory').style.display = mode === 'text' ? '' : 'none';
+  // hide result when switching
+  document.getElementById('resultEl').style.display = 'none';
+  document.getElementById('thinkingEl').style.display = 'none';
+}
+
+function onPhotoSelected(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    photoDataUrl = e.target.result; // full data URL
+    const img = document.getElementById('photoPreviewImg');
+    img.src = photoDataUrl;
+    document.getElementById('photoPreviewWrap').style.display = 'block';
+    document.getElementById('photoDropZone').style.display = 'none';
+    document.getElementById('photoAnalyseBtn').classList.add('visible');
+    document.getElementById('photoHintInput').style.display = 'block';
+    document.getElementById('resultEl').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearPhoto() {
+  photoDataUrl = null;
+  document.getElementById('photoPreviewWrap').style.display = 'none';
+  document.getElementById('photoDropZone').style.display = 'block';
+  document.getElementById('photoAnalyseBtn').classList.remove('visible');
+  document.getElementById('photoHintInput').style.display = 'none';
+  document.getElementById('photoHintInput').value = '';
+  document.getElementById('photoFileInput').value = '';
+  document.getElementById('resultEl').style.display = 'none';
+}
+
+async function doPhotoSearch() {
+  if (!photoDataUrl) { showToast('Please select a photo first', 'error'); return; }
+  const apiKey = localStorage.getItem(API_KEY);
+  if (!apiKey) { showApiModal(); return; }
+
+  const hint = document.getElementById('photoHintInput').value.trim();
+  const hintText = hint ? ` The user says: "${hint}".` : '';
+
+  document.getElementById('thinkingEl').style.display = 'flex';
+  document.getElementById('thinkingTxt').textContent = 'Analysing photo…';
+  document.getElementById('resultEl').style.display = 'none';
+
+  try {
+    // Extract base64 from data URL
+    const base64 = photoDataUrl.split(',')[1];
+    const mimeMatch = photoDataUrl.match(/data:([^;]+);/);
+    const mediaType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+    const prompt = `You are a precise nutrition database. Identify the food(s) in this image and estimate the nutrition.${hintText}
+If multiple foods are visible, identify the main/most prominent item.
+Use visual cues (plate size, utensils, packaging) to estimate portion size.
+
+Respond ONLY with valid JSON like this, no markdown, no extra text:
+{
+  "food": "Food name (estimated qty)",
+  "qty_g": 150,
+  "qty_label": "1 medium serving (est.)",
+  "calories": 320,
+  "carbs_g": 28,
+  "protein_g": 22,
+  "fat_g": 12,
+  "fiber_g": 3,
+  "notes": "Brief insight and confidence note about the identification"
+}`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mediaType, data: base64 }
+            },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${resp.status}`);
+    }
+
+    const data  = await resp.json();
+    const raw   = data.content?.[0]?.text || '';
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Could not parse nutrition data from photo');
+    const result = JSON.parse(match[0]);
+
+    currentResult = result;
+    addToHistory('📷 ' + result.food);
+    renderResult(result);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    document.getElementById('thinkingEl').style.display = 'none';
+    document.getElementById('thinkingTxt').textContent = 'Looking up nutrition data…';
   }
 }
 

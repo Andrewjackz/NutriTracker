@@ -759,6 +759,47 @@ a { color: inherit; text-decoration: none; }
 .corr-mn  { background: #FF8F00; color: #fff; }    /* mod neg */
 .corr-sn  { background: #B71C1C; color: #fff; }    /* strong neg ≤-0.7 */
 .corr-na  { background: var(--surface2); color: var(--text-3); font-weight: 400; } /* not enough data */
+
+/* ── weight model section ── */
+.model-toggle-btn {
+  width: 100%; padding: 16px 20px; border-radius: var(--r);
+  background: linear-gradient(135deg, #0D47A1 0%, #1565C0 100%);
+  color: #fff; font-size: 15px; font-weight: 700; border: none;
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: var(--shadow-lg); cursor: pointer; margin-bottom: 0;
+  transition: opacity .15s;
+}
+.model-toggle-btn:active { opacity: .88; }
+.model-toggle-btn .mtb-icon { font-size: 22px; }
+.model-toggle-btn .mtb-chevron { font-size: 18px; transition: transform .3s; }
+.model-toggle-btn.open .mtb-chevron { transform: rotate(180deg); }
+.model-section { display: none; margin-top: 0; }
+.model-section.open { display: block; }
+
+/* model coefficient table */
+.model-coeff-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.model-coeff-table th { font-size: 10px; font-weight: 700; color: var(--text-3); padding: 5px 8px; text-align: left; border-bottom: 1.5px solid var(--border); text-transform: uppercase; letter-spacing: 0.5px; }
+.model-coeff-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+.model-coeff-table tr:last-child td { border-bottom: none; }
+.coeff-pos { color: var(--red); font-weight: 700; }
+.coeff-neg { color: var(--green); font-weight: 700; }
+.coeff-neut { color: var(--text-3); font-weight: 600; }
+
+/* stable weight matrix */
+.sw-matrix-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
+.sw-matrix { border-collapse: collapse; font-size: 11px; min-width: 100%; }
+.sw-matrix th.sw-corner { background: var(--surface2); }
+.sw-matrix th.sw-col-hdr { font-size: 9.5px; font-weight: 700; color: var(--text-2); padding: 5px 4px; text-align: center; border-bottom: 1.5px solid var(--border); white-space: nowrap; min-width: 52px; }
+.sw-matrix td.sw-row-lbl { font-size: 10px; font-weight: 700; color: var(--text-2); padding: 5px 8px 5px 4px; white-space: nowrap; position: sticky; left: 0; background: var(--surface); border-right: 1.5px solid var(--border); z-index: 1; }
+.sw-matrix td.sw-cell { padding: 3px; text-align: center; }
+.sw-cell-inner { border-radius: 6px; padding: 5px 3px; font-size: 10.5px; font-weight: 700; line-height: 1.2; display: block; }
+.sw-loss-2  { background: #1B5E20; color: #fff; }
+.sw-loss-1  { background: #4CAF50; color: #fff; }
+.sw-stable  { background: #C8E6C9; color: #1B5E20; border: 1.5px solid #4CAF50; }
+.sw-gain-1  { background: #FFECB3; color: #E65100; }
+.sw-gain-2  { background: #FF8F00; color: #fff; }
+.sw-gain-3  { background: #B71C1C; color: #fff; }
+.sw-na      { background: var(--surface2); color: var(--text-3); }
 </style>
 </head>
 <body>
@@ -1311,6 +1352,49 @@ a { color: inherit; text-decoration: none; }
           Example: 12,000 total steps, 4,500 run steps → 7,500 × 0.00057 × 85 = <strong>363 kcal</strong><br><br>
           <strong>Weight used:</strong> Same-day logged weight. Falls back to 80 kg if no weight recorded.<br><br>
           <span style="font-size:11.5px;color:var(--text-3)">Note: These are estimates. Actual burn varies with fitness level, terrain, running efficiency and individual metabolism. Use as a directional guide, not a precise measurement.</span>
+        </div>
+      </div>
+
+      <!-- ════ WEIGHT MODEL — collapsible ════ -->
+      <button class="model-toggle-btn" id="modelToggleBtn" onclick="toggleWeightModel()">
+        <span class="mtb-icon">🧮</span>
+        <span style="flex:1;text-align:left;margin-left:12px">
+          Personal Weight Model
+          <span style="display:block;font-size:11px;font-weight:400;opacity:.8;margin-top:2px">Multi-variable regression + stable weight matrix</span>
+        </span>
+        <span class="mtb-chevron">▼</span>
+      </button>
+
+      <div class="model-section" id="modelSection">
+        <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);padding:16px;margin-bottom:14px">
+
+          <div id="modelEmpty" class="empty-state" style="padding:20px 0;display:none">
+            <div class="es-icon">🧮</div>
+            Need at least 10 days with weight, calories and steps to build the model.
+          </div>
+
+          <!-- Model summary card -->
+          <div id="modelSummaryCard" style="display:none">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Model Summary</div>
+            <div id="modelSummaryStats" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Variable Coefficients <span style="font-weight:400;text-transform:none;letter-spacing:0">(effect on next-day Δ weight)</span></div>
+            <div id="modelCoeffWrap"></div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.6">
+              Red = this variable tends to increase weight · Green = tends to decrease weight<br>
+              All variables lagged 1 day. Only statistically informative variables shown (|t| &gt; 1).
+            </div>
+          </div>
+
+          <div style="margin-top:16px;border-top:1.5px solid var(--border);padding-top:14px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">⚖️ Stable Weight Matrix</div>
+            <div style="font-size:12px;color:var(--text-2);margin-bottom:10px;line-height:1.5">
+              Predicted next-day weight change by activity level and calorie intake — based on your personal regression model.
+              <strong style="color:var(--green)">Green = weight loss</strong> · <span style="color:var(--text-2)">Light green = stable</span> · <strong style="color:var(--red)">Red = weight gain</strong>
+            </div>
+            <div id="stableMatrixEmpty" style="display:none;font-size:13px;color:var(--text-3);padding:12px 0">Build the model first (need 10+ days of data).</div>
+            <div class="sw-matrix-wrap" id="stableMatrixWrap" style="display:none"></div>
+            <div id="stableMatrixNote" style="display:none;font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.6"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -3510,6 +3594,305 @@ function renderBurnScatter() {
     chartEmpty3.style.display = 'block';
     if (burnScatterChartInst) { burnScatterChartInst.destroy(); burnScatterChartInst = null, runTrendChartInst = null, burnSplitChartInst = null; }
   }
+}
+
+/* ════════════════════════════════════════
+   PERSONAL WEIGHT MODEL
+════════════════════════════════════════ */
+function toggleWeightModel() {
+  const btn = document.getElementById('modelToggleBtn');
+  const sec = document.getElementById('modelSection');
+  const isOpen = sec.classList.contains('open');
+  btn.classList.toggle('open', !isOpen);
+  sec.classList.toggle('open', !isOpen);
+  if (!isOpen) renderWeightModel();
+}
+
+function renderWeightModel() {
+  const allKeys = Object.keys(db).sort();
+  const wKeys   = allKeys.filter(k => db[k]?.weight).sort();
+
+  const modelEmpty   = document.getElementById('modelEmpty');
+  const summaryCard  = document.getElementById('modelSummaryCard');
+
+  if (wKeys.length < 10) {
+    modelEmpty.style.display  = 'block';
+    summaryCard.style.display = 'none';
+    document.getElementById('stableMatrixEmpty').style.display = 'block';
+    document.getElementById('stableMatrixWrap').style.display  = 'none';
+    return;
+  }
+  modelEmpty.style.display  = 'none';
+  summaryCard.style.display = 'block';
+
+  // ── Build observation rows (lagged) ──
+  // For each consecutive weight pair, collect prior-day predictors
+  const obs = [];
+  for (let i = 1; i < wKeys.length; i++) {
+    const k    = wKeys[i];
+    const kPrev = wKeys[i-1];
+    const d    = db[kPrev]; // prior day predictors
+    const dY   = db[k];    // outcome day
+
+    const cal     = d.items?.reduce((s,it)=>s+it.calories,0)||0;
+    if (cal === 0) continue; // skip days with no food logged
+
+    const carbs   = d.items?.reduce((s,it)=>s+it.carbs_g,0)||0;
+    const protein = d.items?.reduce((s,it)=>s+(it.protein_g||0),0)||0;
+    const fat     = d.items?.reduce((s,it)=>s+(it.fat_g||0),0)||0;
+    const fibre   = d.items?.reduce((s,it)=>s+(it.fibre_g||it.fiber_g||0),0)||0;
+    const steps   = d.steps||0;
+    const runKm   = d.runKm||0;
+    const burn    = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+    const netCal  = cal - burn;
+    const weight  = d.weight||0;
+    const deltaWt = db[k].weight - db[kPrev].weight;
+
+    obs.push({ cal, carbs, protein, fat, fibre, steps, runKm, burn, netCal, weight, deltaWt });
+  }
+
+  if (obs.length < 10) {
+    modelEmpty.style.display  = 'block';
+    summaryCard.style.display = 'none';
+    return;
+  }
+
+  // ── Multiple linear regression (OLS) via normal equations ──
+  // y = b0 + b1*x1 + ... + bn*xn
+  // Define predictors — select those with enough variation
+  const predDefs = [
+    { key: 'cal',     label: '🔥 Calories',    unit: 'kcal' },
+    { key: 'carbs',   label: '🌾 Carbs',        unit: 'g'    },
+    { key: 'protein', label: '💪 Protein',      unit: 'g'    },
+    { key: 'fat',     label: '🥑 Fat',          unit: 'g'    },
+    { key: 'fibre',   label: '🥦 Fibre',        unit: 'g'    },
+    { key: 'steps',   label: '👟 Steps',        unit: 'steps'},
+    { key: 'runKm',   label: '🏃 Run km',       unit: 'km'   },
+    { key: 'burn',    label: '🔥 Total Burn',   unit: 'kcal' },
+    { key: 'netCal',  label: '⚡ Net Cal',       unit: 'kcal' },
+    { key: 'weight',  label: '⚖️ Weight',        unit: goals.units },
+  ];
+
+  // Filter out predictors with near-zero variance (not enough data)
+  const activePreds = predDefs.filter(p => {
+    const vals = obs.map(o => o[p.key]);
+    const mean = vals.reduce((s,v)=>s+v,0)/vals.length;
+    const variance = vals.reduce((s,v)=>s+(v-mean)**2,0)/vals.length;
+    return variance > 0.01;
+  });
+
+  const n = obs.length;
+  const p = activePreds.length;
+
+  // Build design matrix X (n × p+1) with intercept col
+  function getX(obsList) {
+    return obsList.map(o => [1, ...activePreds.map(pd => o[pd.key])]);
+  }
+  const X = getX(obs);
+  const Y = obs.map(o => o.deltaWt);
+
+  // OLS: β = (X'X)^-1 X'y  — use Gaussian elimination
+  function matMul(A, B) {
+    const ar=A.length,ac=A[0].length,bc=B[0].length;
+    const C=Array.from({length:ar},()=>new Array(bc).fill(0));
+    for(let i=0;i<ar;i++) for(let k=0;k<ac;k++) for(let j=0;j<bc;j++) C[i][j]+=A[i][k]*B[k][j];
+    return C;
+  }
+  function matT(A) { return A[0].map((_,j)=>A.map(r=>r[j])); }
+  function matVecMul(A,v) { return A.map(r=>r.reduce((s,a,i)=>s+a*v[i],0)); }
+  function solveLinear(A,b) {
+    // Gaussian elimination with partial pivoting
+    const n=A.length;
+    const M=A.map((r,i)=>[...r,b[i]]);
+    for(let col=0;col<n;col++){
+      let maxR=col;
+      for(let r=col+1;r<n;r++) if(Math.abs(M[r][col])>Math.abs(M[maxR][col])) maxR=r;
+      [M[col],M[maxR]]=[M[maxR],M[col]];
+      if(Math.abs(M[col][col])<1e-12) continue;
+      for(let r=0;r<n;r++){
+        if(r===col) continue;
+        const f=M[r][col]/M[col][col];
+        for(let c=col;c<=n;c++) M[r][c]-=f*M[col][c];
+      }
+    }
+    return M.map((r,i)=>r[n]/r[i]);
+  }
+
+  const Xt  = matT(X);
+  const XtX = matMul(Xt, X);
+  const XtY = matVecMul(Xt, Y);
+  let beta;
+  try { beta = solveLinear(XtX.map(r=>[...r]), [...XtY]); }
+  catch(e) { modelEmpty.style.display='block'; summaryCard.style.display='none'; return; }
+
+  // ── Model diagnostics ──
+  const yHat  = X.map(row => row.reduce((s,v,i)=>s+v*beta[i],0));
+  const yMean = Y.reduce((s,v)=>s+v,0)/n;
+  const ssTot = Y.reduce((s,v)=>s+(v-yMean)**2,0);
+  const ssRes = Y.reduce((s,v,i)=>s+(v-yHat[i])**2,0);
+  const r2    = ssTot>0 ? 1-ssRes/ssTot : 0;
+  const adjR2 = 1-(1-r2)*(n-1)/(n-p-1);
+  const mse   = ssRes/(n-p-1);
+  const rmse  = Math.sqrt(mse);
+
+  // Standard errors for each coefficient
+  const XtXinv = (() => {
+    const sz = XtX.length;
+    const aug = XtX.map((r,i)=>[...r,...Array.from({length:sz},(_,j)=>i===j?1:0)]);
+    for(let col=0;col<sz;col++){
+      let maxR=col;
+      for(let r=col+1;r<sz;r++) if(Math.abs(aug[r][col])>Math.abs(aug[maxR][col])) maxR=r;
+      [aug[col],aug[maxR]]=[aug[maxR],aug[col]];
+      if(Math.abs(aug[col][col])<1e-14) continue;
+      const piv=aug[col][col];
+      for(let c=0;c<sz*2;c++) aug[col][c]/=piv;
+      for(let r=0;r<sz;r++){
+        if(r===col) continue;
+        const f=aug[r][col];
+        for(let c=0;c<sz*2;c++) aug[r][c]-=f*aug[col][c];
+      }
+    }
+    return aug.map(r=>r.slice(sz));
+  })();
+  const seCoeffs = XtXinv.map((row,i)=>Math.sqrt(Math.abs(row[i]*mse)));
+  const tStats   = beta.map((b,i)=>seCoeffs[i]>0?b/seCoeffs[i]:0);
+
+  // ── Display model summary ──
+  const statsEl = document.getElementById('modelSummaryStats');
+  statsEl.innerHTML = [
+    { val: n,            lbl: 'Observations',   col: 'var(--blue)' },
+    { val: r2.toFixed(3),lbl: 'R²',             col: r2>0.5?'var(--green)':'var(--yellow)' },
+    { val: adjR2.toFixed(3),lbl: 'Adj R²',      col: adjR2>0.4?'var(--green)':'var(--yellow)' },
+    { val: rmse.toFixed(3)+' '+goals.units, lbl:'RMSE', col:'var(--text-2)' },
+  ].map(s=>`<div style="flex:1;min-width:70px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:8px;text-align:center">
+    <div style="font-size:17px;font-weight:800;color:${s.col}">${s.val}</div>
+    <div style="font-size:9.5px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px">${s.lbl}</div>
+  </div>`).join('');
+
+  // Show coefficients (skip intercept index 0, show only |t|>1)
+  const coeffRows = activePreds.map((pd,i)=>({
+    label: pd.label, unit: pd.unit,
+    coeff: beta[i+1], se: seCoeffs[i+1], t: tStats[i+1]
+  })).filter(r=>Math.abs(r.t)>1)
+    .sort((a,b)=>Math.abs(b.t)-Math.abs(a.t));
+
+  const coeffEl = document.getElementById('modelCoeffWrap');
+  if (coeffRows.length === 0) {
+    coeffEl.innerHTML = '<div style="font-size:13px;color:var(--text-3)">No strong predictors found yet — keep logging!</div>';
+  } else {
+    coeffEl.innerHTML = `<table class="model-coeff-table">
+      <thead><tr><th>Variable</th><th>Coeff / ${goals.units} per unit</th><th>|t|</th><th>Direction</th></tr></thead>
+      <tbody>${coeffRows.map(r=>{
+        const cls  = r.coeff>0.0005?'coeff-pos':r.coeff<-0.0005?'coeff-neg':'coeff-neut';
+        const dir  = r.coeff>0.0005?'↑ weight gain':r.coeff<-0.0005?'↓ weight loss':'≈ neutral';
+        const sign = r.coeff>=0?'+':'';
+        return `<tr>
+          <td style="font-weight:600;color:var(--text)">${r.label}</td>
+          <td class="${cls}">${sign}${r.coeff.toFixed(5)}</td>
+          <td style="color:var(--text-3)">${Math.abs(r.t).toFixed(1)}</td>
+          <td class="${cls}">${dir}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  }
+
+  // ── Stable Weight Matrix ──
+  // Activity levels: defined by total burn (steps + run)
+  const activityLevels = [
+    { label: '🛋 None',     burn: 0    },
+    { label: '🚶 Light',    burn: 150  },
+    { label: '👟 Moderate', burn: 300  },
+    { label: '🏃 Active',   burn: 500  },
+    { label: '💪 Intense',  burn: 750  },
+    { label: '🔥 Extreme',  burn: 1000 },
+  ];
+
+  // Calorie bands — centred around user's average intake
+  const avgCal = obs.reduce((s,o)=>s+o.cal,0)/obs.length;
+  const calMin  = Math.max(500,  Math.round(avgCal*0.5/100)*100);
+  const calMax  = Math.round(avgCal*1.6/100)*100;
+  const calStep = Math.round((calMax-calMin)/7/50)*50 || 100;
+  const calBands = [];
+  for(let cal=calMin; cal<=calMax; cal+=calStep) calBands.push(cal);
+
+  // Average values for "fixed" predictors
+  const avgCarbs   = obs.reduce((s,o)=>s+o.carbs,0)/obs.length;
+  const avgProtein = obs.reduce((s,o)=>s+o.protein,0)/obs.length;
+  const avgFat     = obs.reduce((s,o)=>s+o.fat,0)/obs.length;
+  const avgFibre   = obs.reduce((s,o)=>s+o.fibre,0)/obs.length;
+  const avgWeight  = obs.reduce((s,o)=>s+o.weight,0)/obs.length;
+  const avgSteps   = obs.reduce((s,o)=>s+o.steps,0)/obs.length;
+  const avgRunKm   = obs.reduce((s,o)=>s+o.runKm,0)/obs.length;
+
+  function predictDeltaWt(calIn, burnIn) {
+    const netC = calIn - burnIn;
+    // Approximate steps from burn (inverse of walk formula), using avgWeight
+    const wKg = goals.units==='kg' ? avgWeight : avgWeight/2.205;
+    const approxSteps = wKg > 0 ? burnIn / (0.00057 * wKg) : avgSteps;
+    const predVals = {
+      cal: calIn, carbs: avgCarbs*(calIn/avgCal), protein: avgProtein*(calIn/avgCal),
+      fat: avgFat*(calIn/avgCal), fibre: avgFibre*(calIn/avgCal),
+      steps: approxSteps, runKm: avgRunKm, burn: burnIn,
+      netCal: netC, weight: avgWeight
+    };
+    // Prediction = intercept + sum(coeff * value)
+    let pred = beta[0];
+    activePreds.forEach((pd,i) => { pred += beta[i+1] * (predVals[pd.key]||0); });
+    return pred;
+  }
+
+  function swClass(delta) {
+    if (delta <= -0.3)  return 'sw-loss-2';
+    if (delta <= -0.05) return 'sw-loss-1';
+    if (delta <= 0.05)  return 'sw-stable';
+    if (delta <= 0.2)   return 'sw-gain-1';
+    if (delta <= 0.4)   return 'sw-gain-2';
+    return 'sw-gain-3';
+  }
+  function swLabel(delta) {
+    const s = delta>0?'+':'';
+    return `${s}${delta.toFixed(2)}<br>${goals.units}`;
+  }
+
+  const matWrap = document.getElementById('stableMatrixWrap');
+  const matEmpty = document.getElementById('stableMatrixEmpty');
+  const matNote  = document.getElementById('stableMatrixNote');
+
+  matEmpty.style.display = 'none';
+  matWrap.style.display  = 'block';
+  matNote.style.display  = 'block';
+
+  let html = `<table class="sw-matrix">
+    <thead><tr>
+      <th class="sw-corner" style="padding:5px 8px;font-size:9px;color:var(--text-3);border-bottom:1.5px solid var(--border)">Activity ↓ / Cal →</th>
+      ${calBands.map(cal=>`<th class="sw-col-hdr">${(cal/1000).toFixed(1)}k</th>`).join('')}
+    </tr></thead>
+    <tbody>`;
+
+  activityLevels.forEach(act => {
+    html += `<tr><td class="sw-row-lbl">${act.label}<br><span style="font-size:9px;font-weight:400;color:var(--text-3)">${act.burn} kcal burn</span></td>`;
+    calBands.forEach(cal => {
+      const delta = predictDeltaWt(cal, act.burn);
+      const cls = swClass(delta);
+      html += `<td class="sw-cell" title="${act.label}, ${cal} cal → ${delta>0?'+':''}${delta.toFixed(3)} ${goals.units}"><span class="sw-cell-inner ${cls}">${swLabel(delta)}</span></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  matWrap.innerHTML = html;
+
+  // Find stable weight row for each activity level
+  const stablePoints = activityLevels.map(act => {
+    const stableCal = calBands.reduce((best,cal)=>{
+      const d = Math.abs(predictDeltaWt(cal,act.burn));
+      return d < Math.abs(predictDeltaWt(best,act.burn)) ? cal : best;
+    }, calBands[0]);
+    return `${act.label}: ~${stableCal.toLocaleString()} cal`;
+  });
+  matNote.innerHTML = `<strong>Approximate stable weight calories by activity level:</strong><br>${stablePoints.join(' · ')}<br><br>
+    Based on your personal OLS regression model (${n} observations, R²=${r2.toFixed(3)}). 
+    Macro ratios scaled proportionally with calorie intake. 
+    Model improves as data set grows. Treat as directional — not a precise prescription.`;
 }
 
 /* ════════════════════════════════════════

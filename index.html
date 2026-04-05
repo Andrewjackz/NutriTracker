@@ -15,6 +15,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 /* ═══════════════════════════════
    TOKENS
@@ -851,6 +852,54 @@ a { color: inherit; text-decoration: none; }
 /* text search wrap */
 .text-search-wrap { display: block; }
 .text-search-wrap.hidden { display: none; }
+
+/* ── barcode scanner ── */
+.barcode-wrap { display: none; }
+.barcode-wrap.active { display: block; }
+.barcode-viewfinder {
+  position: relative; border-radius: var(--r); overflow: hidden;
+  background: #000; aspect-ratio: 4/3; max-height: 280px;
+}
+.barcode-viewfinder video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.barcode-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.barcode-laser {
+  width: 72%; height: 2px;
+  background: linear-gradient(90deg, transparent, #F9A825, transparent);
+  box-shadow: 0 0 8px #F9A825;
+  animation: laserScan 1.8s ease-in-out infinite;
+}
+@keyframes laserScan {
+  0%,100% { transform: translateY(-60px); opacity: .4; }
+  50%      { transform: translateY(60px);  opacity: 1; }
+}
+.barcode-corner {
+  position: absolute; width: 26px; height: 26px;
+  border-color: #F9A825; border-style: solid; border-width: 0;
+}
+.bc-tl { top: 20%; left: 14%; border-top-width: 3px; border-left-width: 3px; border-radius: 4px 0 0 0; }
+.bc-tr { top: 20%; right: 14%; border-top-width: 3px; border-right-width: 3px; border-radius: 0 4px 0 0; }
+.bc-bl { bottom: 20%; left: 14%; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 4px; }
+.bc-br { bottom: 20%; right: 14%; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 4px 0; }
+.barcode-status {
+  margin-top: 10px; padding: 10px 14px; border-radius: var(--r-sm);
+  background: var(--surface); border: 1.5px solid var(--border);
+  font-size: 13px; font-weight: 600; color: var(--text-2); text-align: center;
+  min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.barcode-status.found { background: var(--green-lt); border-color: var(--green); color: var(--green); }
+.barcode-status.err   { background: var(--red-lt);   border-color: #FFCDD2;      color: var(--red); }
+.barcode-stop-btn {
+  width: 100%; margin-top: 10px; padding: 12px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  color: var(--text-2); border-radius: var(--r-sm);
+  font-size: 13.5px; font-weight: 700; cursor: pointer;
+}
+/* 3-button toggle */
+.search-mode-toggle .smt-btn:first-child  { border-right: 1px solid var(--border); }
+.search-mode-toggle .smt-btn:nth-child(2) { border-right: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -905,12 +954,16 @@ a { color: inherit; text-decoration: none; }
       <!-- mode toggle -->
       <div class="search-mode-toggle">
         <button class="smt-btn active" id="smtText" onclick="setSearchMode('text')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          Text Search
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Text
         </button>
         <button class="smt-btn" id="smtPhoto" onclick="setSearchMode('photo')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           Photo
+        </button>
+        <button class="smt-btn" id="smtBarcode" onclick="setSearchMode('barcode')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="3" height="16"/><rect x="7" y="4" width="1" height="16"/><rect x="10" y="4" width="2" height="16"/><rect x="14" y="4" width="1" height="16"/><rect x="17" y="4" width="3" height="16"/></svg>
+          Barcode
         </button>
       </div>
 
@@ -954,6 +1007,24 @@ a { color: inherit; text-decoration: none; }
           You can also add a quantity hint below the photo — e.g. "large bowl" or "200g"
         </div>
         <input class="inp" id="photoHintInput" type="text" placeholder="Optional: quantity hint (e.g. large bowl, 200g…)" autocomplete="off" style="margin-top:8px;display:none">
+      </div>
+
+      <!-- ── BARCODE SCAN ── -->
+      <div class="barcode-wrap" id="barcodeSearchWrap">
+        <div class="barcode-viewfinder">
+          <video id="barcodeVideo" playsinline muted></video>
+          <div class="barcode-overlay">
+            <div class="barcode-laser"></div>
+            <div class="barcode-corner bc-tl"></div>
+            <div class="barcode-corner bc-tr"></div>
+            <div class="barcode-corner bc-bl"></div>
+            <div class="barcode-corner bc-br"></div>
+          </div>
+        </div>
+        <div class="barcode-status" id="barcodeStatus">
+          <span>📷 Point camera at barcode</span>
+        </div>
+        <button class="barcode-stop-btn" onclick="stopBarcodeScanner()">✕ Cancel</button>
       </div>
 
       <!-- shared: thinking + result -->
@@ -1811,16 +1882,187 @@ let searchMode = 'text';
 let photoDataUrl = null;
 
 function setSearchMode(mode) {
+  // stop scanner if leaving barcode mode
+  if (searchMode === 'barcode' && mode !== 'barcode') stopBarcodeScanner();
   searchMode = mode;
-  document.getElementById('smtText').classList.toggle('active', mode === 'text');
-  document.getElementById('smtPhoto').classList.toggle('active', mode === 'photo');
+  document.getElementById('smtText').classList.toggle('active',    mode === 'text');
+  document.getElementById('smtPhoto').classList.toggle('active',   mode === 'photo');
+  document.getElementById('smtBarcode').classList.toggle('active', mode === 'barcode');
   document.getElementById('textSearchWrap').classList.toggle('hidden', mode !== 'text');
   document.getElementById('photoSearchWrap').classList.toggle('active', mode === 'photo');
+  document.getElementById('barcodeSearchWrap').classList.toggle('active', mode === 'barcode');
   document.getElementById('recentSearchesLabel').style.display = mode === 'text' ? '' : 'none';
   document.getElementById('searchHistory').style.display = mode === 'text' ? '' : 'none';
-  // hide result when switching
   document.getElementById('resultEl').style.display = 'none';
   document.getElementById('thinkingEl').style.display = 'none';
+  if (mode === 'barcode') startBarcodeScanner();
+}
+
+/* ════════════════════════════════════════
+   BARCODE SCANNER
+════════════════════════════════════════ */
+let barcodeReader   = null;
+let barcodeStream   = null;
+let barcodeScanning = false;
+
+async function startBarcodeScanner() {
+  const statusEl = document.getElementById('barcodeStatus');
+  const video    = document.getElementById('barcodeVideo');
+
+  // ZXing may not be loaded yet — wait for it
+  if (typeof ZXing === 'undefined') {
+    statusEl.textContent = '⏳ Loading scanner…';
+    statusEl.className   = 'barcode-status';
+    await new Promise(res => setTimeout(res, 1200));
+    if (typeof ZXing === 'undefined') {
+      statusEl.innerHTML  = '❌ Scanner library failed to load — check connection';
+      statusEl.className  = 'barcode-status err';
+      return;
+    }
+  }
+
+  try {
+    statusEl.innerHTML  = '<span>📷 Starting camera…</span>';
+    statusEl.className  = 'barcode-status';
+    barcodeScanning     = true;
+
+    barcodeStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    video.srcObject = barcodeStream;
+    await video.play();
+
+    const hints = new Map();
+    const formats = [
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.UPC_A,
+      ZXing.BarcodeFormat.UPC_E,
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+    ];
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+    barcodeReader = new ZXing.BrowserMultiFormatReader(hints);
+
+    statusEl.innerHTML = '<span>📷 Point camera at barcode</span>';
+
+    barcodeReader.decodeFromVideoElement(video, (result, err) => {
+      if (!barcodeScanning) return;
+      if (result) {
+        const code = result.getText();
+        barcodeScanning = false;
+        stopBarcodeScanner();
+        onBarcodeDetected(code);
+      }
+    });
+  } catch(e) {
+    statusEl.innerHTML = `❌ Camera error: ${e.message}`;
+    statusEl.className = 'barcode-status err';
+  }
+}
+
+function stopBarcodeScanner() {
+  barcodeScanning = false;
+  if (barcodeReader) { try { barcodeReader.reset(); } catch(e) {} barcodeReader = null; }
+  if (barcodeStream) { barcodeStream.getTracks().forEach(t => t.stop()); barcodeStream = null; }
+  const video = document.getElementById('barcodeVideo');
+  if (video) { video.srcObject = null; }
+}
+
+async function onBarcodeDetected(barcode) {
+  const apiKey  = localStorage.getItem(API_KEY);
+  const statusEl = document.getElementById('barcodeStatus');
+
+  showToast(`Barcode: ${barcode}`, 'success');
+  statusEl.innerHTML = `<span>✅ ${barcode} — looking up…</span>`;
+  statusEl.className = 'barcode-status found';
+
+  document.getElementById('thinkingEl').style.display = 'flex';
+  document.getElementById('thinkingTxt').textContent  = 'Looking up barcode…';
+  document.getElementById('resultEl').style.display   = 'none';
+
+  try {
+    // 1. Try Open Food Facts first (free, no key)
+    const offResp = await fetch(
+      `https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=product_name,nutriments,serving_size,product_quantity`,
+      { headers: { 'User-Agent': 'NutriTrack/1.0' } }
+    );
+    const offData = await offResp.json();
+
+    if (offData.status === 1 && offData.product) {
+      const p  = offData.product;
+      const nm = p.nutriments;
+      // Prefer per-serving if available, else per 100g
+      const perServing = nm['energy-kcal_serving'] != null;
+      const cal  = Math.round(perServing ? nm['energy-kcal_serving']  : nm['energy-kcal_100g']  || 0);
+      const carb = +(perServing ? nm['carbohydrates_serving'] : nm['carbohydrates_100g'] || 0).toFixed(1);
+      const prot = +(perServing ? nm['proteins_serving']      : nm['proteins_100g']      || 0).toFixed(1);
+      const fat  = +(perServing ? nm['fat_serving']           : nm['fat_100g']           || 0).toFixed(1);
+      const fib  = +(perServing ? nm['fiber_serving']         : nm['fiber_100g']         || 0).toFixed(1);
+      const qty  = perServing ? (p.serving_size || '1 serving') : '100g';
+      const name = p.product_name || 'Unknown product';
+
+      const result = {
+        food: name, qty_label: qty, qty_g: parseInt(p.product_quantity) || 100,
+        calories: cal, carbs_g: carb, protein_g: prot, fat_g: fat, fiber_g: fib,
+        notes: `Barcode ${barcode} · Source: Open Food Facts · Per ${qty}`
+      };
+      currentResult = result;
+      addToHistory('📦 ' + name);
+      renderResult(result);
+      setSearchMode('text'); // switch back so user can add/save
+      return;
+    }
+
+    // 2. Fallback to Claude if OFF has no match
+    if (!apiKey) { showToast('Product not in database — add API key to use Claude fallback', ''); return; }
+
+    document.getElementById('thinkingTxt').textContent = 'Not in database — asking Claude…';
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: `A product has barcode ${barcode}. Based on this barcode number, identify the most likely food product and provide estimated nutrition per standard serving. Respond ONLY with valid JSON:
+{
+  "food": "Product name (serving size)",
+  "qty_g": 100,
+  "qty_label": "1 serving",
+  "calories": 150,
+  "carbs_g": 20,
+  "protein_g": 5,
+  "fat_g": 4,
+  "fiber_g": 1,
+  "notes": "Estimated from barcode — verify with packaging"
+}` }]
+      })
+    });
+
+    const data   = await resp.json();
+    const raw    = data.content?.[0]?.text || '';
+    const match  = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Could not identify product');
+    const result = JSON.parse(match[0]);
+
+    currentResult = result;
+    addToHistory('📦 ' + result.food);
+    renderResult(result);
+    setSearchMode('text');
+
+  } catch(e) {
+    showToast('Lookup failed: ' + e.message, 'error');
+    statusEl.innerHTML = `❌ ${e.message}`;
+    statusEl.className = 'barcode-status err';
+  } finally {
+    document.getElementById('thinkingEl').style.display = 'none';
+  }
 }
 
 function onPhotoSelected(event) {

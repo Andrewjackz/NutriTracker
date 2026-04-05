@@ -1010,20 +1010,25 @@ a { color: inherit; text-decoration: none; }
 
       <!-- ── BARCODE SCAN ── -->
       <div class="barcode-wrap" id="barcodeSearchWrap">
-        <div class="barcode-viewfinder">
-          <video id="barcodeVideo" playsinline muted></video>
-          <div class="barcode-overlay">
-            <div class="barcode-laser"></div>
-            <div class="barcode-corner bc-tl"></div>
-            <div class="barcode-corner bc-tr"></div>
-            <div class="barcode-corner bc-bl"></div>
-            <div class="barcode-corner bc-br"></div>
-          </div>
+        <div style="background:var(--blue-lt);border:2px dashed var(--blue-mid);border-radius:var(--r);padding:22px 16px;text-align:center;position:relative;overflow:hidden;cursor:pointer">
+          <input type="file" accept="image/*" capture="environment" id="barcodeFileInput"
+            onchange="onBarcodePhotoSelected(event)"
+            style="position:absolute;inset:0;opacity:0;cursor:pointer">
+          <div style="font-size:38px;margin-bottom:8px">📦</div>
+          <div style="font-size:15px;font-weight:700;color:var(--blue);margin-bottom:4px">Photograph the barcode</div>
+          <div style="font-size:12.5px;color:var(--text-2);line-height:1.5">Take a clear close-up photo of the barcode.<br>Claude will read the number and look up the product.</div>
         </div>
-        <div class="barcode-status" id="barcodeStatus">
-          <span>📷 Point camera at barcode</span>
+        <div id="barcodePreviewWrap" style="display:none;margin-top:10px;border-radius:var(--r);overflow:hidden;border:1.5px solid var(--border);position:relative">
+          <img id="barcodePreviewImg" src="" alt="Barcode" style="width:100%;max-height:200px;object-fit:cover;display:block">
+          <button onclick="clearBarcodePhoto()" style="position:absolute;top:8px;right:8px;background:rgba(13,27,62,.6);color:#fff;border:none;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer">×</button>
         </div>
-        <button class="barcode-stop-btn" onclick="stopBarcodeScanner()">✕ Cancel</button>
+        <button id="barcodeScanBtn" onclick="doBarcodeSearch()"
+          style="display:none;width:100%;margin-top:10px;padding:14px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(21,101,192,.3);cursor:pointer">
+          🔍 Read Barcode &amp; Look Up
+        </button>
+        <div class="barcode-status" id="barcodeStatus" style="display:none">
+          <span>Searching…</span>
+        </div>
       </div>
 
       <!-- shared: thinking + result -->
@@ -1620,6 +1625,93 @@ a { color: inherit; text-decoration: none; }
       <button class="btn btn-primary" style="flex:1;padding:12px;font-size:14px" onclick="exportCSV()">⬇ CSV</button>
       <button class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--green);color:#fff;box-shadow:0 4px 14px rgba(46,125,50,.3)" onclick="exportExcel()">⬇ Excel</button>
     </div>
+
+    <div style="border-top:1.5px solid var(--border);margin-top:16px;margin-bottom:16px"></div>
+
+    <div class="sheet-label" style="margin-bottom:10px">🗂️ VERSION HISTORY</div>
+
+    <!-- current version badge -->
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--blue-lt);border:1.5px solid var(--blue-mid);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:12px">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:var(--blue)">v2.6 <span style="font-size:11px;font-weight:600;background:var(--blue);color:#fff;padding:2px 7px;border-radius:20px;margin-left:4px">Current</span></div>
+        <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Photo &amp; barcode search · Personal weight model</div>
+      </div>
+      <div id="settingsDataStats" style="text-align:right;font-size:11px;color:var(--text-3);line-height:1.6"></div>
+    </div>
+
+    <!-- changelog -->
+    <div style="display:flex;flex-direction:column;gap:1px">
+
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm) var(--r-sm) 0 0;padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.6</span>
+          <span style="font-size:10.5px;color:var(--text-3)">Apr 2026</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
+          📷 Photo food search via Claude Vision · 📦 Barcode scan (photo-based, Open Food Facts + Claude fallback) · 🧮 Personal weight model with OLS regression &amp; stable weight matrix · 🔥 Running burn split from walking burn (stacked chart) · 🏃 Run distance &amp; pace logging with MET 9.8 formula
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.5</span>
+          <span style="font-size:10.5px;color:var(--text-3)">Mar 2026</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
+          🧪 Full 9×9 correlation matrix · 📉 Three lagged scatter regressions (calories, burn, net cal) → next-day Δweight · ⚡ Net calories = consumed − weight-adjusted walk burn · 🍽️ Meal templates · 7-day rolling averages on all trend charts · Goal target lines
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.4</span>
+          <span style="font-size:10.5px;color:var(--text-3)">Feb 2026</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
+          🔥 Streak counters (exercise, hydration, meds, food) · 💊 Medicated yes/no tracker · 📅 Monthly calendar grid with coloured dots · 🏃 Running input (km + pace) added to Today tab · BMI tracker with colour-coded scale
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.3</span>
+          <span style="font-size:10.5px;color:var(--text-3)">Jan 2026</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
+          📊 Analytics tab: 11 charts incl. dual-axis, macro split doughnut, weight trend · Weekly summaries · Correlation matrix (variables vs Δweight) · Backup &amp; restore JSON · CSV + Excel export
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">v2.2</span>
+          <span style="font-size:10.5px;color:var(--text-3)">Dec 2025</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
+          💧 Water tracker · 💪 Exercise yes/no with monthly counter · 📝 Daily notes · 👟 Steps logging · 🔥 Calorie progress rings · Net cal banner with surplus/deficit indicator
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-top:none;border-radius:0 0 var(--r-sm) var(--r-sm);padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">v1.0</span>
+          <span style="font-size:10.5px;color:var(--text-3)">Nov 2025</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-2);line-height:1.6">
+          🎉 Initial release · Claude AI food search · Macro logging (cal, carbs, protein, fat, fibre) · Meal types · Weight logging · Calendar view · Today tab with macro totals
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:var(--r-sm);text-align:center">
+      <div style="font-size:11px;color:var(--text-3);line-height:1.6">
+        NutriTrack · Built with Claude (Anthropic) · Hosted on GitHub Pages<br>
+        <a href="https://andrewjackz.github.io/NutriTracker/" target="_blank" style="color:var(--blue);font-weight:600;font-size:11.5px">andrewjackz.github.io/NutriTracker</a>
+      </div>
+    </div>
+
+    <div style="padding-bottom:env(safe-area-inset-bottom,12px)"></div>
   </div>
 </div>
 
@@ -1769,6 +1861,23 @@ function showApiModal() {
   document.getElementById('apiKeyInput').value = k;
   document.getElementById('apiOverlay').classList.remove('hidden');
   updateLastBackupInfo();
+  // populate data stats
+  const statsEl = document.getElementById('settingsDataStats');
+  if (statsEl) {
+    const keys     = Object.keys(db);
+    const daysLogged = keys.filter(k => (db[k].items||[]).length > 0).length;
+    const wDays    = keys.filter(k => db[k].weight).length;
+    const runDays  = keys.filter(k => db[k].runKm).length;
+    const earliest = keys.sort()[0];
+    const daysSince = earliest
+      ? Math.round((Date.now() - new Date(earliest + 'T00:00:00').getTime()) / 86400000)
+      : 0;
+    statsEl.innerHTML = `
+      <div>${daysLogged} food days</div>
+      <div>${wDays} weight logs</div>
+      ${runDays ? '<div>' + runDays + ' runs</div>' : ''}
+      <div>${daysSince} days active</div>`;
+  }
 }
 function saveApiKey() {
   const v = document.getElementById('apiKeyInput').value.trim();
@@ -1900,209 +2009,84 @@ function setSearchMode(mode) {
 /* ════════════════════════════════════════
    BARCODE SCANNER
 ════════════════════════════════════════ */
-let barcodeStream   = null;
-let barcodeScanning = false;
-let barcodeDetector = null;
+let barcodePhotoDataUrl = null;
 
-async function startBarcodeScanner() {
+function onBarcodePhotoSelected(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    barcodePhotoDataUrl = e.target.result;
+    document.getElementById('barcodePreviewImg').src = barcodePhotoDataUrl;
+    document.getElementById('barcodePreviewWrap').style.display = 'block';
+    document.getElementById('barcodeScanBtn').style.display = 'block';
+    document.getElementById('barcodeStatus').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearBarcodePhoto() {
+  barcodePhotoDataUrl = null;
+  document.getElementById('barcodePreviewWrap').style.display = 'none';
+  document.getElementById('barcodeScanBtn').style.display = 'none';
+  document.getElementById('barcodeStatus').style.display = 'none';
+  document.getElementById('barcodeFileInput').value = '';
+}
+
+async function doBarcodeSearch() {
+  if (!barcodePhotoDataUrl) return;
+  const apiKey = localStorage.getItem(API_KEY);
+  if (!apiKey) { showApiModal(); return; }
+
   const statusEl = document.getElementById('barcodeStatus');
-  const video    = document.getElementById('barcodeVideo');
-  barcodeScanning = false;
-
-  // Check for native BarcodeDetector (iOS 17+ Safari, Chrome 88+)
-  const hasNative = ('BarcodeDetector' in window);
-
-  try {
-    statusEl.innerHTML = '<span>📷 Starting camera…</span>';
-    statusEl.className = 'barcode-status';
-
-    barcodeStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-    });
-    video.srcObject = barcodeStream;
-    await new Promise(res => { video.onloadedmetadata = res; });
-    await video.play();
-
-    barcodeScanning = true;
-    statusEl.innerHTML = '<span>📷 Point camera at barcode</span>';
-
-    if (hasNative) {
-      // ── Native BarcodeDetector path ──
-      const formats = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','qr_code'];
-      const supported = await BarcodeDetector.getSupportedFormats().catch(() => formats);
-      const useFormats = formats.filter(f => supported.includes(f));
-      barcodeDetector = new BarcodeDetector({ formats: useFormats.length ? useFormats : formats });
-
-      const scan = async () => {
-        if (!barcodeScanning) return;
-        try {
-          const barcodes = await barcodeDetector.detect(video);
-          if (barcodes.length > 0) {
-            const code = barcodes[0].rawValue;
-            barcodeScanning = false;
-            stopBarcodeScanner();
-            onBarcodeDetected(code);
-            return;
-          }
-        } catch(e) { /* frame not ready */ }
-        if (barcodeScanning) requestAnimationFrame(scan);
-      };
-      requestAnimationFrame(scan);
-
-    } else {
-      // ── Canvas + ImageData fallback — manual barcode decode ──
-      // Use a hidden canvas to grab frames and send to a simple
-      // linear barcode reader for EAN-13/UPC barcodes
-      statusEl.innerHTML = '<span>📷 Point camera at barcode (EAN/UPC)</span>';
-      const canvas = document.createElement('canvas');
-      const ctx    = canvas.getContext('2d');
-
-      const scanFrame = () => {
-        if (!barcodeScanning) return;
-        if (video.readyState < video.HAVE_ENOUGH_DATA) {
-          requestAnimationFrame(scanFrame);
-          return;
-        }
-        canvas.width  = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
-
-        // Sample the middle horizontal strip for barcode bars
-        const midY  = Math.floor(canvas.height / 2);
-        const imgData = ctx.getImageData(0, midY - 20, canvas.width, 40);
-        const code = decodeEAN(imgData, canvas.width);
-        if (code) {
-          barcodeScanning = false;
-          stopBarcodeScanner();
-          onBarcodeDetected(code);
-          return;
-        }
-        if (barcodeScanning) setTimeout(scanFrame, 150);
-      };
-      scanFrame();
-    }
-
-  } catch(e) {
-    statusEl.innerHTML = `❌ ${e.name === 'NotAllowedError' ? 'Camera permission denied' : 'Camera error: ' + e.message}`;
-    statusEl.className = 'barcode-status err';
-    barcodeScanning = false;
-  }
-}
-
-function stopBarcodeScanner() {
-  barcodeScanning = false;
-  if (barcodeStream) { barcodeStream.getTracks().forEach(t => t.stop()); barcodeStream = null; }
-  const video = document.getElementById('barcodeVideo');
-  if (video) { video.srcObject = null; }
-}
-
-// ── Lightweight EAN-13 / UPC-A decoder from ImageData ──
-function decodeEAN(imgData, width) {
-  const pixels = imgData.data;
-  const height = imgData.height;
-  // Convert to grayscale row (average of middle rows)
-  const gray = new Uint8Array(width);
-  for (let x = 0; x < width; x++) {
-    let sum = 0, count = 0;
-    for (let y = 0; y < height; y++) {
-      const i = (y * width + x) * 4;
-      sum += (pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114);
-      count++;
-    }
-    gray[x] = sum / count;
-  }
-  // Adaptive threshold
-  const mean = gray.reduce((s,v)=>s+v,0) / width;
-  const binary = gray.map(v => v < mean ? 0 : 1);
-
-  // Find transitions and measure bar widths
-  const runs = [];
-  let cur = binary[0], len = 1;
-  for (let i = 1; i < width; i++) {
-    if (binary[i] === cur) { len++; }
-    else { runs.push({ v: cur, w: len }); cur = binary[i]; len = 1; }
-  }
-  runs.push({ v: cur, w: len });
-
-  // EAN-13 guard patterns: narrow-wide-narrow (101 start, 01010 middle, 101 end)
-  // Find the start guard
-  const narrow = Math.min(...runs.map(r=>r.w).filter(w=>w>0));
-  const unit   = narrow || 1;
-  const tol    = unit * 0.6;
-
-  function isNear(a, b) { return Math.abs(a - b) < tol; }
-
-  // Look for start guard: dark-light-dark each ~1 unit
-  for (let i = 0; i < runs.length - 60; i++) {
-    if (runs[i].v !== 0) continue;
-    const u = runs[i].w;
-    if (!isNear(runs[i+1].w, u) || !isNear(runs[i+2].w, u)) continue;
-    if (runs[i+1].v !== 1 || runs[i+2].v !== 0) continue;
-
-    // Decode 6 digits left of middle guard
-    let pos = i + 3, digits = '', ok = true;
-    const EAN_L = [
-      [0,0,0,1,1,0,1],[0,0,1,1,0,0,1],[0,0,1,0,0,1,1],[0,1,1,1,1,0,1],
-      [0,1,0,0,0,1,1],[0,1,1,0,0,0,1],[0,1,0,1,1,1,1],[0,1,1,1,0,1,1],
-      [0,1,1,0,1,1,1],[0,0,0,1,0,1,1]
-    ];
-    for (let d = 0; d < 6 && ok; d++) {
-      if (pos + 3 >= runs.length) { ok = false; break; }
-      const w1=runs[pos].w, w2=runs[pos+1].w, w3=runs[pos+2].w, w4=runs[pos+3].w;
-      const sum = w1+w2+w3+w4;
-      const b = [
-        Math.round(w1/sum*7), Math.round(w2/sum*7),
-        Math.round(w3/sum*7), Math.round(w4/sum*7)
-      ];
-      let found = false;
-      for (let n = 0; n < 10; n++) {
-        if (b[0]===EAN_L[n][1] && b[1]===EAN_L[n][2] && b[2]===EAN_L[n][3]) {
-          digits += n; found = true; break;
-        }
-      }
-      if (!found) { ok = false; }
-      pos += 4;
-    }
-    // Check middle guard (01010)
-    if (ok && pos + 4 < runs.length) {
-      // skip middle guard (5 bars)
-      pos += 5;
-      // Decode 6 right digits (R encoding)
-      for (let d = 0; d < 6 && ok; d++) {
-        if (pos + 3 >= runs.length) { ok = false; break; }
-        const w1=runs[pos].w, w2=runs[pos+1].w, w3=runs[pos+2].w, w4=runs[pos+3].w;
-        const sum = w1+w2+w3+w4;
-        const b = [Math.round(w1/sum*7),Math.round(w2/sum*7),Math.round(w3/sum*7),Math.round(w4/sum*7)];
-        let found = false;
-        for (let n = 0; n < 10; n++) {
-          if (b[0]===(1-0) && b[3]===(1-1)) { digits += Math.floor(Math.random()*10); found=true; break; }
-          if (b[0]===1 && b[1]!=null) { digits += n; found=true; break; }
-        }
-        if (!found) digits += '0'; // approximate
-        pos += 4;
-      }
-      if (digits.length >= 12) {
-        return digits.slice(0,13);
-      }
-    }
-  }
-  return null;
-}
-
-async function onBarcodeDetected(barcode) {
-  const apiKey  = localStorage.getItem(API_KEY);
-  const statusEl = document.getElementById('barcodeStatus');
-
-  showToast(`Barcode: ${barcode}`, 'success');
-  statusEl.innerHTML = `<span>✅ ${barcode} — looking up…</span>`;
-  statusEl.className = 'barcode-status found';
-
+  statusEl.style.display = 'flex';
+  statusEl.className = 'barcode-status';
+  statusEl.innerHTML = '<span>🔍 Reading barcode…</span>';
+  document.getElementById('barcodeScanBtn').style.display = 'none';
   document.getElementById('thinkingEl').style.display = 'flex';
-  document.getElementById('thinkingTxt').textContent  = 'Looking up barcode…';
-  document.getElementById('resultEl').style.display   = 'none';
+  document.getElementById('thinkingTxt').textContent = 'Reading barcode…';
+  document.getElementById('resultEl').style.display = 'none';
 
   try {
-    // 1. Try Open Food Facts first (free, no key)
+    // Step 1: Claude Vision reads the barcode number from the photo
+    const base64    = barcodePhotoDataUrl.split(',')[1];
+    const mimeMatch = barcodePhotoDataUrl.match(/data:([^;]+);/);
+    const mediaType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+    const visionResp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+            { type: 'text', text: 'Read the barcode number in this image. Reply with ONLY the numeric barcode digits, nothing else. If you cannot read a barcode, reply with "NONE".' }
+          ]
+        }]
+      })
+    });
+
+    const visionData = await visionResp.json();
+    const rawCode    = (visionData.content?.[0]?.text || '').trim().replace(/\D/g, '');
+
+    if (!rawCode || rawCode.length < 6) {
+      throw new Error('Could not read a barcode from this photo — try a clearer, closer shot');
+    }
+
+    const barcode = rawCode;
+    statusEl.innerHTML = `<span>✅ ${barcode} — looking up product…</span>`;
+    statusEl.className = 'barcode-status found';
+    document.getElementById('thinkingTxt').textContent = 'Looking up product…';
+
+    // Step 2: Open Food Facts lookup
     const offResp = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=product_name,nutriments,serving_size,product_quantity`,
       { headers: { 'User-Agent': 'NutriTrack/1.0' } }
@@ -2112,20 +2096,18 @@ async function onBarcodeDetected(barcode) {
     if (offData.status === 1 && offData.product) {
       const p  = offData.product;
       const nm = p.nutriments;
-      // Prefer per-serving if available, else per 100g
-      const perServing = nm['energy-kcal_serving'] != null;
-      const cal  = Math.round(perServing ? nm['energy-kcal_serving']  : nm['energy-kcal_100g']  || 0);
-      const carb = +(perServing ? nm['carbohydrates_serving'] : nm['carbohydrates_100g'] || 0).toFixed(1);
-      const prot = +(perServing ? nm['proteins_serving']      : nm['proteins_100g']      || 0).toFixed(1);
-      const fat  = +(perServing ? nm['fat_serving']           : nm['fat_100g']           || 0).toFixed(1);
-      const fib  = +(perServing ? nm['fiber_serving']         : nm['fiber_100g']         || 0).toFixed(1);
+      const perServing = nm['energy-kcal_serving'] != null && nm['energy-kcal_serving'] > 0;
+      const cal  = Math.round(perServing ? nm['energy-kcal_serving']  : (nm['energy-kcal_100g']  || 0));
+      const carb = +((perServing ? nm['carbohydrates_serving'] : nm['carbohydrates_100g']) || 0).toFixed(1);
+      const prot = +((perServing ? nm['proteins_serving']      : nm['proteins_100g'])      || 0).toFixed(1);
+      const fat  = +((perServing ? nm['fat_serving']           : nm['fat_100g'])           || 0).toFixed(1);
+      const fib  = +((perServing ? nm['fiber_serving']         : nm['fiber_100g'])         || 0).toFixed(1);
       const qty  = perServing ? (p.serving_size || '1 serving') : '100g';
       const name = p.product_name || 'Unknown product';
-
       const result = {
         food: name, qty_label: qty, qty_g: parseInt(p.product_quantity) || 100,
         calories: cal, carbs_g: carb, protein_g: prot, fat_g: fat, fiber_g: fib,
-        notes: `Barcode ${barcode} · Source: Open Food Facts · Per ${qty}`
+        notes: `Barcode ${barcode} · Open Food Facts · Per ${qty}`
       };
       currentResult = result;
       addToHistory('📦 ' + name);
@@ -2133,12 +2115,9 @@ async function onBarcodeDetected(barcode) {
       return;
     }
 
-    // 2. Fallback to Claude if OFF has no match
-    if (!apiKey) { showToast('Product not in database — add API key to use Claude fallback', ''); return; }
-
+    // Step 3: Claude fallback if not in OFF
     document.getElementById('thinkingTxt').textContent = 'Not in database — asking Claude…';
-
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const clResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2149,31 +2128,39 @@ async function onBarcodeDetected(barcode) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 400,
-        messages: [{ role: 'user', content: 'A product has barcode ' + barcode + '. Based on this barcode number, identify the most likely food product and provide estimated nutrition per standard serving. Respond ONLY with valid JSON: {"food":"Product name (serving size)","qty_g":100,"qty_label":"1 serving","calories":150,"carbs_g":20,"protein_g":5,"fat_g":4,"fiber_g":1,"notes":"Estimated from barcode — verify with packaging"}' }]
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+            { type: 'text', text: 'This product has barcode ' + barcode + '. Identify the product from the barcode and any visible packaging, then estimate nutrition per standard serving. Respond ONLY with valid JSON: {"food":"Name (serving)","qty_g":100,"qty_label":"1 serving","calories":150,"carbs_g":20,"protein_g":5,"fat_g":4,"fiber_g":1,"notes":"Source and confidence note"}' }
+          ]
+        }]
       })
     });
-
-    const data   = await resp.json();
-    const raw    = data.content?.[0]?.text || '';
-    const match  = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Could not identify product');
-    const result = JSON.parse(match[0]);
-
+    const clData  = await clResp.json();
+    const raw     = clData.content?.[0]?.text || '';
+    const match   = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Could not identify product from barcode');
+    const result  = JSON.parse(match[0]);
     currentResult = result;
     addToHistory('📦 ' + result.food);
     showBarcodeResult(result);
 
   } catch(e) {
-    showToast('Lookup failed: ' + e.message, 'error');
-    statusEl.innerHTML = `❌ ${e.message}`;
+    showToast('Error: ' + e.message, 'error');
+    statusEl.innerHTML = `<span>❌ ${e.message}</span>`;
     statusEl.className = 'barcode-status err';
+    document.getElementById('barcodeScanBtn').style.display = 'block';
   } finally {
     document.getElementById('thinkingEl').style.display = 'none';
   }
 }
 
+// No-op for setSearchMode guard — barcode mode no longer needs start/stop
+function startBarcodeScanner() {}
+function stopBarcodeScanner() {}
+
 function showBarcodeResult(result) {
-  // Switch panels without calling setSearchMode (which would re-trigger stopBarcodeScanner)
   searchMode = 'text';
   document.getElementById('smtText').classList.add('active');
   document.getElementById('smtPhoto').classList.remove('active');
@@ -2183,6 +2170,7 @@ function showBarcodeResult(result) {
   document.getElementById('barcodeSearchWrap').classList.remove('active');
   document.getElementById('recentSearchesLabel').style.display = '';
   document.getElementById('searchHistory').style.display = '';
+  clearBarcodePhoto();
   renderResult(result);
 }
 

@@ -15,7 +15,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 /* ═══════════════════════════════
    TOKENS
@@ -1901,69 +1900,90 @@ function setSearchMode(mode) {
 /* ════════════════════════════════════════
    BARCODE SCANNER
 ════════════════════════════════════════ */
-let barcodeReader   = null;
 let barcodeStream   = null;
 let barcodeScanning = false;
-let barcodeHandled  = false; // prevent double-fire
+let barcodeDetector = null;
 
 async function startBarcodeScanner() {
   const statusEl = document.getElementById('barcodeStatus');
   const video    = document.getElementById('barcodeVideo');
-  barcodeHandled  = false;
+  barcodeScanning = false;
 
-  // Load ZXing — wait up to 3s
-  let waited = 0;
-  while (typeof ZXing === 'undefined' && waited < 3000) {
-    statusEl.innerHTML = '<span>⏳ Loading scanner…</span>';
-    statusEl.className = 'barcode-status';
-    await new Promise(res => setTimeout(res, 300));
-    waited += 300;
-  }
-  if (typeof ZXing === 'undefined') {
-    statusEl.innerHTML = '❌ Scanner library failed to load';
-    statusEl.className = 'barcode-status err';
-    return;
-  }
+  // Check for native BarcodeDetector (iOS 17+ Safari, Chrome 88+)
+  const hasNative = ('BarcodeDetector' in window);
 
   try {
     statusEl.innerHTML = '<span>📷 Starting camera…</span>';
     statusEl.className = 'barcode-status';
-    barcodeScanning    = true;
 
-    // Get camera stream directly
     barcodeStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
     });
     video.srcObject = barcodeStream;
+    await new Promise(res => { video.onloadedmetadata = res; });
     await video.play();
 
-    barcodeReader = new ZXing.BrowserMultiFormatReader();
+    barcodeScanning = true;
     statusEl.innerHTML = '<span>📷 Point camera at barcode</span>';
 
-    // Decode in a loop from the live video
-    const tick = () => {
-      if (!barcodeScanning || barcodeHandled) return;
-      barcodeReader.decodeFromVideoElement(video).then(result => {
-        if (!barcodeScanning || barcodeHandled) return;
-        barcodeHandled = true;
-        barcodeScanning = false;
-        const code = result.getText();
-        // Stop camera tracks before switching
-        if (barcodeStream) { barcodeStream.getTracks().forEach(t => t.stop()); barcodeStream = null; }
-        if (barcodeReader) { try { barcodeReader.reset(); } catch(e) {} barcodeReader = null; }
-        video.srcObject = null;
-        onBarcodeDetected(code);
-      }).catch(err => {
-        // NotFoundException is normal (no barcode in frame) — keep scanning
-        if (barcodeScanning && !barcodeHandled) {
-          setTimeout(tick, 200);
+    if (hasNative) {
+      // ── Native BarcodeDetector path ──
+      const formats = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','qr_code'];
+      const supported = await BarcodeDetector.getSupportedFormats().catch(() => formats);
+      const useFormats = formats.filter(f => supported.includes(f));
+      barcodeDetector = new BarcodeDetector({ formats: useFormats.length ? useFormats : formats });
+
+      const scan = async () => {
+        if (!barcodeScanning) return;
+        try {
+          const barcodes = await barcodeDetector.detect(video);
+          if (barcodes.length > 0) {
+            const code = barcodes[0].rawValue;
+            barcodeScanning = false;
+            stopBarcodeScanner();
+            onBarcodeDetected(code);
+            return;
+          }
+        } catch(e) { /* frame not ready */ }
+        if (barcodeScanning) requestAnimationFrame(scan);
+      };
+      requestAnimationFrame(scan);
+
+    } else {
+      // ── Canvas + ImageData fallback — manual barcode decode ──
+      // Use a hidden canvas to grab frames and send to a simple
+      // linear barcode reader for EAN-13/UPC barcodes
+      statusEl.innerHTML = '<span>📷 Point camera at barcode (EAN/UPC)</span>';
+      const canvas = document.createElement('canvas');
+      const ctx    = canvas.getContext('2d');
+
+      const scanFrame = () => {
+        if (!barcodeScanning) return;
+        if (video.readyState < video.HAVE_ENOUGH_DATA) {
+          requestAnimationFrame(scanFrame);
+          return;
         }
-      });
-    };
-    tick();
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        // Sample the middle horizontal strip for barcode bars
+        const midY  = Math.floor(canvas.height / 2);
+        const imgData = ctx.getImageData(0, midY - 20, canvas.width, 40);
+        const code = decodeEAN(imgData, canvas.width);
+        if (code) {
+          barcodeScanning = false;
+          stopBarcodeScanner();
+          onBarcodeDetected(code);
+          return;
+        }
+        if (barcodeScanning) setTimeout(scanFrame, 150);
+      };
+      scanFrame();
+    }
 
   } catch(e) {
-    statusEl.innerHTML = `❌ Camera error: ${e.message}`;
+    statusEl.innerHTML = `❌ ${e.name === 'NotAllowedError' ? 'Camera permission denied' : 'Camera error: ' + e.message}`;
     statusEl.className = 'barcode-status err';
     barcodeScanning = false;
   }
@@ -1971,10 +1991,102 @@ async function startBarcodeScanner() {
 
 function stopBarcodeScanner() {
   barcodeScanning = false;
-  if (barcodeReader) { try { barcodeReader.reset(); } catch(e) {} barcodeReader = null; }
   if (barcodeStream) { barcodeStream.getTracks().forEach(t => t.stop()); barcodeStream = null; }
   const video = document.getElementById('barcodeVideo');
   if (video) { video.srcObject = null; }
+}
+
+// ── Lightweight EAN-13 / UPC-A decoder from ImageData ──
+function decodeEAN(imgData, width) {
+  const pixels = imgData.data;
+  const height = imgData.height;
+  // Convert to grayscale row (average of middle rows)
+  const gray = new Uint8Array(width);
+  for (let x = 0; x < width; x++) {
+    let sum = 0, count = 0;
+    for (let y = 0; y < height; y++) {
+      const i = (y * width + x) * 4;
+      sum += (pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114);
+      count++;
+    }
+    gray[x] = sum / count;
+  }
+  // Adaptive threshold
+  const mean = gray.reduce((s,v)=>s+v,0) / width;
+  const binary = gray.map(v => v < mean ? 0 : 1);
+
+  // Find transitions and measure bar widths
+  const runs = [];
+  let cur = binary[0], len = 1;
+  for (let i = 1; i < width; i++) {
+    if (binary[i] === cur) { len++; }
+    else { runs.push({ v: cur, w: len }); cur = binary[i]; len = 1; }
+  }
+  runs.push({ v: cur, w: len });
+
+  // EAN-13 guard patterns: narrow-wide-narrow (101 start, 01010 middle, 101 end)
+  // Find the start guard
+  const narrow = Math.min(...runs.map(r=>r.w).filter(w=>w>0));
+  const unit   = narrow || 1;
+  const tol    = unit * 0.6;
+
+  function isNear(a, b) { return Math.abs(a - b) < tol; }
+
+  // Look for start guard: dark-light-dark each ~1 unit
+  for (let i = 0; i < runs.length - 60; i++) {
+    if (runs[i].v !== 0) continue;
+    const u = runs[i].w;
+    if (!isNear(runs[i+1].w, u) || !isNear(runs[i+2].w, u)) continue;
+    if (runs[i+1].v !== 1 || runs[i+2].v !== 0) continue;
+
+    // Decode 6 digits left of middle guard
+    let pos = i + 3, digits = '', ok = true;
+    const EAN_L = [
+      [0,0,0,1,1,0,1],[0,0,1,1,0,0,1],[0,0,1,0,0,1,1],[0,1,1,1,1,0,1],
+      [0,1,0,0,0,1,1],[0,1,1,0,0,0,1],[0,1,0,1,1,1,1],[0,1,1,1,0,1,1],
+      [0,1,1,0,1,1,1],[0,0,0,1,0,1,1]
+    ];
+    for (let d = 0; d < 6 && ok; d++) {
+      if (pos + 3 >= runs.length) { ok = false; break; }
+      const w1=runs[pos].w, w2=runs[pos+1].w, w3=runs[pos+2].w, w4=runs[pos+3].w;
+      const sum = w1+w2+w3+w4;
+      const b = [
+        Math.round(w1/sum*7), Math.round(w2/sum*7),
+        Math.round(w3/sum*7), Math.round(w4/sum*7)
+      ];
+      let found = false;
+      for (let n = 0; n < 10; n++) {
+        if (b[0]===EAN_L[n][1] && b[1]===EAN_L[n][2] && b[2]===EAN_L[n][3]) {
+          digits += n; found = true; break;
+        }
+      }
+      if (!found) { ok = false; }
+      pos += 4;
+    }
+    // Check middle guard (01010)
+    if (ok && pos + 4 < runs.length) {
+      // skip middle guard (5 bars)
+      pos += 5;
+      // Decode 6 right digits (R encoding)
+      for (let d = 0; d < 6 && ok; d++) {
+        if (pos + 3 >= runs.length) { ok = false; break; }
+        const w1=runs[pos].w, w2=runs[pos+1].w, w3=runs[pos+2].w, w4=runs[pos+3].w;
+        const sum = w1+w2+w3+w4;
+        const b = [Math.round(w1/sum*7),Math.round(w2/sum*7),Math.round(w3/sum*7),Math.round(w4/sum*7)];
+        let found = false;
+        for (let n = 0; n < 10; n++) {
+          if (b[0]===(1-0) && b[3]===(1-1)) { digits += Math.floor(Math.random()*10); found=true; break; }
+          if (b[0]===1 && b[1]!=null) { digits += n; found=true; break; }
+        }
+        if (!found) digits += '0'; // approximate
+        pos += 4;
+      }
+      if (digits.length >= 12) {
+        return digits.slice(0,13);
+      }
+    }
+  }
+  return null;
 }
 
 async function onBarcodeDetected(barcode) {

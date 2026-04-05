@@ -1904,60 +1904,68 @@ function setSearchMode(mode) {
 let barcodeReader   = null;
 let barcodeStream   = null;
 let barcodeScanning = false;
+let barcodeHandled  = false; // prevent double-fire
 
 async function startBarcodeScanner() {
   const statusEl = document.getElementById('barcodeStatus');
   const video    = document.getElementById('barcodeVideo');
+  barcodeHandled  = false;
 
-  // ZXing may not be loaded yet — wait for it
+  // Load ZXing — wait up to 3s
+  let waited = 0;
+  while (typeof ZXing === 'undefined' && waited < 3000) {
+    statusEl.innerHTML = '<span>⏳ Loading scanner…</span>';
+    statusEl.className = 'barcode-status';
+    await new Promise(res => setTimeout(res, 300));
+    waited += 300;
+  }
   if (typeof ZXing === 'undefined') {
-    statusEl.textContent = '⏳ Loading scanner…';
-    statusEl.className   = 'barcode-status';
-    await new Promise(res => setTimeout(res, 1200));
-    if (typeof ZXing === 'undefined') {
-      statusEl.innerHTML  = '❌ Scanner library failed to load — check connection';
-      statusEl.className  = 'barcode-status err';
-      return;
-    }
+    statusEl.innerHTML = '❌ Scanner library failed to load';
+    statusEl.className = 'barcode-status err';
+    return;
   }
 
   try {
-    statusEl.innerHTML  = '<span>📷 Starting camera…</span>';
-    statusEl.className  = 'barcode-status';
-    barcodeScanning     = true;
+    statusEl.innerHTML = '<span>📷 Starting camera…</span>';
+    statusEl.className = 'barcode-status';
+    barcodeScanning    = true;
 
+    // Get camera stream directly
     barcodeStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
     });
     video.srcObject = barcodeStream;
     await video.play();
 
-    const hints = new Map();
-    const formats = [
-      ZXing.BarcodeFormat.EAN_13,
-      ZXing.BarcodeFormat.EAN_8,
-      ZXing.BarcodeFormat.UPC_A,
-      ZXing.BarcodeFormat.UPC_E,
-      ZXing.BarcodeFormat.CODE_128,
-      ZXing.BarcodeFormat.CODE_39,
-    ];
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-    barcodeReader = new ZXing.BrowserMultiFormatReader(hints);
-
+    barcodeReader = new ZXing.BrowserMultiFormatReader();
     statusEl.innerHTML = '<span>📷 Point camera at barcode</span>';
 
-    barcodeReader.decodeFromVideoElement(video, (result, err) => {
-      if (!barcodeScanning) return;
-      if (result) {
-        const code = result.getText();
+    // Decode in a loop from the live video
+    const tick = () => {
+      if (!barcodeScanning || barcodeHandled) return;
+      barcodeReader.decodeFromVideoElement(video).then(result => {
+        if (!barcodeScanning || barcodeHandled) return;
+        barcodeHandled = true;
         barcodeScanning = false;
-        stopBarcodeScanner();
+        const code = result.getText();
+        // Stop camera tracks before switching
+        if (barcodeStream) { barcodeStream.getTracks().forEach(t => t.stop()); barcodeStream = null; }
+        if (barcodeReader) { try { barcodeReader.reset(); } catch(e) {} barcodeReader = null; }
+        video.srcObject = null;
         onBarcodeDetected(code);
-      }
-    });
+      }).catch(err => {
+        // NotFoundException is normal (no barcode in frame) — keep scanning
+        if (barcodeScanning && !barcodeHandled) {
+          setTimeout(tick, 200);
+        }
+      });
+    };
+    tick();
+
   } catch(e) {
     statusEl.innerHTML = `❌ Camera error: ${e.message}`;
     statusEl.className = 'barcode-status err';
+    barcodeScanning = false;
   }
 }
 
@@ -2009,8 +2017,7 @@ async function onBarcodeDetected(barcode) {
       };
       currentResult = result;
       addToHistory('📦 ' + name);
-      renderResult(result);
-      setSearchMode('text'); // switch back so user can add/save
+      showBarcodeResult(result);
       return;
     }
 
@@ -2030,18 +2037,7 @@ async function onBarcodeDetected(barcode) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 400,
-        messages: [{ role: 'user', content: `A product has barcode ${barcode}. Based on this barcode number, identify the most likely food product and provide estimated nutrition per standard serving. Respond ONLY with valid JSON:
-{
-  "food": "Product name (serving size)",
-  "qty_g": 100,
-  "qty_label": "1 serving",
-  "calories": 150,
-  "carbs_g": 20,
-  "protein_g": 5,
-  "fat_g": 4,
-  "fiber_g": 1,
-  "notes": "Estimated from barcode — verify with packaging"
-}` }]
+        messages: [{ role: 'user', content: 'A product has barcode ' + barcode + '. Based on this barcode number, identify the most likely food product and provide estimated nutrition per standard serving. Respond ONLY with valid JSON: {"food":"Product name (serving size)","qty_g":100,"qty_label":"1 serving","calories":150,"carbs_g":20,"protein_g":5,"fat_g":4,"fiber_g":1,"notes":"Estimated from barcode — verify with packaging"}' }]
       })
     });
 
@@ -2053,8 +2049,7 @@ async function onBarcodeDetected(barcode) {
 
     currentResult = result;
     addToHistory('📦 ' + result.food);
-    renderResult(result);
-    setSearchMode('text');
+    showBarcodeResult(result);
 
   } catch(e) {
     showToast('Lookup failed: ' + e.message, 'error');
@@ -2063,6 +2058,20 @@ async function onBarcodeDetected(barcode) {
   } finally {
     document.getElementById('thinkingEl').style.display = 'none';
   }
+}
+
+function showBarcodeResult(result) {
+  // Switch panels without calling setSearchMode (which would re-trigger stopBarcodeScanner)
+  searchMode = 'text';
+  document.getElementById('smtText').classList.add('active');
+  document.getElementById('smtPhoto').classList.remove('active');
+  document.getElementById('smtBarcode').classList.remove('active');
+  document.getElementById('textSearchWrap').classList.remove('hidden');
+  document.getElementById('photoSearchWrap').classList.remove('active');
+  document.getElementById('barcodeSearchWrap').classList.remove('active');
+  document.getElementById('recentSearchesLabel').style.display = '';
+  document.getElementById('searchHistory').style.display = '';
+  renderResult(result);
 }
 
 function onPhotoSelected(event) {

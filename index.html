@@ -801,6 +801,44 @@ a { color: inherit; text-decoration: none; }
 .sw-gain-3  { background: #B71C1C; color: #fff; }
 .sw-na      { background: var(--surface2); color: var(--text-3); }
 
+/* ── meal plan tab ── */
+.mp-pref-chip {
+  display: inline-flex; align-items: center; padding: 7px 13px;
+  border-radius: 20px; border: 1.5px solid var(--border);
+  background: var(--surface); font-size: 12.5px; font-weight: 600;
+  color: var(--text-2); cursor: pointer; transition: all .15s;
+  margin: 0 4px 6px 0;
+}
+.mp-pref-chip.sel { background: var(--blue-lt); border-color: var(--blue); color: var(--blue); }
+.mp-target-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+.mp-target-label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; flex: 0 0 68px; }
+.mp-day-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--r); margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.mp-day-header { background: var(--blue); color: #fff; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+.mp-day-title { font-size: 14px; font-weight: 800; }
+.mp-day-macros { font-size: 10.5px; opacity: .85; }
+.mp-meal { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.mp-meal:last-child { border-bottom: none; }
+.mp-meal-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-3); margin-bottom: 3px; }
+.mp-meal-name { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 3px; line-height: 1.3; }
+.mp-meal-macros { font-size: 11px; color: var(--text-3); margin-bottom: 4px; }
+.mp-meal-note  { font-size: 11.5px; color: var(--text-2); font-style: italic; line-height: 1.4; margin-bottom: 4px; }
+.mp-alts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.mp-alt-chip { font-size: 10.5px; padding: 2px 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text-2); font-weight: 600; }
+.mp-generate-btn {
+  width: 100%; padding: 16px; border-radius: var(--r);
+  background: linear-gradient(135deg, #1565C0, #0D47A1);
+  color: #fff; font-size: 15px; font-weight: 800; border: none;
+  box-shadow: 0 4px 18px rgba(21,101,192,.35); cursor: pointer;
+  transition: opacity .15s, transform .15s; margin-bottom: 14px;
+}
+.mp-generate-btn:active { opacity: .88; transform: scale(.98); }
+.mp-generate-btn:disabled { opacity: .5; cursor: default; transform: none; }
+.mp-week-summary { background: var(--blue-lt); border: 1.5px solid var(--blue-mid); border-radius: var(--r); padding: 12px 14px; margin-bottom: 12px; }
+.mp-week-summary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-top: 6px; }
+.mp-sum-tile { text-align: center; background: var(--surface); border-radius: var(--r-sm); padding: 6px 4px; }
+.mp-sum-val { font-size: 15px; font-weight: 800; color: var(--blue); }
+.mp-sum-lbl { font-size: 9.5px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.4px; }
+
 /* ── search mode toggle ── */
 .search-mode-toggle { display: flex; gap: 0; margin-bottom: 14px; border-radius: var(--r-sm); overflow: hidden; border: 1.5px solid var(--border); }
 .smt-btn {
@@ -1566,6 +1604,89 @@ a { color: inherit; text-decoration: none; }
         </div>
       </div>
     </div>
+    <!-- ── SCREEN: MEAL PLAN ── -->
+    <div class="screen" id="screen-mealplan">
+
+      <!-- calorie target mode -->
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-title">🎯 Calorie Target</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button class="mp-pref-chip sel" data-mpmode="total"    onclick="selectMPMode(this)">Total calories</button>
+          <button class="mp-pref-chip"     data-mpmode="net"      onclick="selectMPMode(this)">Net (after exercise)</button>
+          <button class="mp-pref-chip"     data-mpmode="model"    onclick="selectMPMode(this)">My model target</button>
+        </div>
+        <div class="mp-target-row">
+          <span class="mp-target-label">Calories</span>
+          <input class="inp" id="mpCalTarget" type="number" value="2000" style="flex:1;padding:9px">
+          <span style="font-size:12px;color:var(--text-3)">kcal/day</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <div style="font-size:10.5px;font-weight:700;color:var(--text-3);margin-bottom:4px">Carbs (g)</div>
+            <input class="inp" id="mpCarbTarget" type="number" value="250" style="padding:9px">
+          </div>
+          <div>
+            <div style="font-size:10.5px;font-weight:700;color:var(--text-3);margin-bottom:4px">Protein (g)</div>
+            <input class="inp" id="mpProteinTarget" type="number" value="120" style="padding:9px">
+          </div>
+          <div>
+            <div style="font-size:10.5px;font-weight:700;color:var(--text-3);margin-bottom:4px">Fat (g)</div>
+            <input class="inp" id="mpFatTarget" type="number" value="65" style="padding:9px">
+          </div>
+          <div>
+            <div style="font-size:10.5px;font-weight:700;color:var(--text-3);margin-bottom:4px">Fibre (g)</div>
+            <input class="inp" id="mpFibreTarget" type="number" value="30" style="padding:9px">
+          </div>
+        </div>
+      </div>
+
+      <!-- dietary preferences -->
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-title">🥗 Dietary Preferences</div>
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:8px">Select all that apply</div>
+        <div id="mpDietChips">
+          <button class="mp-pref-chip" data-pref="vegan"         onclick="toggleMPPref(this)">🌱 Vegan</button>
+          <button class="mp-pref-chip" data-pref="vegetarian"    onclick="toggleMPPref(this)">🥦 Vegetarian</button>
+          <button class="mp-pref-chip" data-pref="pescatarian"   onclick="toggleMPPref(this)">🐟 Pescatarian</button>
+          <button class="mp-pref-chip" data-pref="chicken"       onclick="toggleMPPref(this)">🍗 Chicken</button>
+          <button class="mp-pref-chip" data-pref="red meat"      onclick="toggleMPPref(this)">🥩 Red Meat</button>
+          <button class="mp-pref-chip" data-pref="fish seafood"  onclick="toggleMPPref(this)">🦐 Fish &amp; Seafood</button>
+          <button class="mp-pref-chip" data-pref="mediterranean" onclick="toggleMPPref(this)">🫒 Mediterranean</button>
+          <button class="mp-pref-chip" data-pref="low carb"      onclick="toggleMPPref(this)">📉 Low Carb</button>
+          <button class="mp-pref-chip" data-pref="high protein"  onclick="toggleMPPref(this)">💪 High Protein</button>
+          <button class="mp-pref-chip" data-pref="dairy free"    onclick="toggleMPPref(this)">🥛 Dairy Free</button>
+          <button class="mp-pref-chip" data-pref="gluten free"   onclick="toggleMPPref(this)">🌾 Gluten Free</button>
+          <button class="mp-pref-chip" data-pref="sweet tooth"   onclick="toggleMPPref(this)">🍫 Sweet Tooth</button>
+          <button class="mp-pref-chip" data-pref="meal prep"     onclick="toggleMPPref(this)">📦 Meal Prep Friendly</button>
+          <button class="mp-pref-chip" data-pref="quick meals"   onclick="toggleMPPref(this)">⚡ Quick Meals</button>
+        </div>
+        <div style="margin-top:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Exclude / Allergies</div>
+          <input class="inp" id="mpExclude" type="text" placeholder="e.g. nuts, shellfish, eggs…" autocomplete="off" style="padding:10px">
+        </div>
+      </div>
+
+      <!-- generate button -->
+      <button class="mp-generate-btn" id="mpGenerateBtn" onclick="generateMealPlan()">
+        ✨ Generate 7-Day Meal Plan
+      </button>
+
+      <!-- results -->
+      <div id="mpResults" style="display:none">
+        <div class="mp-week-summary" id="mpWeekSummary"></div>
+        <div id="mpDayCards"></div>
+        <button class="mp-generate-btn" onclick="generateMealPlan()" style="background:linear-gradient(135deg,#2E7D32,#1B5E20);box-shadow:0 4px 18px rgba(46,125,50,.3)">
+          🔄 Regenerate Plan
+        </button>
+      </div>
+
+      <div id="mpThinking" style="display:none;padding:30px 0;text-align:center">
+        <div class="thinking-dots" style="justify-content:center;margin-bottom:10px"><span></span><span></span><span></span></div>
+        <div style="font-size:13px;color:var(--text-2);font-weight:600">Claude is planning your week…</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-top:4px">This takes 10–20 seconds</div>
+      </div>
+    </div>
+
   </div><!-- /screens -->
 
   <!-- ════ TAB BAR ════ -->
@@ -1588,6 +1709,11 @@ a { color: inherit; text-decoration: none; }
     <button class="tab" data-tab="analytics" onclick="switchTab('analytics')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Analytics
+      <div class="tab-pip"></div>
+    </button>
+    <button class="tab" data-tab="mealplan" onclick="switchTab('mealplan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h2l2.5 8H18l2-6H7"/><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M9 17h10"/></svg>
+      Meal Plan
       <div class="tab-pip"></div>
     </button>
   </nav>
@@ -1639,7 +1765,7 @@ a { color: inherit; text-decoration: none; }
       <div>
         <div style="font-size:16px;font-weight:800;color:var(--blue)">v2.6 <span style="font-size:11px;font-weight:600;background:var(--blue);color:#fff;padding:2px 7px;border-radius:20px;margin-left:4px">Current</span></div>
         <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Photo &amp; barcode search · Personal weight model</div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Created Sunday 5 April 2026, 18:05 AEST</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Created Sunday 5 April 2026, 18:35 AEST</div>
       </div>
       <div id="settingsDataStats" style="text-align:right;font-size:11px;color:var(--text-3);line-height:1.6"></div>
     </div>
@@ -1854,6 +1980,251 @@ function switchTab(name) {
   if (name === 'today')     renderToday();
   if (name === 'calendar')  renderCalendar();
   if (name === 'analytics') renderAnalytics();
+  if (name === 'mealplan')  initMealPlanTab();
+}
+
+/* ════════════════════════════════════════
+   MEAL PLAN
+════════════════════════════════════════ */
+const STARCH_ALTS = ['rice','pasta','noodles','couscous','quinoa','bulgur','farro','barley','polenta','bread','tortilla','pita','naan','potato','sweet potato','mashed potato','roti'];
+const ALT_MAP = {
+  rice:         ['potatoes','couscous','orzo','quinoa','bulgur wheat','cauliflower rice'],
+  pasta:        ['rice','couscous','orzo','zucchini noodles','soba noodles','gnocchi'],
+  noodles:      ['rice noodles','soba','glass noodles','courgette noodles','orzo'],
+  couscous:     ['rice','quinoa','bulgur wheat','orzo','millet'],
+  quinoa:       ['rice','farro','bulgur wheat','couscous','millet'],
+  bulgur:       ['quinoa','couscous','rice','barley'],
+  potato:       ['sweet potato','rice','couscous','mashed celeriac','polenta'],
+  'sweet potato':['regular potato','butternut squash','parsnip mash','rice'],
+  bread:        ['pita','naan','roti','tortilla','sourdough','crispbread'],
+  tortilla:     ['pita','naan','lettuce wraps','rice paper'],
+  polenta:      ['mashed potato','rice','couscous','grits'],
+  farro:        ['barley','spelt','wheat berries','rice'],
+};
+function getStarchAlts(mealName) {
+  const lower = mealName.toLowerCase();
+  for (const [starch, alts] of Object.entries(ALT_MAP)) {
+    if (lower.includes(starch)) return alts.slice(0,4);
+  }
+  for (const s of STARCH_ALTS) {
+    if (lower.includes(s)) return ['potato','couscous','orzo','quinoa'];
+  }
+  return [];
+}
+
+let mpMode = 'total';
+let mpPrefs = [];
+
+function selectMPMode(btn) {
+  document.querySelectorAll('[data-mpmode]').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  mpMode = btn.dataset.mpmode;
+  // auto-fill target from goals or model
+  if (mpMode === 'total') {
+    document.getElementById('mpCalTarget').value = goals.calGoal || 2000;
+  } else if (mpMode === 'net') {
+    const avgBurn = (() => {
+      const keys = Object.keys(db).filter(k => db[k].steps || db[k].runKm);
+      if (!keys.length) return 300;
+      const burns = keys.map(k => calcBurn(db[k].steps, db[k].weight, goals.units, db[k].runKm, db[k].runPace));
+      return Math.round(burns.reduce((s,v)=>s+v,0)/burns.length);
+    })();
+    document.getElementById('mpCalTarget').value = (goals.calGoal || 2000) + avgBurn;
+  } else if (mpMode === 'model') {
+    // use net-neutral from scatter regression if enough data
+    const allKeys = Object.keys(db).sort();
+    const wKeys = allKeys.filter(k => db[k]?.weight);
+    if (wKeys.length >= 5) {
+      const pts = [];
+      for (let i=1;i<wKeys.length;i++) {
+        const d = db[wKeys[i-1]];
+        const cal = d.items?.reduce((s,it)=>s+it.calories,0)||0;
+        if (!cal) continue;
+        const burn = calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace);
+        const net = cal - burn;
+        const delta = db[wKeys[i]].weight - db[wKeys[i-1]].weight;
+        pts.push({x:net,y:delta});
+      }
+      if (pts.length >= 3) {
+        const n=pts.length, sx=pts.reduce((s,p)=>s+p.x,0), sy=pts.reduce((s,p)=>s+p.y,0);
+        const sxy=pts.reduce((s,p)=>s+p.x*p.y,0), sx2=pts.reduce((s,p)=>s+p.x*p.x,0);
+        const m=(n*sxy-sx*sy)/(n*sx2-sx*sx), b=(sy-m*sx)/n;
+        if (Math.abs(m)>0.000001) {
+          document.getElementById('mpCalTarget').value = Math.round(-b/m);
+          return;
+        }
+      }
+    }
+    document.getElementById('mpCalTarget').value = goals.calGoal || 2000;
+  }
+}
+
+function toggleMPPref(btn) {
+  btn.classList.toggle('sel');
+  const pref = btn.dataset.pref;
+  if (btn.classList.contains('sel')) {
+    if (!mpPrefs.includes(pref)) mpPrefs.push(pref);
+  } else {
+    mpPrefs = mpPrefs.filter(p => p !== pref);
+  }
+}
+
+function initMealPlanTab() {
+  // Pre-fill targets from saved goals
+  document.getElementById('mpCalTarget').value    = goals.calGoal    || 2000;
+  document.getElementById('mpCarbTarget').value   = goals.carbGoal   || 250;
+  document.getElementById('mpProteinTarget').value= goals.proteinGoal|| 120;
+  document.getElementById('mpFatTarget').value    = goals.fatGoal    || 65;
+  document.getElementById('mpFibreTarget').value  = goals.fibreGoal  || 30;
+}
+
+async function generateMealPlan() {
+  const apiKey = localStorage.getItem(API_KEY);
+  if (!apiKey) { showApiModal(); return; }
+
+  const calTarget    = parseInt(document.getElementById('mpCalTarget').value)    || 2000;
+  const carbTarget   = parseInt(document.getElementById('mpCarbTarget').value)   || 250;
+  const protTarget   = parseInt(document.getElementById('mpProteinTarget').value)|| 120;
+  const fatTarget    = parseInt(document.getElementById('mpFatTarget').value)    || 65;
+  const fibreTarget  = parseInt(document.getElementById('mpFibreTarget').value)  || 30;
+  const exclude      = document.getElementById('mpExclude').value.trim();
+  const dietList     = mpPrefs.length ? mpPrefs.join(', ') : 'no specific restrictions';
+  const modeLabel    = mpMode === 'net' ? 'net (after exercise)' : mpMode === 'model' ? 'weight-neutral model' : 'total';
+
+  document.getElementById('mpGenerateBtn').disabled = true;
+  document.getElementById('mpThinking').style.display = 'block';
+  document.getElementById('mpResults').style.display = 'none';
+
+  const prompt = `Create a 7-day meal plan with the following targets and preferences.
+
+DAILY TARGETS (${modeLabel} calories):
+- Calories: ${calTarget} kcal
+- Carbohydrates: ${carbTarget}g
+- Protein: ${protTarget}g
+- Fat: ${fatTarget}g
+- Fibre: ${fibreTarget}g
+
+DIETARY PREFERENCES: ${dietList}
+${exclude ? `EXCLUDE / ALLERGIES: ${exclude}` : ''}
+
+For each day provide 4 meals: Breakfast, Lunch, Dinner, Snack.
+Each meal must have estimated macros.
+Where a meal contains a starch (rice, pasta, potato, couscous, bread etc.) include up to 4 alternative starch options.
+Vary the meals across the week — no repeated dinners.
+
+Respond ONLY with a valid JSON array — no markdown, no extra text:
+[
+  {
+    "day": "Monday",
+    "meals": [
+      {
+        "type": "Breakfast",
+        "name": "Greek yoghurt with berries and granola",
+        "calories": 380,
+        "carbs_g": 52,
+        "protein_g": 18,
+        "fat_g": 10,
+        "fibre_g": 5,
+        "note": "Optional prep or serving tip",
+        "starch_alts": []
+      }
+    ],
+    "day_totals": { "calories": 2000, "carbs_g": 250, "protein_g": 120, "fat_g": 65, "fibre_g": 30 }
+  }
+]`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || `API error ${resp.status}`);
+    }
+    const data  = await resp.json();
+    const raw   = data.content?.[0]?.text || '';
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('Could not parse meal plan response');
+    const plan = JSON.parse(match[0]);
+    renderMealPlan(plan, calTarget, carbTarget, protTarget, fatTarget, fibreTarget);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    document.getElementById('mpGenerateBtn').disabled = false;
+    document.getElementById('mpThinking').style.display = 'none';
+  }
+}
+
+function renderMealPlan(plan, calT, carbT, protT, fatT, fibT) {
+  // Week average summary
+  const avgCal  = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.calories||0),0)/plan.length);
+  const avgCarb = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.carbs_g||0),0)/plan.length);
+  const avgProt = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.protein_g||0),0)/plan.length);
+  const avgFat  = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.fat_g||0),0)/plan.length);
+  const avgFib  = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.fibre_g||0),0)/plan.length);
+
+  function pctBar(val, target) {
+    const pct = Math.round(val/target*100);
+    const col = pct > 115 ? 'var(--red)' : pct < 85 ? 'var(--yellow)' : 'var(--green)';
+    return `<span style="color:${col};font-weight:700">${val}</span><span style="color:var(--text-3)">/${target}</span>`;
+  }
+
+  document.getElementById('mpWeekSummary').innerHTML = `
+    <div style="font-size:12px;font-weight:800;color:var(--blue);margin-bottom:6px">📊 7-Day Weekly Average</div>
+    <div class="mp-week-summary-grid">
+      <div class="mp-sum-tile"><div class="mp-sum-val">${pctBar(avgCal,calT)}</div><div class="mp-sum-lbl">Calories</div></div>
+      <div class="mp-sum-tile"><div class="mp-sum-val">${pctBar(avgCarb,carbT)}g</div><div class="mp-sum-lbl">Carbs</div></div>
+      <div class="mp-sum-tile"><div class="mp-sum-val">${pctBar(avgProt,protT)}g</div><div class="mp-sum-lbl">Protein</div></div>
+      <div class="mp-sum-tile"><div class="mp-sum-val">${pctBar(avgFat,fatT)}g</div><div class="mp-sum-lbl">Fat</div></div>
+      <div class="mp-sum-tile"><div class="mp-sum-val">${pctBar(avgFib,fibT)}g</div><div class="mp-sum-lbl">Fibre</div></div>
+    </div>`;
+
+  const mealIcons = { Breakfast:'🌅', Lunch:'☀️', Dinner:'🌙', Snack:'🍎' };
+
+  document.getElementById('mpDayCards').innerHTML = plan.map(day => {
+    const tot = day.day_totals || {};
+    const mealsHtml = (day.meals||[]).map(meal => {
+      // starch alts — use Claude-provided or auto-detect
+      const alts = (meal.starch_alts && meal.starch_alts.length)
+        ? meal.starch_alts
+        : getStarchAlts(meal.name);
+      const altsHtml = alts.length
+        ? `<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">🔀 Try instead:</div>
+           <div class="mp-alts">${alts.map(a=>`<span class="mp-alt-chip">${a}</span>`).join('')}</div>`
+        : '';
+      return `<div class="mp-meal">
+        <div class="mp-meal-type">${mealIcons[meal.type]||'🍴'} ${meal.type}</div>
+        <div class="mp-meal-name">${meal.name}</div>
+        <div class="mp-meal-macros">${meal.calories} kcal · ${meal.carbs_g}g carbs · ${meal.protein_g}g protein · ${meal.fat_g}g fat · ${meal.fibre_g}g fibre</div>
+        ${meal.note ? `<div class="mp-meal-note">${meal.note}</div>` : ''}
+        ${altsHtml}
+      </div>`;
+    }).join('');
+
+    const calPct = tot.calories ? Math.round(tot.calories/calT*100) : 0;
+    const calCol = calPct > 115 ? '#D32F2F' : calPct < 85 ? '#F9A825' : '#fff';
+    return `<div class="mp-day-card">
+      <div class="mp-day-header">
+        <div class="mp-day-title">${day.day}</div>
+        <div class="mp-day-macros" style="color:${calCol}">${tot.calories||'—'} kcal · ${tot.protein_g||'—'}g protein</div>
+      </div>
+      ${mealsHtml}
+    </div>`;
+  }).join('');
+
+  document.getElementById('mpResults').style.display = 'block';
+  document.getElementById('screen-mealplan').scrollTo(0,0);
 }
 
 /* ════════════════════════════════════════

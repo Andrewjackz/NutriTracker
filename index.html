@@ -134,12 +134,12 @@ a { color: inherit; text-decoration: none; }
 }
 .tab {
   flex: 1; display: flex; flex-direction: column; align-items: center;
-  padding: 10px 0 4px; background: none; color: var(--text-3);
-  font-size: 10.5px; font-weight: 600; letter-spacing: 0.3px;
+  padding: 8px 0 3px; background: none; color: var(--text-3);
+  font-size: 9px; font-weight: 600; letter-spacing: 0.2px;
   transition: color .2s;
-  gap: 3px;
+  gap: 2px;
 }
-.tab svg { width: 22px; height: 22px; transition: transform .2s; }
+.tab svg { width: 19px; height: 19px; transition: transform .2s; }
 .tab.active { color: var(--blue); }
 .tab.active svg { transform: translateY(-1px); }
 .tab-pip {
@@ -804,6 +804,22 @@ a { color: inherit; text-decoration: none; }
 .sw-gain-2  { background: #FF8F00; color: #fff; }
 .sw-gain-3  { background: #B71C1C; color: #fff; }
 .sw-na      { background: var(--surface2); color: var(--text-3); }
+
+/* ── exercise planner ── */
+.ex-plan-card { background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-sm); }
+.ex-plan-day-hdr { background:linear-gradient(135deg,#1B5E20,#2E7D32);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between; }
+.ex-plan-day-title { font-size:14px;font-weight:800; }
+.ex-plan-day-sub { font-size:10.5px;opacity:.85; }
+.ex-exercise { padding:10px 14px;border-bottom:1px solid var(--border); }
+.ex-exercise:last-child { border-bottom:none; }
+.ex-exercise-name { font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:2px; }
+.ex-exercise-sets { font-size:11.5px;color:var(--blue);font-weight:600;margin-bottom:2px; }
+.ex-exercise-note { font-size:11.5px;color:var(--text-2);line-height:1.4;font-style:italic; }
+.ex-section-badge { display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:2px 8px;border-radius:12px;margin-bottom:4px; }
+.ex-badge-warmup  { background:#FFF8E1;color:#F57F17; }
+.ex-badge-main    { background:#E8F5E9;color:#2E7D32; }
+.ex-badge-cooldown{ background:#E3F2FD;color:#1565C0; }
+.ex-week-summary  { background:var(--green-lt);border:1.5px solid #A5D6A7;border-radius:var(--r);padding:12px 14px;margin-bottom:12px; }
 
 /* ── meal plan tab ── */
 .mp-pref-chip {
@@ -1703,6 +1719,56 @@ a { color: inherit; text-decoration: none; }
       </div>
     </div>
 
+    <!-- ── SCREEN: EXERCISE ── -->
+    <div class="screen" id="screen-exercise">
+
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-title">🏋️ Exercise Planner</div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px;line-height:1.5">
+          Describe what you need — injury, goal, available equipment, fitness level, days per week. Claude will create a personalised programme.
+        </div>
+        <textarea class="inp" id="exPlanQuery" rows="5"
+          placeholder="e.g. I have a knee injury and need low-impact strengthening. 3 days a week, 30 mins, home with resistance bands. Also include balance work…"
+          autocomplete="off" style="resize:none;line-height:1.5;font-size:13.5px"></textarea>
+
+        <div style="margin-top:10px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-3);margin-bottom:8px">Format preferences</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px" id="exPlanFormatChips">
+            <button class="mp-pref-chip sel" data-expref="sets and reps"    onclick="toggleEXPref(this)">📊 Sets &amp; Reps</button>
+            <button class="mp-pref-chip sel" data-expref="warm-up included" onclick="toggleEXPref(this)">🔥 Warm-up</button>
+            <button class="mp-pref-chip sel" data-expref="cool-down included" onclick="toggleEXPref(this)">🧊 Cool-down</button>
+            <button class="mp-pref-chip"     data-expref="progressive overload notes" onclick="toggleEXPref(this)">📈 Progression notes</button>
+            <button class="mp-pref-chip"     data-expref="modification options for each exercise" onclick="toggleEXPref(this)">⚙️ Modifications</button>
+            <button class="mp-pref-chip"     data-expref="rest day activities included" onclick="toggleEXPref(this)">😴 Rest day guidance</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="mp-generate-btn" id="exPlanGenerateBtn" onclick="generateExercisePlan()" style="background:linear-gradient(135deg,#1B5E20,#2E7D32);box-shadow:0 4px 18px rgba(46,125,50,.35)">
+        💪 Generate Exercise Programme
+      </button>
+
+      <div id="exPlanResults" style="display:none">
+        <div class="ex-week-summary" id="exPlanSummary"></div>
+        <div id="exPlanCards"></div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button onclick="shareExercisePlan()" style="flex:1;padding:12px;border-radius:var(--r-sm);background:var(--green);color:#fff;font-size:13.5px;font-weight:700;border:none;box-shadow:0 4px 14px rgba(46,125,50,.3);cursor:pointer">📤 Share</button>
+          <button onclick="printExercisePlan()" style="flex:1;padding:12px;border-radius:var(--r-sm);background:var(--blue);color:#fff;font-size:13.5px;font-weight:700;border:none;box-shadow:0 4px 14px rgba(21,101,192,.3);cursor:pointer">🖨️ PDF</button>
+          <button onclick="exportExerciseMarkdown()" style="flex:1;padding:12px;border-radius:var(--r-sm);background:var(--surface2);color:var(--text-2);font-size:13.5px;font-weight:700;border:1.5px solid var(--border);cursor:pointer">📝 Markdown</button>
+        </div>
+        <div id="exPlanSavedBadge" style="display:none;text-align:center;font-size:11.5px;color:var(--text-3);margin-bottom:8px">✓ Programme saved — persists until you generate a new one</div>
+        <button class="mp-generate-btn" onclick="generateExercisePlan()" style="background:linear-gradient(135deg,#1565C0,#0D47A1);box-shadow:0 4px 18px rgba(21,101,192,.3)">
+          🔄 Regenerate Programme
+        </button>
+      </div>
+
+      <div id="exPlanThinking" style="display:none;padding:30px 0;text-align:center">
+        <div class="thinking-dots" style="justify-content:center;margin-bottom:10px"><span></span><span></span><span></span></div>
+        <div style="font-size:13px;color:var(--text-2);font-weight:600">Claude is building your programme…</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-top:4px">This takes 10–20 seconds</div>
+      </div>
+    </div>
+
   </div><!-- /screens -->
 
   <!-- ════ TAB BAR ════ -->
@@ -1719,17 +1785,22 @@ a { color: inherit; text-decoration: none; }
     </button>
     <button class="tab" data-tab="calendar" onclick="switchTab('calendar')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Calendar
+      Cal
       <div class="tab-pip"></div>
     </button>
     <button class="tab" data-tab="analytics" onclick="switchTab('analytics')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-      Analytics
+      Stats
       <div class="tab-pip"></div>
     </button>
     <button class="tab" data-tab="mealplan" onclick="switchTab('mealplan')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h2l2.5 8H18l2-6H7"/><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M9 17h10"/></svg>
-      Meal Plan
+      Meals
+      <div class="tab-pip"></div>
+    </button>
+    <button class="tab" data-tab="exercise" onclick="switchTab('exercise')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11m-11 11h11M4 12h16M2 9l2 3-2 3M22 9l-2 3 2 3"/></svg>
+      Exercise
       <div class="tab-pip"></div>
     </button>
   </nav>
@@ -1838,6 +1909,7 @@ const HIST_KEY    = 'nt_history';
 const BACKUP_KEY  = 'nt_last_backup';
 const TMPL_KEY    = 'nt_templates';
 const MEALPLAN_KEY = 'nt_mealplan';
+const EXPLAN_KEY   = 'nt_explan';
 
 let db       = loadDB();
 let goals    = loadGoals();
@@ -2002,6 +2074,7 @@ function switchTab(name) {
   if (name === 'calendar')  renderCalendar();
   if (name === 'analytics') renderAnalytics();
   if (name === 'mealplan')  initMealPlanTab();
+  if (name === 'exercise')  initExerciseTab();
 }
 
 /* ════════════════════════════════════════
@@ -2404,6 +2477,325 @@ function printMealPlan() {
     setTimeout(() => win.print(), 600);
   } catch(e) {
     win.close();
+    showToast('Print failed: ' + e.message, 'error');
+  }
+}
+
+/* ════════════════════════════════════════
+   EXERCISE PLANNER
+════════════════════════════════════════ */
+let exPrefs = ['sets and reps', 'warm-up included', 'cool-down included'];
+
+function toggleEXPref(btn) {
+  btn.classList.toggle('sel');
+  const pref = btn.dataset.expref;
+  if (btn.classList.contains('sel')) {
+    if (!exPrefs.includes(pref)) exPrefs.push(pref);
+  } else {
+    exPrefs = exPrefs.filter(p => p !== pref);
+  }
+}
+
+function initExerciseTab() {
+  try {
+    const saved = localStorage.getItem(EXPLAN_KEY);
+    if (saved) {
+      const { plan, query } = JSON.parse(saved);
+      if (plan) {
+        if (query) document.getElementById('exPlanQuery').value = query;
+        renderExercisePlan(plan, false);
+      }
+    }
+  } catch(e) {}
+}
+
+async function generateExercisePlan() {
+  const apiKey = localStorage.getItem(API_KEY);
+  if (!apiKey) { showApiModal(); return; }
+
+  const query   = document.getElementById('exPlanQuery').value.trim();
+  if (!query) { showToast('Please describe what you need', 'error'); return; }
+  const prefList = exPrefs.length ? exPrefs.join(', ') : 'standard format';
+
+  document.getElementById('exPlanGenerateBtn').disabled = true;
+  document.getElementById('exPlanThinking').style.display  = 'block';
+  document.getElementById('exPlanResults').style.display   = 'none';
+
+  const prompt = `You are an expert personal trainer and physiotherapist. Create a detailed exercise programme based on this request:
+
+"${query}"
+
+Format preferences: ${prefList}
+
+Create a structured weekly programme. For each session include:
+- A warm-up section
+- Main workout exercises
+- Cool-down section
+Each exercise should have sets/reps or duration, and a brief coaching note.
+
+Respond ONLY with valid JSON — no markdown, no extra text:
+{
+  "programme_name": "Short descriptive name",
+  "summary": "2-3 sentence overview of the programme and its goals",
+  "duration_weeks": 4,
+  "sessions_per_week": 3,
+  "equipment_needed": ["resistance bands", "mat"],
+  "days": [
+    {
+      "day": "Day 1 – Monday",
+      "focus": "Lower body strength",
+      "duration_mins": 30,
+      "sections": [
+        {
+          "section": "Warm-up",
+          "exercises": [
+            {
+              "name": "Leg swings",
+              "sets_reps": "2 × 10 each leg",
+              "note": "Hold wall for balance, swing leg forward and back in a controlled arc"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || `API error ${resp.status}`);
+    }
+    const data  = await resp.json();
+    const raw   = data.content?.[0]?.text || '';
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Could not parse exercise plan response');
+    const plan = JSON.parse(match[0]);
+    // persist
+    localStorage.setItem(EXPLAN_KEY, JSON.stringify({ plan, query }));
+    renderExercisePlan(plan, true);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    document.getElementById('exPlanGenerateBtn').disabled = false;
+    document.getElementById('exPlanThinking').style.display = 'none';
+  }
+}
+
+function renderExercisePlan(plan, save) {
+  const sectionColours = {
+    'warm-up':   'ex-badge-warmup',
+    'warm up':   'ex-badge-warmup',
+    'cooldown':  'ex-badge-cooldown',
+    'cool-down': 'ex-badge-cooldown',
+    'cool down': 'ex-badge-cooldown',
+  };
+  function sectionBadge(name) {
+    const k = name.toLowerCase();
+    const cls = sectionColours[k] || 'ex-badge-main';
+    return `<span class="ex-section-badge ${cls}">${name}</span>`;
+  }
+
+  // Summary card
+  document.getElementById('exPlanSummary').innerHTML = `
+    <div style="font-size:12px;font-weight:800;color:var(--green);margin-bottom:6px">💪 ${plan.programme_name || 'Your Programme'}</div>
+    <div style="font-size:12.5px;color:var(--text-2);line-height:1.5;margin-bottom:8px">${plan.summary || ''}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${plan.sessions_per_week ? `<span style="font-size:11.5px;font-weight:700;color:var(--green)">📅 ${plan.sessions_per_week}× per week</span>` : ''}
+      ${plan.duration_weeks    ? `<span style="font-size:11.5px;font-weight:700;color:var(--blue)">⏱ ${plan.duration_weeks} weeks</span>` : ''}
+      ${(plan.equipment_needed||[]).length ? `<span style="font-size:11.5px;color:var(--text-3)">🎽 ${plan.equipment_needed.join(', ')}</span>` : ''}
+    </div>`;
+
+  // Day cards
+  document.getElementById('exPlanCards').innerHTML = (plan.days||[]).map(day => {
+    const sectionsHtml = (day.sections||[]).map(sec => {
+      const exHtml = (sec.exercises||[]).map(ex => `
+        <div class="ex-exercise">
+          <div class="ex-exercise-name">${ex.name}</div>
+          ${ex.sets_reps ? `<div class="ex-exercise-sets">📊 ${ex.sets_reps}</div>` : ''}
+          ${ex.note      ? `<div class="ex-exercise-note">${ex.note}</div>` : ''}
+        </div>`).join('');
+      return `<div style="padding:8px 14px 0">${sectionBadge(sec.section)}</div>${exHtml}`;
+    }).join('');
+
+    return `<div class="ex-plan-card">
+      <div class="ex-plan-day-hdr">
+        <div class="ex-plan-day-title">${day.day}</div>
+        <div class="ex-plan-day-sub">${day.focus || ''}${day.duration_mins ? ' · ' + day.duration_mins + ' min' : ''}</div>
+      </div>
+      ${sectionsHtml}
+    </div>`;
+  }).join('');
+
+  document.getElementById('exPlanResults').style.display = 'block';
+  if (save) {
+    const badge = document.getElementById('exPlanSavedBadge');
+    if (badge) badge.style.display = 'block';
+    document.getElementById('screen-exercise').scrollTo(0,0);
+  }
+}
+
+function exPlanToText() {
+  try {
+    const saved = localStorage.getItem(EXPLAN_KEY);
+    if (!saved) return null;
+    const { plan } = JSON.parse(saved);
+    if (!plan) return null;
+    const lines = ['💪 EXERCISE PROGRAMME', plan.programme_name||'', '─'.repeat(32), plan.summary||'', ''];
+    if (plan.sessions_per_week) lines.push(`Sessions: ${plan.sessions_per_week}× per week · ${plan.duration_weeks||'—'} weeks`);
+    if ((plan.equipment_needed||[]).length) lines.push(`Equipment: ${plan.equipment_needed.join(', ')}`);
+    lines.push('');
+    (plan.days||[]).forEach(day => {
+      lines.push(`📅 ${day.day.toUpperCase()}${day.focus?' – '+day.focus:''}`);
+      if (day.duration_mins) lines.push(`Duration: ${day.duration_mins} mins`);
+      (day.sections||[]).forEach(sec => {
+        lines.push(`  ${sec.section.toUpperCase()}`);
+        (sec.exercises||[]).forEach(ex => {
+          lines.push(`    • ${ex.name}${ex.sets_reps?' | '+ex.sets_reps:''}`);
+          if (ex.note) lines.push(`      ${ex.note}`);
+        });
+      });
+      lines.push('');
+    });
+    lines.push('─'.repeat(32));
+    lines.push('Generated by NutriTrack · andrewjackz.github.io/NutriTracker');
+    return lines.join('\n');
+  } catch(e) { return null; }
+}
+
+function exPlanToMarkdown() {
+  try {
+    const saved = localStorage.getItem(EXPLAN_KEY);
+    if (!saved) return null;
+    const { plan } = JSON.parse(saved);
+    if (!plan) return null;
+    const lines = [`# 💪 ${plan.programme_name||'Exercise Programme'}`, '', plan.summary||'', ''];
+    if (plan.sessions_per_week) lines.push(`**Sessions:** ${plan.sessions_per_week}× per week · **Duration:** ${plan.duration_weeks||'—'} weeks  `);
+    if ((plan.equipment_needed||[]).length) lines.push(`**Equipment:** ${plan.equipment_needed.join(', ')}`);
+    lines.push('', '---', '');
+    (plan.days||[]).forEach(day => {
+      lines.push(`## ${day.day}${day.focus?' – '+day.focus:''}`);
+      if (day.duration_mins) lines.push(`*${day.duration_mins} minutes*`, '');
+      (day.sections||[]).forEach(sec => {
+        lines.push(`### ${sec.section}`);
+        (sec.exercises||[]).forEach(ex => {
+          lines.push(`- **${ex.name}**${ex.sets_reps?' — '+ex.sets_reps:''}`);
+          if (ex.note) lines.push(`  *${ex.note}*`);
+        });
+        lines.push('');
+      });
+    });
+    lines.push('---');
+    lines.push('*Generated by NutriTrack · andrewjackz.github.io/NutriTracker*');
+    return lines.join('\n');
+  } catch(e) { return null; }
+}
+
+async function shareExercisePlan() {
+  const text = exPlanToText();
+  if (!text) { showToast('No programme to share', 'error'); return; }
+  if (navigator.share) {
+    try { await navigator.share({ title: '💪 My Exercise Programme', text }); }
+    catch(e) { if (e.name !== 'AbortError') showToast('Share failed: ' + e.message, 'error'); }
+  } else {
+    try { await navigator.clipboard.writeText(text); showToast('Copied to clipboard 📋', 'success'); }
+    catch(e) { showToast('Share not supported on this browser', 'error'); }
+  }
+}
+
+async function exportExerciseMarkdown() {
+  const md = exPlanToMarkdown();
+  if (!md) { showToast('No programme to export', 'error'); return; }
+  if (navigator.share) {
+    try { await navigator.share({ title: '💪 Exercise Programme.md', text: md }); return; }
+    catch(e) { if (e.name !== 'AbortError') {} }
+  }
+  // Fallback: download as .md file
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'exercise-programme.md'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('Markdown downloaded 📝', 'success');
+}
+
+function printExercisePlan() {
+  try {
+    const saved = localStorage.getItem(EXPLAN_KEY);
+    if (!saved) { showToast('No programme to print', 'error'); return; }
+    const { plan } = JSON.parse(saved);
+    const win = window.open('', '_blank');
+    if (!win) { showToast('Pop-up blocked — allow pop-ups and try again', 'error'); return; }
+
+    const sColours = { 'warm-up':'#FFF8E1', 'warm up':'#FFF8E1', 'cool-down':'#E3F2FD', 'cooldown':'#E3F2FD', 'cool down':'#E3F2FD' };
+    const sFg      = { 'warm-up':'#F57F17', 'warm up':'#F57F17', 'cool-down':'#1565C0', 'cooldown':'#1565C0', 'cool down':'#1565C0' };
+
+    let body = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${plan.programme_name||'Exercise Programme'}</title>
+<style>
+  body{font-family:-apple-system,Arial,sans-serif;max-width:700px;margin:40px auto;padding:0 20px;color:#1a1a2e}
+  h1{color:#1B5E20;font-size:22px;margin-bottom:4px}
+  .subtitle{color:#555;font-size:13px;margin-bottom:6px}
+  .summary{background:#E8F5E9;border:1.5px solid #A5D6A7;border-radius:10px;padding:12px 16px;margin-bottom:20px}
+  .day{margin-bottom:20px;border:1.5px solid #d0e8d0;border-radius:10px;overflow:hidden;page-break-inside:avoid}
+  .day-hdr{background:#2E7D32;color:#fff;padding:10px 16px}
+  .day-title{font-weight:800;font-size:15px}
+  .day-sub{font-size:11px;opacity:.85}
+  .section-lbl{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:2px 8px;border-radius:12px;margin:8px 16px 4px}
+  .ex{padding:6px 16px;border-bottom:1px solid #eef5ee}
+  .ex:last-child{border-bottom:none}
+  .ex-name{font-size:13px;font-weight:700}
+  .ex-sets{font-size:11.5px;color:#1565C0;font-weight:600}
+  .ex-note{font-size:11px;color:#555;font-style:italic}
+  .footer{margin-top:30px;font-size:11px;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:14px}
+  @media print{body{margin:20px}}
+</style></head><body>
+<h1>💪 ${plan.programme_name||'Exercise Programme'}</h1>
+<div class="subtitle">${new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+<div class="summary">
+  <div style="font-size:13px;line-height:1.5;margin-bottom:8px">${plan.summary||''}</div>
+  <div style="font-size:12px;font-weight:700;color:#2E7D32">
+    ${plan.sessions_per_week?'📅 '+plan.sessions_per_week+'× per week':''}
+    ${plan.duration_weeks?' · ⏱ '+plan.duration_weeks+' weeks':''}
+    ${(plan.equipment_needed||[]).length?' · 🎽 '+plan.equipment_needed.join(', '):''}
+  </div>
+</div>`;
+
+    (plan.days||[]).forEach(day => {
+      body += `<div class="day"><div class="day-hdr"><div class="day-title">${day.day}</div><div class="day-sub">${day.focus||''}${day.duration_mins?' · '+day.duration_mins+' min':''}</div></div>`;
+      (day.sections||[]).forEach(sec => {
+        const k   = sec.section.toLowerCase();
+        const bg  = sColours[k]||'#E8F5E9';
+        const fg  = sFg[k]||'#1B5E20';
+        body += `<span class="section-lbl" style="background:${bg};color:${fg}">${sec.section}</span>`;
+        (sec.exercises||[]).forEach(ex => {
+          body += `<div class="ex"><div class="ex-name">${ex.name}</div>
+            ${ex.sets_reps?`<div class="ex-sets">📊 ${ex.sets_reps}</div>`:''}
+            ${ex.note?`<div class="ex-note">${ex.note}</div>`:''}</div>`;
+        });
+      });
+      body += '</div>';
+    });
+
+    body += `<div class="footer">Generated by NutriTrack · andrewjackz.github.io/NutriTracker</div></body></html>`;
+    win.document.write(body);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 600);
+  } catch(e) {
     showToast('Print failed: ' + e.message, 'error');
   }
 }

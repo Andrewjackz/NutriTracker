@@ -1735,8 +1735,14 @@ a { color: inherit; text-decoration: none; }
 <!-- ════ SETTINGS MODAL ════ -->
 <div class="overlay" id="apiOverlay">
   <div class="sheet" style="max-height:88vh;overflow-y:auto">
-    <div class="sheet-handle"></div>
-    <h2>⚙️ Settings</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">
+      <div class="sheet-handle" style="margin:0"></div>
+      <button onclick="document.getElementById('apiOverlay').classList.add('hidden')"
+        style="background:var(--surface2);border:1.5px solid var(--border);color:var(--text-2);
+               width:32px;height:32px;border-radius:50%;font-size:18px;line-height:1;
+               display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">×</button>
+    </div>
+    <h2 style="margin-top:12px">⚙️ Settings</h2>
 
     <div class="sheet-label" style="margin-bottom:6px">🔑 ANTHROPIC API KEY</div>
     <p style="font-size:13px;color:var(--text-2);margin-bottom:10px">Your key is stored locally on this device only — never sent anywhere except directly to Anthropic's API for food lookups.</p>
@@ -1979,9 +1985,7 @@ function saveApiKey() {
 }
 // tap outside sheet to close if key exists
 document.getElementById('apiOverlay').addEventListener('click', function(e) {
-  if (e.target === this && localStorage.getItem(API_KEY)) {
-    this.classList.add('hidden');
-  }
+  if (e.target === this) this.classList.add('hidden');
 });
 
 /* ════════════════════════════════════════

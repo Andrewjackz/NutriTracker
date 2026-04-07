@@ -1676,6 +1676,18 @@ a { color: inherit; text-decoration: none; }
       <div id="mpResults" style="display:none">
         <div class="mp-week-summary" id="mpWeekSummary"></div>
         <div id="mpDayCards"></div>
+
+        <!-- export row -->
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button onclick="shareMealPlan()" style="flex:1;padding:12px;border-radius:var(--r-sm);background:var(--green);color:#fff;font-size:13.5px;font-weight:700;border:none;box-shadow:0 4px 14px rgba(46,125,50,.3);cursor:pointer">
+            📤 Share
+          </button>
+          <button onclick="printMealPlan()" style="flex:1;padding:12px;border-radius:var(--r-sm);background:var(--blue);color:#fff;font-size:13.5px;font-weight:700;border:none;box-shadow:0 4px 14px rgba(21,101,192,.3);cursor:pointer">
+            🖨️ PDF / Print
+          </button>
+        </div>
+        <div id="mpSavedBadge" style="display:none;text-align:center;font-size:11.5px;color:var(--text-3);margin-bottom:8px">✓ Plan saved — will persist until you regenerate</div>
+
         <button class="mp-generate-btn" onclick="generateMealPlan()" style="background:linear-gradient(135deg,#2E7D32,#1B5E20);box-shadow:0 4px 18px rgba(46,125,50,.3)">
           🔄 Regenerate Plan
         </button>
@@ -1766,7 +1778,7 @@ a { color: inherit; text-decoration: none; }
       <div>
         <div style="font-size:16px;font-weight:800;color:var(--blue)">v2.6 <span style="font-size:11px;font-weight:600;background:var(--blue);color:#fff;padding:2px 7px;border-radius:20px;margin-left:4px">Current</span></div>
         <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Photo &amp; barcode search · Personal weight model</div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Created Sunday 5 April 2026, 18:35 AEST</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Updated Monday 6 April 2026, 09:15 AEST</div>
       </div>
       <div id="settingsDataStats" style="text-align:right;font-size:11px;color:var(--text-3);line-height:1.6"></div>
     </div>
@@ -1816,6 +1828,7 @@ const API_KEY     = 'nt_api_key';
 const HIST_KEY    = 'nt_history';
 const BACKUP_KEY  = 'nt_last_backup';
 const TMPL_KEY    = 'nt_templates';
+const MEALPLAN_KEY = 'nt_mealplan';
 
 let db       = loadDB();
 let goals    = loadGoals();
@@ -2077,6 +2090,16 @@ function initMealPlanTab() {
   document.getElementById('mpProteinTarget').value= goals.proteinGoal|| 120;
   document.getElementById('mpFatTarget').value    = goals.fatGoal    || 65;
   document.getElementById('mpFibreTarget').value  = goals.fibreGoal  || 30;
+  // Restore persisted plan if one exists
+  try {
+    const saved = localStorage.getItem(MEALPLAN_KEY);
+    if (saved) {
+      const { plan, calT, carbT, protT, fatT, fibT } = JSON.parse(saved);
+      if (plan && plan.length) {
+        renderMealPlan(plan, calT, carbT, protT, fatT, fibT, false);
+      }
+    }
+  } catch(e) {}
 }
 
 async function generateMealPlan() {
@@ -2167,7 +2190,7 @@ Respond ONLY with a valid JSON array — no markdown, no extra text:
   }
 }
 
-function renderMealPlan(plan, calT, carbT, protT, fatT, fibT) {
+function renderMealPlan(plan, calT, carbT, protT, fatT, fibT, save) {
   // Week average summary
   const avgCal  = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.calories||0),0)/plan.length);
   const avgCarb = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.carbs_g||0),0)/plan.length);
@@ -2225,7 +2248,158 @@ function renderMealPlan(plan, calT, carbT, protT, fatT, fibT) {
   }).join('');
 
   document.getElementById('mpResults').style.display = 'block';
-  document.getElementById('screen-mealplan').scrollTo(0,0);
+  if (save !== false) {
+    // Persist plan to localStorage
+    try {
+      localStorage.setItem(MEALPLAN_KEY, JSON.stringify({ plan, calT, carbT, protT, fatT, fibT }));
+      const badge = document.getElementById('mpSavedBadge');
+      if (badge) badge.style.display = 'block';
+    } catch(e) {}
+    document.getElementById('screen-mealplan').scrollTo(0,0);
+  }
+}
+
+/* ════════════════════════════════════════
+   MEAL PLAN SHARE / EXPORT
+════════════════════════════════════════ */
+function mealPlanToText() {
+  try {
+    const saved = localStorage.getItem(MEALPLAN_KEY);
+    if (!saved) return null;
+    const { plan, calT } = JSON.parse(saved);
+    if (!plan) return null;
+    const lines = ['🥗 MY 7-DAY MEAL PLAN', `Target: ${calT} kcal/day`, '─'.repeat(32), ''];
+    plan.forEach(day => {
+      lines.push(`📅 ${day.day.toUpperCase()}`);
+      (day.meals || []).forEach(m => {
+        lines.push(`  ${m.type}: ${m.name}`);
+        lines.push(`    ${m.calories} kcal · ${m.carbs_g}g carbs · ${m.protein_g}g protein · ${m.fat_g}g fat · ${m.fibre_g}g fibre`);
+        if (m.note) lines.push(`    💡 ${m.note}`);
+        const alts = (m.starch_alts && m.starch_alts.length) ? m.starch_alts : getStarchAlts(m.name);
+        if (alts.length) lines.push(`    🔀 Starch alternatives: ${alts.join(', ')}`);
+      });
+      const tot = day.day_totals || {};
+      lines.push(`  TOTAL: ${tot.calories||'—'} kcal · ${tot.protein_g||'—'}g protein · ${tot.carbs_g||'—'}g carbs`);
+      lines.push('');
+    });
+    lines.push('─'.repeat(32));
+    lines.push('Generated by NutriTrack · andrewjackz.github.io/NutriTracker');
+    return lines.join('
+');
+  } catch(e) { return null; }
+}
+
+async function shareMealPlan() {
+  const text = mealPlanToText();
+  if (!text) { showToast('No meal plan to share', 'error'); return; }
+  // Use Web Share API (iOS share sheet — works for WhatsApp, Mail, Messages etc.)
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: '🥗 My 7-Day Meal Plan',
+        text: text,
+      });
+    } catch(e) {
+      if (e.name !== 'AbortError') showToast('Share failed: ' + e.message, 'error');
+    }
+  } else {
+    // Fallback — copy to clipboard
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Meal plan copied to clipboard 📋', 'success');
+    } catch(e) {
+      showToast('Share not supported on this browser', 'error');
+    }
+  }
+}
+
+function printMealPlan() {
+  const text = mealPlanToText();
+  if (!text) { showToast('No meal plan to print', 'error'); return; }
+  // Build a clean print window
+  const win = window.open('', '_blank');
+  if (!win) { showToast('Pop-up blocked — allow pop-ups and try again', 'error'); return; }
+  const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>7-Day Meal Plan</title>
+<style>
+  body { font-family: -apple-system, Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #1a1a2e; }
+  h1 { color: #1565C0; font-size: 24px; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 13px; margin-bottom: 24px; }
+  .day { margin-bottom: 22px; border: 1.5px solid #e0e8f8; border-radius: 10px; overflow: hidden; page-break-inside: avoid; }
+  .day-hdr { background: #1565C0; color: #fff; padding: 10px 16px; font-weight: 800; font-size: 15px; }
+  .meal { padding: 10px 16px; border-bottom: 1px solid #eef2fb; }
+  .meal:last-child { border-bottom: none; }
+  .meal-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #888; margin-bottom: 3px; }
+  .meal-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .macros { font-size: 11px; color: #666; margin-bottom: 3px; }
+  .note { font-size: 11.5px; color: #555; font-style: italic; margin-bottom: 3px; }
+  .alts { font-size: 11px; color: #888; }
+  .day-total { padding: 8px 16px; background: #f0f6ff; font-size: 12px; font-weight: 700; color: #1565C0; }
+  .summary { background: #f0f6ff; border: 1.5px solid #b3d1f7; border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; }
+  .summary h2 { color: #1565C0; font-size: 14px; margin: 0 0 8px; }
+  .sum-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; }
+  .sum-tile { text-align: center; background: #fff; border-radius: 6px; padding: 6px 4px; }
+  .sum-val { font-size: 16px; font-weight: 800; color: #1565C0; }
+  .sum-lbl { font-size: 9px; font-weight: 700; color: #888; text-transform: uppercase; }
+  .footer { margin-top: 30px; font-size: 11px; color: #aaa; text-align: center; border-top: 1px solid #eee; padding-top: 14px; }
+  @media print { body { margin: 20px; } }
+</style>
+</head><body>`;
+
+  try {
+    const saved = localStorage.getItem(MEALPLAN_KEY);
+    const { plan, calT, carbT, protT, fatT, fibT } = JSON.parse(saved);
+
+    // Week averages
+    const avgCal  = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.calories||0),0)/plan.length);
+    const avgCarb = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.carbs_g||0),0)/plan.length);
+    const avgProt = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.protein_g||0),0)/plan.length);
+    const avgFat  = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.fat_g||0),0)/plan.length);
+    const avgFib  = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.fibre_g||0),0)/plan.length);
+
+    const mealIcons = { Breakfast:'🌅', Lunch:'☀️', Dinner:'🌙', Snack:'🍎' };
+
+    let body = html;
+    body += `<h1>🥗 7-Day Meal Plan</h1>
+      <div class="subtitle">Target: ${calT} kcal/day · ${new Date().toLocaleDateString('en-GB', {weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+      <div class="summary"><h2>📊 Weekly Average</h2>
+        <div class="sum-grid">
+          <div class="sum-tile"><div class="sum-val">${avgCal}</div><div class="sum-lbl">Cal</div></div>
+          <div class="sum-tile"><div class="sum-val">${avgCarb}g</div><div class="sum-lbl">Carbs</div></div>
+          <div class="sum-tile"><div class="sum-val">${avgProt}g</div><div class="sum-lbl">Protein</div></div>
+          <div class="sum-tile"><div class="sum-val">${avgFat}g</div><div class="sum-lbl">Fat</div></div>
+          <div class="sum-tile"><div class="sum-val">${avgFib}g</div><div class="sum-lbl">Fibre</div></div>
+        </div>
+      </div>`;
+
+    plan.forEach(day => {
+      const tot = day.day_totals || {};
+      body += `<div class="day"><div class="day-hdr">${day.day}</div>`;
+      (day.meals||[]).forEach(m => {
+        const alts = (m.starch_alts&&m.starch_alts.length) ? m.starch_alts : getStarchAlts(m.name);
+        body += `<div class="meal">
+          <div class="meal-type">${mealIcons[m.type]||''} ${m.type}</div>
+          <div class="meal-name">${m.name}</div>
+          <div class="macros">${m.calories} kcal · ${m.carbs_g}g carbs · ${m.protein_g}g protein · ${m.fat_g}g fat · ${m.fibre_g}g fibre</div>
+          ${m.note ? `<div class="note">💡 ${m.note}</div>` : ''}
+          ${alts.length ? `<div class="alts">🔀 Try instead: ${alts.join(' · ')}</div>` : ''}
+        </div>`;
+      });
+      body += `<div class="day-total">Day total: ${tot.calories||'—'} kcal · ${tot.protein_g||'—'}g protein · ${tot.carbs_g||'—'}g carbs · ${tot.fat_g||'—'}g fat · ${tot.fibre_g||'—'}g fibre</div>`;
+      body += '</div>';
+    });
+
+    body += `<div class="footer">Generated by NutriTrack · andrewjackz.github.io/NutriTracker</div></body></html>`;
+    win.document.write(body);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 600);
+  } catch(e) {
+    win.close();
+    showToast('Print failed: ' + e.message, 'error');
+  }
 }
 
 /* ════════════════════════════════════════

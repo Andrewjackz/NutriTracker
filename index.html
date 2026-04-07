@@ -249,9 +249,10 @@ a { color: inherit; text-decoration: none; }
 .result-food-name { font-family: var(--ff-serif); font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
 .result-qty { font-size: 13px; color: var(--text-2); margin-bottom: 12px; }
 
-.add-meal-row { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
-.qty-inp { width: 80px; text-align: center; font-weight: 700; }
-.qty-unit { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.add-meal-row { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.add-meal-qty-row { display: flex; gap: 8px; align-items: center; }
+.qty-inp { width: 72px; text-align: center; font-weight: 700; flex-shrink: 0; }
+.qty-unit { font-size: 12px; color: var(--text-2); white-space: normal; word-break: break-word; flex: 1; }
 .add-btn {
   flex: 1; background: var(--blue); color: #fff;
   padding: 12px; border-radius: var(--r-sm); font-size: 14px; font-weight: 700;
@@ -2678,9 +2679,11 @@ function renderResult(r) {
         </div>` : ''}
       ${r.notes ? `<div style="font-size:12.5px;color:var(--text-2);margin-top:6px;line-height:1.45;font-style:italic">💡 ${r.notes}</div>` : ''}
       <div class="add-meal-row">
-        <input class="inp qty-inp" id="qtyScaleInp" type="number" value="1" min="0.1" step="0.1" inputmode="decimal">
-        <span class="qty-unit">× serving (${r.qty_label})</span>
-        <button class="add-btn" id="addToMealBtn" onclick="addToLog()">＋ Add to ${selectedMealType}</button>
+        <div class="add-meal-qty-row">
+          <input class="inp qty-inp" id="qtyScaleInp" type="number" value="1" min="0.1" step="0.1" inputmode="decimal">
+          <span class="qty-unit">× serving (${r.qty_label})</span>
+        </div>
+        <button class="add-btn" id="addToMealBtn" onclick="addToLog()" style="width:100%">＋ Add to ${selectedMealType}</button>
       </div>
       <button onclick="saveAsTemplate()" style="width:100%;margin-top:8px;padding:9px;border-radius:var(--r-xs);background:var(--surface2);border:1.5px solid var(--border);font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer">🔖 Save as Template</button>
     </div>`;

@@ -1008,9 +1008,10 @@ a { color: inherit; text-decoration: none; }
           <span id="sbDesc"   style="font-size:11.5px;opacity:.9"></span>
           <span id="sbRain"   style="font-size:11.5px;opacity:.9"></span>
         </div>
-        <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;opacity:.85">
+        <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;opacity:.85;align-items:center">
           <span id="sbHigh"></span>
           <span id="sbLow"></span>
+          <span id="sbUV" style="font-weight:700"></span>
         </div>
       </div>
       <div id="sbTideRow" style="display:none;font-size:11px;opacity:.85;margin-top:2px"></div>
@@ -6201,7 +6202,7 @@ async function checkSunscreen() {
     const unitSym = units === 'fahrenheit' ? '°F' : '°C';
 
     const [wxResp, marineResp] = await Promise.allSettled([
-      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode&temperature_unit=${units}&timezone=auto&forecast_days=1`),
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,precipitation_probability,uv_index&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode,uv_index_max&temperature_unit=${units}&timezone=auto&forecast_days=1`),
       fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&hourly=wave_height&timezone=auto&forecast_days=1`)
     ]);
 
@@ -6220,11 +6221,20 @@ async function checkSunscreen() {
 
       const row = document.getElementById('sbWeatherRow');
       if (row) {
+        const uv     = cur.uv_index ?? day.uv_index_max?.[0] ?? null;
+        const uvRisk = uv === null ? '' : uv <= 2 ? 'Low' : uv <= 5 ? 'Moderate' : uv <= 7 ? 'High' : uv <= 10 ? 'Very High' : 'Extreme';
+        const uvCol  = uv === null ? '' : uv <= 2 ? 'rgba(255,255,255,.7)' : uv <= 5 ? '#FFE082' : uv <= 7 ? '#FFB300' : uv <= 10 ? '#FF7043' : '#E53935';
+
         document.getElementById('sbTemp').textContent  = `${emoji} ${temp}${unitSym}`;
         document.getElementById('sbDesc').textContent  = desc;
         document.getElementById('sbRain').textContent  = rainPct > 10 ? `🌧 ${rainPct}% rain` : '';
         document.getElementById('sbHigh').textContent  = `↑ ${hi}${unitSym}`;
         document.getElementById('sbLow').textContent   = `↓ ${lo}${unitSym}`;
+        if (uv !== null) {
+          const uvEl = document.getElementById('sbUV');
+          uvEl.textContent = `UV ${uv.toFixed(1)} · ${uvRisk}`;
+          uvEl.style.color = uvCol;
+        }
         row.style.display = 'block';
       }
     }

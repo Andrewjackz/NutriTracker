@@ -1866,6 +1866,22 @@ a { color: inherit; text-decoration: none; }
       <button class="btn" style="flex:1;padding:12px;font-size:14px;background:var(--green);color:#fff;box-shadow:0 4px 14px rgba(46,125,50,.3)" onclick="exportExcel()">⬇ Excel</button>
     </div>
 
+    <div style="border-top:1.5px solid var(--border);margin:14px 0 14px"></div>
+
+    <div class="sheet-label" style="margin-bottom:8px">📄 PDF HEALTH REPORT</div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:12px;line-height:1.5">Generate a formatted PDF summary report with charts, macro averages, weight trend, streaks and habits.</p>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Report period</div>
+      <div style="display:flex;gap:6px">
+        <button class="mp-pref-chip sel" data-rperiod="week"  id="rPeriodWeek"  onclick="selectReportPeriod(this)">📅 Last 7 days</button>
+        <button class="mp-pref-chip"     data-rperiod="month" id="rPeriodMonth" onclick="selectReportPeriod(this)">🗓 Last 30 days</button>
+        <button class="mp-pref-chip"     data-rperiod="year"  id="rPeriodYear"  onclick="selectReportPeriod(this)">📆 Last 365 days</button>
+      </div>
+    </div>
+    <button class="btn" onclick="exportPDFReport()" style="width:100%;padding:13px;font-size:14px;font-weight:700;background:linear-gradient(135deg,#C62828,#B71C1C);color:#fff;border:none;border-radius:var(--r-sm);box-shadow:0 4px 14px rgba(198,40,40,.3);margin-bottom:4px">
+      📄 Generate PDF Report
+    </button>
+
     <div style="border-top:1.5px solid var(--border);margin-top:16px;margin-bottom:16px"></div>
 
     <div class="sheet-label" style="margin-bottom:10px">🗂️ VERSION HISTORY</div>
@@ -6416,6 +6432,299 @@ function updateLastBackupInfo() {
     el.textContent = `✓ Last backup: ${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} (${label})`;
     el.style.color = daysSince >= REMINDER_DAYS ? 'var(--red)' : 'var(--green)';
   }
+}
+
+/* ════════════════════════════════════════
+   PDF HEALTH REPORT
+════════════════════════════════════════ */
+let reportPeriod = 'week';
+
+function selectReportPeriod(btn) {
+  document.querySelectorAll('[data-rperiod]').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  reportPeriod = btn.dataset.rperiod;
+}
+
+function exportPDFReport() {
+  const now      = new Date();
+  const days_map = { week: 7, month: 30, year: 365 };
+  const nDays    = days_map[reportPeriod] || 7;
+  const cutoff   = new Date(now); cutoff.setDate(cutoff.getDate() - nDays);
+  const cutoffStr = isoDate(cutoff);
+  const periodLabel = { week: 'Last 7 Days', month: 'Last 30 Days', year: 'Last 365 Days' }[reportPeriod];
+
+  // Filter keys within period
+  const allKeys = Object.keys(db).sort().filter(k => k >= cutoffStr);
+  if (allKeys.length === 0) { showToast('No data in this period', 'error'); return; }
+
+  // ── Compute summary stats ──
+  const logged   = allKeys.filter(k => (db[k].items||[]).length > 0);
+  const weighted = allKeys.filter(k => db[k].weight);
+  const totals   = logged.map(k => {
+    const d = db[k];
+    const cal  = (d.items||[]).reduce((s,i)=>s+i.calories,0);
+    const carb = (d.items||[]).reduce((s,i)=>s+i.carbs_g,0);
+    const prot = (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
+    const fat  = (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
+    const fib  = (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
+    const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+    return { date:k, cal, carb, prot, fat, fib, burn, net: cal-burn, steps: d.steps||0, weight: d.weight||null };
+  });
+
+  const avg = arr => arr.length ? Math.round(arr.reduce((s,v)=>s+v,0)/arr.length) : 0;
+  const avgCal   = avg(totals.map(d=>d.cal));
+  const avgCarb  = avg(totals.map(d=>d.carb));
+  const avgProt  = avg(totals.map(d=>d.prot));
+  const avgFat   = avg(totals.map(d=>d.fat));
+  const avgFib   = avg(totals.map(d=>d.fib));
+  const avgSteps = avg(allKeys.map(k=>db[k].steps||0).filter(v=>v>0));
+  const avgNet   = avg(totals.filter(d=>d.cal>0).map(d=>d.net));
+  const avgBurn  = avg(totals.filter(d=>d.burn>0).map(d=>d.burn));
+
+  // Weight trend
+  const wtPts    = weighted.map(k=>({date:k, w:db[k].weight}));
+  const wtStart  = wtPts[0]?.w || null;
+  const wtEnd    = wtPts[wtPts.length-1]?.w || null;
+  const wtDelta  = (wtStart && wtEnd) ? (wtEnd - wtStart).toFixed(1) : null;
+
+  // Habits
+  const exDays   = allKeys.filter(k=>db[k].exercise===true).length;
+  const waterDays= allKeys.filter(k=>db[k].water===true).length;
+  const medsDays = allKeys.filter(k=>db[k].meds===true).length;
+  const runDays  = allKeys.filter(k=>db[k].runKm).length;
+  const totalKm  = allKeys.reduce((s,k)=>s+(db[k].runKm||0),0).toFixed(1);
+
+  // Top foods
+  const foodCounts = {};
+  allKeys.forEach(k => (db[k].items||[]).forEach(i => {
+    foodCounts[i.name] = (foodCounts[i.name]||0) + 1;
+  }));
+  const topFoods = Object.entries(foodCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  // Mini sparkline generator (SVG bar chart)
+  function sparkBars(values, colour, width=280, height=50) {
+    if (!values.length) return '';
+    const max = Math.max(...values, 1);
+    const bw  = Math.floor(width / values.length) - 1;
+    const bars = values.map((v,i) => {
+      const bh = Math.max(2, Math.round((v/max)*height));
+      const x  = i * (bw+1);
+      const y  = height - bh;
+      return `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${colour}" rx="2"/>`;
+    }).join('');
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${bars}</svg>`;
+  }
+  function sparkLine(values, colour, width=280, height=50) {
+    if (values.length < 2) return '';
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = max - min || 1;
+    const pts = values.map((v,i) => {
+      const x = Math.round((i/(values.length-1))*width);
+      const y = Math.round(height - ((v-min)/range)*(height-4) - 2);
+      return `${x},${y}`;
+    }).join(' ');
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg"><polyline points="${pts}" fill="none" stroke="${colour}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+
+  // ── Build HTML for print window ──
+  const calVals  = totals.map(d=>d.cal);
+  const wVals    = wtPts.map(d=>d.w);
+  const stepVals = allKeys.map(k=>db[k].steps||0);
+  const netVals  = totals.filter(d=>d.cal>0).map(d=>d.net);
+
+  const pctBar = (val, target, colour) => {
+    if (!target) return '';
+    const pct = Math.min(100, Math.round(val/target*100));
+    return `<div style="background:#eee;border-radius:4px;height:8px;margin-top:3px"><div style="background:${colour};width:${pct}%;height:8px;border-radius:4px"></div></div>`;
+  };
+
+  const dateRange = `${cutoffStr} → ${isoDate(now)}`;
+  const genDate   = now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  const win = window.open('', '_blank');
+  if (!win) { showToast('Pop-up blocked — allow pop-ups and try again', 'error'); return; }
+
+  let html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>NutriTrack Report — ${periodLabel}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,Arial,sans-serif;color:#1a1a2e;background:#fff;padding:32px;max-width:760px;margin:0 auto}
+  h1{font-size:26px;color:#1565C0;margin-bottom:4px}
+  .subtitle{font-size:13px;color:#666;margin-bottom:24px}
+  .section{margin-bottom:28px}
+  .section-title{font-size:16px;font-weight:800;color:#1565C0;border-bottom:2px solid #E3F2FD;padding-bottom:6px;margin-bottom:14px}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .kpi{background:#F0F6FF;border:1.5px solid #BBDEFB;border-radius:10px;padding:10px;text-align:center}
+  .kpi-val{font-size:22px;font-weight:800;color:#1565C0;line-height:1}
+  .kpi-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#888;margin-top:3px}
+  .kpi-sub{font-size:10px;color:#aaa;margin-top:2px}
+  .macro-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .macro-tile{background:#fafafa;border:1px solid #eee;border-radius:8px;padding:10px 12px}
+  .macro-val{font-size:18px;font-weight:800}
+  .macro-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-top:1px}
+  .habit-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .habit-chip{background:#E8F5E9;color:#1B5E20;border:1px solid #A5D6A7;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700}
+  .habit-chip.blue{background:#E3F2FD;color:#1565C0;border-color:#90CAF9}
+  .habit-chip.purple{background:#EDE7F6;color:#4527A0;border-color:#CE93D8}
+  .habit-chip.red{background:#FFEBEE;color:#C62828;border-color:#EF9A9A}
+  .chart-row{margin-bottom:12px}
+  .chart-lbl{font-size:11px;font-weight:700;color:#555;margin-bottom:3px}
+  .chart-sub{font-size:10px;color:#aaa;margin-top:2px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  table th{background:#E3F2FD;color:#1565C0;padding:6px 8px;text-align:left;font-weight:700;border-bottom:2px solid #BBDEFB}
+  table td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
+  table tr:last-child td{border-bottom:none}
+  .wt-delta-pos{color:#C62828;font-weight:700}
+  .wt-delta-neg{color:#2E7D32;font-weight:700}
+  .footer{margin-top:32px;font-size:11px;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:16px}
+  @media print{body{padding:20px}.no-print{display:none}@page{margin:1.5cm}}
+</style>
+</head><body>
+
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+  <div>
+    <h1>🥗 NutriTrack Health Report</h1>
+    <div class="subtitle">${periodLabel} · ${dateRange} · Generated ${genDate}</div>
+  </div>
+  <button class="no-print" onclick="window.print()"
+    style="padding:10px 18px;background:#1565C0;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">
+    🖨️ Print / Save PDF
+  </button>
+</div>
+
+<!-- KPI strip -->
+<div class="section">
+  <div class="section-title">📊 Summary</div>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-val">${logged.length}</div><div class="kpi-lbl">Days logged</div><div class="kpi-sub">of ${allKeys.length} days</div></div>
+    <div class="kpi"><div class="kpi-val">${avgCal.toLocaleString()}</div><div class="kpi-lbl">Avg calories</div><div class="kpi-sub">target ${goals.calGoal||'—'}</div></div>
+    <div class="kpi"><div class="kpi-val">${avgSteps.toLocaleString()}</div><div class="kpi-lbl">Avg steps</div><div class="kpi-sub">target ${(goals.stepsGoal||10000).toLocaleString()}</div></div>
+    <div class="kpi" style="${wtDelta?'background:'+(parseFloat(wtDelta)<=0?'#E8F5E9':'#FFEBEE')+';border-color:'+(parseFloat(wtDelta)<=0?'#A5D6A7':'#EF9A9A'):''}">
+      <div class="kpi-val ${wtDelta?(parseFloat(wtDelta)<=0?'wt-delta-neg':'wt-delta-pos'):''}">${wtDelta?(parseFloat(wtDelta)>0?'+':'')+wtDelta+' '+goals.units:'—'}</div>
+      <div class="kpi-lbl">Weight change</div>
+      <div class="kpi-sub">${wtStart&&wtEnd?wtEnd+' '+goals.units+' now':''}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Macros -->
+<div class="section">
+  <div class="section-title">🍽️ Average Daily Nutrition</div>
+  <div class="macro-grid">
+    <div class="macro-tile">
+      <div class="macro-val" style="color:#D32F2F">${avgCal.toLocaleString()} kcal</div>
+      <div class="macro-lbl">Calories</div>
+      ${pctBar(avgCal, goals.calGoal, '#D32F2F')}
+      <div style="font-size:10px;color:#aaa;margin-top:3px">${goals.calGoal?Math.round(avgCal/goals.calGoal*100)+'% of '+goals.calGoal+' goal':''}</div>
+    </div>
+    <div class="macro-tile">
+      <div class="macro-val" style="color:#1565C0">${avgCarb}g carbs</div>
+      <div class="macro-lbl">Carbohydrates</div>
+      ${pctBar(avgCarb, goals.carbGoal, '#1565C0')}
+      <div style="font-size:10px;color:#aaa;margin-top:3px">${goals.carbGoal?Math.round(avgCarb/goals.carbGoal*100)+'% of '+goals.carbGoal+'g goal':''}</div>
+    </div>
+    <div class="macro-tile">
+      <div class="macro-val" style="color:#2E7D32">${avgProt}g protein</div>
+      <div class="macro-lbl">Protein</div>
+      ${pctBar(avgProt, goals.proteinGoal, '#2E7D32')}
+      <div style="font-size:10px;color:#aaa;margin-top:3px">${goals.proteinGoal?Math.round(avgProt/goals.proteinGoal*100)+'% of '+goals.proteinGoal+'g goal':''}</div>
+    </div>
+    <div class="macro-tile">
+      <div class="macro-val" style="color:#F9A825">${avgFat}g fat · ${avgFib}g fibre</div>
+      <div class="macro-lbl">Fat &amp; Fibre</div>
+      ${pctBar(avgFat, goals.fatGoal, '#F9A825')}
+    </div>
+  </div>
+  <div style="margin-top:10px;padding:10px 12px;background:#F0F6FF;border-radius:8px;font-size:12px;color:#555">
+    <strong>Avg burn:</strong> ${avgBurn} kcal/day &nbsp;·&nbsp; <strong>Avg net:</strong> ${avgNet > 0 ? '+' : ''}${avgNet} kcal/day
+    ${avgNet > 200 ? ' &nbsp;·&nbsp; <span style="color:#C62828;font-weight:700">📈 Consistent surplus</span>' : avgNet < -200 ? ' &nbsp;·&nbsp; <span style="color:#2E7D32;font-weight:700">📉 Consistent deficit</span>' : ' &nbsp;·&nbsp; <span style="color:#1565C0;font-weight:700">⚖️ Near neutral</span>'}
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="section">
+  <div class="section-title">📈 Trends</div>
+  <div class="chart-row">
+    <div class="chart-lbl">Daily Calories</div>
+    ${sparkBars(calVals, '#1565C0')}
+    <div class="chart-sub">Each bar = one logged day · ${totals.length} days</div>
+  </div>
+  ${wVals.length >= 2 ? `<div class="chart-row" style="margin-top:12px">
+    <div class="chart-lbl">Weight Trend (${goals.units})</div>
+    ${sparkLine(wVals, '#C62828')}
+    <div class="chart-sub">${wVals.length} weigh-ins · ${wtStart} → ${wtEnd} ${goals.units}</div>
+  </div>` : ''}
+  ${stepVals.filter(v=>v>0).length >= 3 ? `<div class="chart-row" style="margin-top:12px">
+    <div class="chart-lbl">Daily Steps</div>
+    ${sparkBars(stepVals.filter(v=>v>0), '#2E7D32')}
+    <div class="chart-sub">Avg ${avgSteps.toLocaleString()} steps/day</div>
+  </div>` : ''}
+  ${netVals.length >= 3 ? `<div class="chart-row" style="margin-top:12px">
+    <div class="chart-lbl">Net Calories (consumed − burn)</div>
+    ${sparkBars(netVals.map(v=>Math.max(0,v)), '#FF7043')}
+    <div class="chart-sub">Avg net: ${avgNet > 0 ? '+' : ''}${avgNet} kcal/day</div>
+  </div>` : ''}
+</div>
+
+<!-- Habits -->
+<div class="section">
+  <div class="section-title">✅ Habits &amp; Activity</div>
+  <div class="habit-row">
+    <span class="habit-chip">💪 Exercised ${exDays}/${allKeys.length} days (${Math.round(exDays/allKeys.length*100)}%)</span>
+    <span class="habit-chip blue">💧 Hydrated ${waterDays}/${allKeys.length} days (${Math.round(waterDays/allKeys.length*100)}%)</span>
+    <span class="habit-chip purple">💊 Medicated ${medsDays}/${allKeys.length} days (${Math.round(medsDays/allKeys.length*100)}%)</span>
+    ${runDays > 0 ? `<span class="habit-chip red">🏃 Ran ${runDays} days · ${totalKm}km total</span>` : ''}
+  </div>
+  ${weighted.length >= 2 ? `<div style="font-size:12.5px;color:#555;margin-top:6px">⚖️ Weight: <strong>${wtStart} ${goals.units}</strong> → <strong>${wtEnd} ${goals.units}</strong> · Change: <strong class="${parseFloat(wtDelta)<=0?'wt-delta-neg':'wt-delta-pos'}">${parseFloat(wtDelta)>0?'+':''}${wtDelta} ${goals.units}</strong></div>` : ''}
+</div>
+
+<!-- Daily log table -->
+<div class="section">
+  <div class="section-title">📅 Daily Log</div>
+  <table>
+    <thead><tr><th>Date</th><th>Cal</th><th>Carbs</th><th>Prot</th><th>Fat</th><th>Steps</th><th>Weight</th><th>Ex</th><th>💧</th><th>💊</th></tr></thead>
+    <tbody>
+    ${allKeys.map(k => {
+      const d = db[k];
+      const cal  = Math.round((d.items||[]).reduce((s,i)=>s+i.calories,0));
+      const carb = Math.round((d.items||[]).reduce((s,i)=>s+i.carbs_g,0));
+      const prot = Math.round((d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0));
+      const fat  = Math.round((d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0));
+      const calColour = goals.calGoal && cal > 0 ? (cal > goals.calGoal*1.1 ? '#FFEBEE' : cal < goals.calGoal*0.85 ? '#FFF8E1' : '#E8F5E9') : '';
+      return `<tr style="background:${calColour}">
+        <td>${k}</td>
+        <td>${cal||'—'}</td>
+        <td>${carb||'—'}</td>
+        <td>${prot||'—'}</td>
+        <td>${fat||'—'}</td>
+        <td>${d.steps?.toLocaleString()||'—'}</td>
+        <td>${d.weight?d.weight+' '+goals.units:'—'}</td>
+        <td>${d.exercise===true?'✓':d.exercise===false?'✗':'—'}</td>
+        <td>${d.water===true?'✓':d.water===false?'✗':'—'}</td>
+        <td>${d.meds===true?'✓':d.meds===false?'✗':'—'}</td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>
+  <div style="font-size:10px;color:#aaa;margin-top:6px">🟢 Near goal &nbsp; 🟡 Under &nbsp; 🔴 Over target</div>
+</div>
+
+${topFoods.length ? `<div class="section">
+  <div class="section-title">🍽️ Most Logged Foods</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px">
+    ${topFoods.map(([name,count]) => `<span style="background:#F0F6FF;border:1px solid #BBDEFB;border-radius:20px;padding:3px 10px;font-size:12px"><strong>${name}</strong> × ${count}</span>`).join('')}
+  </div>
+</div>` : ''}
+
+<div class="footer">
+  NutriTrack · andrewjackz.github.io/NutriTracker · Report generated ${genDate}
+</div>
+</body></html>`;
+
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 800);
 }
 
 function exportCSV() {

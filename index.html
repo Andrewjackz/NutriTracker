@@ -1891,7 +1891,7 @@ a { color: inherit; text-decoration: none; }
       <div>
         <div style="font-size:16px;font-weight:800;color:var(--blue)">v2.6 <span style="font-size:11px;font-weight:600;background:var(--blue);color:#fff;padding:2px 7px;border-radius:20px;margin-left:4px">Current</span></div>
         <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Photo &amp; barcode search · Personal weight model</div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Updated Wednesday 8 April 2026, 16:10 AEST</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Updated Wednesday 8 April 2026, 17:30 AEST</div>
       </div>
       <div id="settingsDataStats" style="text-align:right;font-size:11px;color:var(--text-3);line-height:1.6"></div>
     </div>
@@ -6570,22 +6570,95 @@ async function exportPDFReport() {
   }
 
   // ── Capture equation card HTML (regression blocks) ──
+  // Use innerHTML but strip CSS variable references and fix for print
   function getEqCardHTML(id) {
     const el = document.getElementById(id);
     if (!el || el.style.display === 'none') return null;
-    return el.innerHTML;
+    // Replace CSS variable colours with hardcoded values for print
+    return el.innerHTML
+      .replace(/color:var\(--text\)/g,   'color:#1a1a2e')
+      .replace(/color:var\(--text-2\)/g, 'color:#3a4a6e')
+      .replace(/color:var\(--text-3\)/g, 'color:#888')
+      .replace(/color:var\(--red\)/g,    'color:#C62828')
+      .replace(/color:var\(--green\)/g,  'color:#2E7D32')
+      .replace(/color:var\(--blue\)/g,   'color:#1565C0')
+      .replace(/background:var\([^)]+\)/g, '');
   }
   const eqCards = {
-    scatter:     getEqCardHTML('equationCard'),
-    burn:        getEqCardHTML('burnEqCard'),
-    net:         getEqCardHTML('netEqCard2'),
+    scatter: getEqCardHTML('equationCard'),
+    burn:    getEqCardHTML('burnEqCard'),
+    net:     getEqCardHTML('netEqCard2'),
   };
 
-  // ── Macro split legend (pie chart labels) ──
-  const macroLegendEl = document.getElementById('macroSplitLegend');
-  const macroLegendHTML = macroLegendEl ? macroLegendEl.innerHTML : '';
-  const macroKcalEl = document.getElementById('macroSplitKcal');
-  const macroKcalHTML = macroKcalEl ? macroKcalEl.innerHTML : '';
+  // ── Compute macro split data directly (avoids CSS variable issues in print) ──
+  (function() {
+    let mTotCarb=0, mTotProt=0, mTotFat=0, mTotFib=0, mDays=0;
+    Object.keys(db).forEach(k => {
+      const d = db[k];
+      const dc = (d.items||[]).reduce((s,i)=>s+i.calories,0);
+      if (dc > 0) {
+        mTotCarb += (d.items||[]).reduce((s,i)=>s+i.carbs_g,0);
+        mTotProt += (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
+        mTotFat  += (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
+        mTotFib  += (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
+        mDays++;
+      }
+    });
+    window._pdfMacro = mDays > 0 ? {
+      carb: mTotCarb/mDays, prot: mTotProt/mDays,
+      fat: mTotFat/mDays, fib: mTotFib/mDays, days: mDays
+    } : null;
+  })();
+  const md = window._pdfMacro;
+
+  // ── Pre-built equation blocks (avoid CSS variable issues) ──
+  function getEqBlockHTML(id) {
+    const el = document.getElementById(id);
+    if (!el || el.style.display === 'none') return '';
+    const inner = el.innerHTML
+      .replace(/color:var\(--text[^)]*\)/g,   'color:#1a1a2e')
+      .replace(/color:var\(--text-2\)/g,         'color:#444')
+      .replace(/color:var\(--text-3\)/g,         'color:#999')
+      .replace(/color:var\(--red[^)]*\)/g,        'color:#C62828')
+      .replace(/color:var\(--green[^)]*\)/g,      'color:#2E7D32')
+      .replace(/color:var\(--blue[^)]*\)/g,       'color:#1565C0')
+      .replace(/background:var\([^)]+\)/g,        'background:#f0f4ff')
+      .replace(/border-color:var\([^)]+\)/g,      '');
+    return '<div class="eq-block">' + inner + '</div>';
+  }
+  const eqBlockScatter = getEqBlockHTML('equationCard');
+  const eqBlockBurn    = getEqBlockHTML('burnEqCard');
+  const eqBlockNet     = getEqBlockHTML('netEqCard2');
+
+  // ── Pre-built macro legend (hardcoded colours) ──
+  const macroLegendBlock = md ? (function() {
+    const cC = md.carb*4, cP = md.prot*4, cF = md.fat*9, cFb = md.fib*2;
+    const tot = cC+cP+cF+cFb || 1;
+    const items = [
+      { label:'Carbs',   val:md.carb, col:'#1565C0', pct:(cC/tot*100).toFixed(1), kcal:Math.round(cC)  },
+      { label:'Protein', val:md.prot, col:'#2E7D32', pct:(cP/tot*100).toFixed(1), kcal:Math.round(cP)  },
+      { label:'Fat',     val:md.fat,  col:'#F9A825', pct:(cF/tot*100).toFixed(1), kcal:Math.round(cF)  },
+      { label:'Fibre',   val:md.fib,  col:'#00695C', pct:(cFb/tot*100).toFixed(1),kcal:Math.round(cFb) },
+    ];
+    return '<div style="display:flex;flex-direction:column;gap:9px">' +
+      items.map(function(it) {
+        return '<div style="display:flex;align-items:center;gap:8px">' +
+          '<div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:' + it.col + '"></div>' +
+          '<div>' +
+            '<div style="font-size:12.5px;font-weight:700;color:#1a1a2e">' + it.label +
+              ' <span style="color:' + it.col + '">' + it.pct + '%</span>' +
+            '</div>' +
+            '<div style="font-size:11px;color:#888">' + it.val.toFixed(1) + 'g avg · ' + it.kcal + ' kcal</div>' +
+          '</div></div>';
+      }).join('') + '</div>';
+  })() : '';
+
+  const macroKcalBlock = md
+    ? '<div style="margin-top:10px;padding:8px 12px;background:#F0F6FF;border-radius:6px;font-size:11px;color:#555;line-height:1.6">' +
+        'Averaged over <strong>' + md.days + '</strong> logged day' + (md.days !== 1 ? 's' : '') +
+        ' &nbsp;·&nbsp; Total avg: <strong>' + Math.round(md.carb*4 + md.prot*4 + md.fat*9 + md.fib*2) + '</strong> kcal/day from macros' +
+      '</div>'
+    : '';
 
   const pctBar = (val, target, colour) => {
     if (!target || !val) return '';
@@ -6720,11 +6793,11 @@ async function exportPDFReport() {
     ${imgSection('Daily Fibre — Trend', imgs.fibre, '7-day rolling avg · goal line')}
     <div class="chart-block">
       <div class="chart-title">Macro Split — Average</div>
-      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <div style="flex:0 0 180px">${imgs.macro ? `<img src="${imgs.macro}" style="width:180px;border-radius:6px" alt="Macro Split">` : ''}</div>
-        <div style="flex:1;min-width:120px">${macroLegendHTML}</div>
+      <div style="display:flex;align-items:center;gap:20px;padding:8px 0;flex-wrap:wrap">
+        ${imgs.macro ? '<div style="flex:0 0 130px"><img src="' + imgs.macro + '" style="width:130px;height:130px;object-fit:contain" alt="Macro Split"></div>' : ''}
+        <div style="flex:1;min-width:150px">${macroLegendBlock}</div>
       </div>
-      ${macroKcalHTML ? `<div style="margin-top:8px;font-size:11px;color:#666">${macroKcalHTML}</div>` : ''}
+      ${macroKcalBlock}
     </div>
   </div>
 </div>
@@ -6764,12 +6837,15 @@ async function exportPDFReport() {
   </p>
   <div class="chart-grid-1">
     ${imgSection('Yesterday\'s Calories → Today\'s Weight Change', imgs.scatter, 'X-intercept = net-neutral calorie level')}
+    ${eqBlockScatter}
   </div>
-  <div class="chart-grid-1">
+  <div class="chart-grid-1" style="margin-top:16px">
     ${imgSection('Exercise Burn → Next Day Weight Change', imgs.burnScatter, 'Based on MET-estimated burn from steps + running')}
+    ${eqBlockBurn}
   </div>
-  <div class="chart-grid-1">
+  <div class="chart-grid-1" style="margin-top:16px">
     ${imgSection('Net Calories → Next Day Weight Change (Personal)', imgs.netScatter, 'Net = consumed − weight-adjusted burn · Most accurate predictor')}
+    ${eqBlockNet}
   </div>
 </div>
 

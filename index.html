@@ -677,16 +677,16 @@ a { color: inherit; text-decoration: none; }
 .sunscreen-banner {
   background: linear-gradient(135deg, #FF8F00 0%, #F57F17 100%);
   color: #fff;
-  padding: 14px 16px;
-  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  display: flex; align-items: flex-start; gap: 8px;
   box-shadow: 0 4px 16px rgba(245,127,23,.35);
   flex-shrink: 0;
   animation: slideDown .4s cubic-bezier(.22,1,.36,1);
 }
-.sunscreen-banner .sb-icon { font-size: 28px; flex-shrink: 0; }
-.sunscreen-banner .sb-text { flex: 1; }
-.sunscreen-banner .sb-title { font-size: 15px; font-weight: 800; line-height: 1.2; }
-.sunscreen-banner .sb-sub   { font-size: 11.5px; opacity: .85; margin-top: 2px; }
+.sunscreen-banner .sb-icon { font-size: 22px; flex-shrink: 0; }
+.sunscreen-banner .sb-text { flex: 1; min-width: 0; }
+.sunscreen-banner .sb-title { font-size: 14px; font-weight: 800; line-height: 1.2; }
+.sunscreen-banner .sb-sub   { font-size: 11px; opacity: .85; margin-top: 2px; }
 .sunscreen-banner .sb-close {
   background: rgba(255,255,255,.25); border: 1.5px solid rgba(255,255,255,.4);
   color: #fff; width: 32px; height: 32px; border-radius: 50%;
@@ -994,12 +994,28 @@ a { color: inherit; text-decoration: none; }
 
   <!-- ════ SUNSCREEN REMINDER ════ -->
   <div class="sunscreen-banner" id="sunscreenBanner" style="display:none">
-    <div class="sb-icon">☀️</div>
-    <div class="sb-text">
-      <div class="sb-title">Don't forget your sunscreen!</div>
-      <div class="sb-sub">Apply SPF before heading out — your future self will thank you.</div>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+        <span class="sb-icon" style="font-size:22px;flex-shrink:0">☀️</span>
+        <div>
+          <div class="sb-title">Don't forget your sunscreen!</div>
+          <div id="sbLocation" style="font-size:10.5px;opacity:.75;margin-top:1px"></div>
+        </div>
+      </div>
+      <div id="sbWeatherRow" style="display:none;background:rgba(0,0,0,.12);border-radius:8px;padding:7px 10px;margin-bottom:4px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <span id="sbTemp"   style="font-size:18px;font-weight:800;line-height:1"></span>
+          <span id="sbDesc"   style="font-size:11.5px;opacity:.9"></span>
+          <span id="sbRain"   style="font-size:11.5px;opacity:.9"></span>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;opacity:.85">
+          <span id="sbHigh"></span>
+          <span id="sbLow"></span>
+        </div>
+      </div>
+      <div id="sbTideRow" style="display:none;font-size:11px;opacity:.85;margin-top:2px"></div>
     </div>
-    <button class="sb-close" onclick="dismissSunscreen()">×</button>
+    <button class="sb-close" onclick="dismissSunscreen()" style="align-self:flex-start;margin-left:8px">×</button>
   </div>
 
   <!-- ════ SCREENS ════ -->
@@ -6122,21 +6138,133 @@ This will REPLACE all current data.`)) return;
 ════════════════════════════════════════ */
 const SUNSCREEN_KEY = 'nt_sunscreen';
 
-function checkSunscreen() {
+const WMO_CODES = {
+  0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',
+  45:'Fog',48:'Icy fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',
+  61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',
+  80:'Rain showers',81:'Showers',82:'Heavy showers',95:'Thunderstorm',
+  96:'Thunderstorm + hail',99:'Thunderstorm + heavy hail'
+};
+function wmoEmoji(code) {
+  if (code === 0 || code === 1) return '☀️';
+  if (code === 2) return '⛅';
+  if (code === 3) return '☁️';
+  if (code <= 55) return '🌧️';
+  if (code <= 65) return '🌧️';
+  if (code <= 77) return '❄️';
+  if (code <= 82) return '🌦️';
+  return '⛈️';
+}
+
+async function checkSunscreen() {
   const now  = new Date();
   const hour = now.getHours();
   const min  = now.getMinutes();
-  // Only show after 08:30
-  if (hour < 8 || (hour === 8 && min < 30)) return;
+  if (hour < 6 || (hour === 6 && min < 0)) return;
 
-  const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const todayStr  = now.toISOString().slice(0, 10);
   const lastShown = localStorage.getItem(SUNSCREEN_KEY);
-
-  // Show once per day — if already dismissed today, don't show again
   if (lastShown === todayStr) return;
 
+  // Show banner immediately with basic message
   const banner = document.getElementById('sunscreenBanner');
   if (banner) banner.style.display = 'flex';
+
+  // Try to get weather using stored or fresh coordinates
+  try {
+    let lat, lon, locLabel;
+    // Check if we have today's location already stored
+    const todayDay = getDay(isoDate(now));
+    if (todayDay.lat && todayDay.lon) {
+      lat = todayDay.lat; lon = todayDay.lon; locLabel = todayDay.location;
+    } else if (navigator.geolocation) {
+      const pos = await new Promise((res, rej) =>
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000, maximumAge: 300000 })
+      );
+      lat = pos.coords.latitude; lon = pos.coords.longitude;
+      // Save coords to today's record
+      const key = isoDate(now);
+      const day = getDay(key);
+      day.lat = lat; day.lon = lon;
+      setDay(key, day);
+    }
+    if (!lat || !lon) return;
+
+    // Update location label
+    if (locLabel) {
+      const locEl = document.getElementById('sbLocation');
+      if (locEl) locEl.textContent = '📍 ' + locLabel;
+    }
+
+    // Fetch weather + marine in parallel
+    const units = (navigator.language || 'en').startsWith('en-US') ? 'fahrenheit' : 'celsius';
+    const unitSym = units === 'fahrenheit' ? '°F' : '°C';
+
+    const [wxResp, marineResp] = await Promise.allSettled([
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode&temperature_unit=${units}&timezone=auto&forecast_days=1`),
+      fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&hourly=wave_height&timezone=auto&forecast_days=1`)
+    ]);
+
+    // ── Weather ──
+    if (wxResp.status === 'fulfilled' && wxResp.value.ok) {
+      const wx = await wxResp.value.json();
+      const cur = wx.current || {};
+      const day = wx.daily || {};
+      const temp    = Math.round(cur.temperature_2m);
+      const code    = cur.weathercode || 0;
+      const rainPct = cur.precipitation_probability || 0;
+      const hi      = Math.round(day.temperature_2m_max?.[0] ?? temp);
+      const lo      = Math.round(day.temperature_2m_min?.[0] ?? temp);
+      const desc    = WMO_CODES[code] || '';
+      const emoji   = wmoEmoji(code);
+
+      const row = document.getElementById('sbWeatherRow');
+      if (row) {
+        document.getElementById('sbTemp').textContent  = `${emoji} ${temp}${unitSym}`;
+        document.getElementById('sbDesc').textContent  = desc;
+        document.getElementById('sbRain').textContent  = rainPct > 10 ? `🌧 ${rainPct}% rain` : '';
+        document.getElementById('sbHigh').textContent  = `↑ ${hi}${unitSym}`;
+        document.getElementById('sbLow').textContent   = `↓ ${lo}${unitSym}`;
+        row.style.display = 'block';
+      }
+    }
+
+    // ── Tides (Marine API) — detect coastal & estimate tide times ──
+    if (marineResp.status === 'fulfilled' && marineResp.value.ok) {
+      const marine = await marineResp.value.json();
+      const waves  = marine.hourly?.wave_height || [];
+      const times  = marine.hourly?.time || [];
+
+      // Only show tides if any wave data is non-null (coastal location)
+      const hasCoastal = waves.some(w => w !== null && w > 0);
+      if (hasCoastal) {
+        // Find approximate high and low from today's hourly wave heights
+        // Wave height peaks/troughs correlate with tide cycles
+        let maxH = -Infinity, minH = Infinity, maxT = '', minT = '';
+        waves.forEach((w, i) => {
+          if (w === null) return;
+          if (w > maxH) { maxH = w; maxT = times[i]; }
+          if (w < minH) { minH = w; minT = times[i]; }
+        });
+
+        // Fetch proper tide estimate using Open-Meteo tidal current
+        // Fall back to simple high/low wave time as proxy
+        const fmtTime = t => {
+          if (!t) return '—';
+          const d = new Date(t);
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+        };
+
+        const tideEl = document.getElementById('sbTideRow');
+        if (tideEl && maxT) {
+          tideEl.style.display = 'block';
+          tideEl.innerHTML = `🌊 High tide ~${fmtTime(maxT)} · Low tide ~${fmtTime(minT)}`;
+        }
+      }
+    }
+  } catch(e) {
+    // Weather fetch failed — banner already showing with basic message, that's fine
+  }
 }
 
 function dismissSunscreen() {

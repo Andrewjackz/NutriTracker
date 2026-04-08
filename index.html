@@ -1956,8 +1956,8 @@ a { color: inherit; text-decoration: none; }
     <div style="display:flex;align-items:center;justify-content:space-between;background:var(--blue-lt);border:1.5px solid var(--blue-mid);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:12px">
       <div>
         <div style="font-size:16px;font-weight:800;color:var(--blue)">v2.6 <span style="font-size:11px;font-weight:600;background:var(--blue);color:#fff;padding:2px 7px;border-radius:20px;margin-left:4px">Current</span></div>
-        <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Photo &amp; barcode search · Personal weight model</div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Updated Thursday 9 April 2026, 09:00 AEST</div>
+        <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Photo · Barcode · Fasting · Meal Plan · Exercise · PDF Reports</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:3px" id="versionTimestamp">🕐 Loading…</div>
       </div>
       <div id="settingsDataStats" style="text-align:right;font-size:11px;color:var(--text-3);line-height:1.6"></div>
     </div>
@@ -2135,6 +2135,25 @@ function showApiModal() {
   document.getElementById('apiKeyInput').value = k;
   document.getElementById('apiOverlay').classList.remove('hidden');
   updateLastBackupInfo();
+
+  // Dynamic version timestamp — reads actual file modified date from browser
+  const tsEl = document.getElementById('versionTimestamp');
+  if (tsEl) {
+    try {
+      const lm = new Date(document.lastModified);
+      // document.lastModified is always in local time already
+      const opts = { weekday:'long', day:'numeric', month:'long', year:'numeric',
+                     hour:'2-digit', minute:'2-digit' };
+      const formatted = lm.toLocaleString([], opts);
+      // Detect timezone abbreviation
+      const tz = Intl.DateTimeFormat([], { timeZoneName:'short' })
+        .formatToParts(lm).find(p => p.type === 'timeZoneName')?.value || '';
+      tsEl.textContent = '🕐 File updated ' + formatted + (tz ? ' ' + tz : '');
+    } catch(e) {
+      tsEl.textContent = '🕐 Version: v2.6';
+    }
+  }
+
   // populate data stats
   const statsEl = document.getElementById('settingsDataStats');
   if (statsEl) {

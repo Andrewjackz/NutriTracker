@@ -673,6 +673,28 @@ a { color: inherit; text-decoration: none; }
   font-size: 18px; padding: 0 2px; flex-shrink: 0; line-height: 1;
 }
 
+/* ── fasting banner ── */
+.fasting-banner {
+  background: linear-gradient(135deg, #4527A0 0%, #311B92 100%);
+  color: #fff;
+  padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 4px 16px rgba(69,39,160,.4);
+  flex-shrink: 0;
+  animation: slideDown .4s cubic-bezier(.22,1,.36,1);
+}
+.fasting-banner .fb-icon { font-size: 22px; flex-shrink: 0; }
+.fasting-banner .fb-text { flex: 1; min-width: 0; }
+.fasting-banner .fb-title { font-size: 14px; font-weight: 800; line-height: 1.2; }
+.fasting-banner .fb-timer { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; letter-spacing: 1px; }
+.fasting-banner .fb-sub   { font-size: 11px; opacity: .8; margin-top: 2px; }
+.fasting-banner .fb-fail  {
+  background: rgba(255,255,255,.2); border: 1.5px solid rgba(255,255,255,.5);
+  color: #fff; padding: 6px 10px; border-radius: 8px;
+  font-size: 11.5px; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+  cursor: pointer;
+}
+
 /* ── sunscreen reminder banner ── */
 .sunscreen-banner {
   background: linear-gradient(135deg, #FF8F00 0%, #F57F17 100%);
@@ -1019,6 +1041,17 @@ a { color: inherit; text-decoration: none; }
     <button class="sb-close" onclick="dismissSunscreen()" style="align-self:flex-start;margin-left:8px">×</button>
   </div>
 
+  <!-- ════ FASTING BANNER ════ -->
+  <div class="fasting-banner" id="fastingBanner" style="display:none">
+    <div class="fb-icon">⏱️</div>
+    <div class="fb-text">
+      <div class="fb-title">🚫 Fasting in progress</div>
+      <div class="fb-timer" id="fastingTimer">—</div>
+      <div class="fb-sub" id="fastingSubtitle"></div>
+    </div>
+    <button class="fb-fail" onclick="failFast()">✕ Fail Fast</button>
+  </div>
+
   <!-- ════ SCREENS ════ -->
   <div class="screens">
 
@@ -1234,6 +1267,39 @@ a { color: inherit; text-decoration: none; }
         <div id="locationDisplay" style="display:none;margin-top:4px;font-size:12px;color:var(--text-3)"></div>
         <div id="savedStepsDisplay" style="display:none;margin-top:4px;font-size:13px;color:var(--blue);font-weight:600"></div>
         <div id="netCalDisplay" style="display:none;margin-top:6px"></div>
+      </div>
+
+      <!-- fasting tracker -->
+      <div class="card" id="fastingCard">
+        <div class="card-title">⏱️ Fasting Tracker</div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px;line-height:1.5" id="fastingCardStatus">
+          Not fasting. Select a fasting window to begin.
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="fastingPresets">
+          <button class="mp-pref-chip" data-fh="12" onclick="selectFastPreset(this)">12h</button>
+          <button class="mp-pref-chip" data-fh="14" onclick="selectFastPreset(this)">14h</button>
+          <button class="mp-pref-chip" data-fh="16" onclick="selectFastPreset(this)">16:8</button>
+          <button class="mp-pref-chip" data-fh="18" onclick="selectFastPreset(this)">18h</button>
+          <button class="mp-pref-chip" data-fh="20" onclick="selectFastPreset(this)">20h</button>
+          <button class="mp-pref-chip" data-fh="24" onclick="selectFastPreset(this)">24h</button>
+          <button class="mp-pref-chip" data-fh="36" onclick="selectFastPreset(this)">36h</button>
+          <button class="mp-pref-chip" data-fh="custom" onclick="selectFastPreset(this)">Custom</button>
+        </div>
+        <div id="fastingCustomWrap" style="display:none;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px">Custom hours (1–36)</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="inp" id="fastingCustomHrs" type="number" min="1" max="36" value="18" inputmode="numeric" style="width:90px;padding:10px;text-align:center;font-size:18px;font-weight:700">
+            <span style="font-size:13px;color:var(--text-2)">hours</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px" id="fastingBtnRow">
+          <button class="btn btn-primary" id="fastingStartBtn" onclick="startFast()" style="flex:1;padding:12px;font-size:14px;font-weight:700">
+            ⏱️ Start Fast
+          </button>
+          <button class="btn" id="fastingStopBtn" onclick="failFast()" style="display:none;flex:1;padding:12px;font-size:14px;font-weight:700;background:#7B1FA2;color:#fff;border:none">
+            ✕ End Fast
+          </button>
+        </div>
       </div>
 
       <!-- daily notes -->
@@ -1891,7 +1957,7 @@ a { color: inherit; text-decoration: none; }
       <div>
         <div style="font-size:16px;font-weight:800;color:var(--blue)">v2.6 <span style="font-size:11px;font-weight:600;background:var(--blue);color:#fff;padding:2px 7px;border-radius:20px;margin-left:4px">Current</span></div>
         <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Photo &amp; barcode search · Personal weight model</div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Updated Wednesday 8 April 2026, 17:30 AEST</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Updated Wednesday 8 April 2026, 18:20 AEST</div>
       </div>
       <div id="settingsDataStats" style="text-align:right;font-size:11px;color:var(--text-3);line-height:1.6"></div>
     </div>
@@ -1944,6 +2010,7 @@ const BACKUP_KEY  = 'nt_last_backup';
 const TMPL_KEY    = 'nt_templates';
 const MEALPLAN_KEY = 'nt_mealplan';
 const EXPLAN_KEY   = 'nt_explan';
+const FASTING_KEY  = 'nt_fasting';
 
 let db       = loadDB();
 let goals    = loadGoals();
@@ -2057,6 +2124,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkBackupReminder();
   checkSunscreen();
   checkLocation();
+  checkFasting();
 });
 
 /* ════════════════════════════════════════
@@ -2104,7 +2172,7 @@ function switchTab(name) {
   activeTab = name;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + name));
-  if (name === 'today')     renderToday();
+  if (name === 'today')     { renderToday(); updateFastingCard(); }
   if (name === 'calendar')  renderCalendar();
   if (name === 'analytics') renderAnalytics();
   if (name === 'mealplan')  initMealPlanTab();
@@ -6160,6 +6228,163 @@ This will REPLACE all current data.`)) return;
 }
 
 /* ════════════════════════════════════════
+   FASTING TRACKER
+════════════════════════════════════════ */
+let fastingTimerInterval = null;
+let selectedFastHours    = 16;
+
+function selectFastPreset(btn) {
+  document.querySelectorAll('[data-fh]').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  const val = btn.dataset.fh;
+  if (val === 'custom') {
+    document.getElementById('fastingCustomWrap').style.display = 'block';
+  } else {
+    document.getElementById('fastingCustomWrap').style.display = 'none';
+    selectedFastHours = parseInt(val);
+  }
+}
+
+function startFast() {
+  // Get hours
+  const customWrap = document.getElementById('fastingCustomWrap');
+  if (customWrap && customWrap.style.display !== 'none') {
+    selectedFastHours = parseInt(document.getElementById('fastingCustomHrs').value) || 16;
+    selectedFastHours = Math.min(36, Math.max(1, selectedFastHours));
+  }
+  const startTime = Date.now();
+  const endTime   = startTime + selectedFastHours * 3600 * 1000;
+  const fast = { startTime, endTime, hours: selectedFastHours, active: true };
+  localStorage.setItem(FASTING_KEY, JSON.stringify(fast));
+  showToast(`⏱️ Fasting started — ${selectedFastHours}h window`, 'success');
+  checkFasting();
+}
+
+function failFast() {
+  // Clear fasting state
+  const stored = localStorage.getItem(FASTING_KEY);
+  if (stored) {
+    const fast = JSON.parse(stored);
+    fast.active = false;
+    localStorage.setItem(FASTING_KEY, JSON.stringify(fast));
+  }
+  if (fastingTimerInterval) { clearInterval(fastingTimerInterval); fastingTimerInterval = null; }
+  // Hide banner with animation
+  const banner = document.getElementById('fastingBanner');
+  if (banner) {
+    banner.style.transition = 'opacity .3s, transform .3s';
+    banner.style.opacity    = '0';
+    banner.style.transform  = 'translateY(-100%)';
+    setTimeout(() => {
+      banner.style.display  = 'none';
+      banner.style.transition = '';
+      banner.style.opacity  = '';
+      banner.style.transform = '';
+    }, 320);
+  }
+  updateFastingCard();
+  showToast('Fast ended. Every day is a new start.', '');
+}
+
+function checkFasting() {
+  try {
+    const stored = localStorage.getItem(FASTING_KEY);
+    if (!stored) { updateFastingCard(); return; }
+    const fast = JSON.parse(stored);
+    if (!fast.active) { updateFastingCard(); return; }
+    // Check if fast has expired naturally
+    if (Date.now() >= fast.endTime) {
+      fast.active = false;
+      localStorage.setItem(FASTING_KEY, JSON.stringify(fast));
+      showToast('🎉 Fast complete! Well done!', 'success');
+      updateFastingCard();
+      return;
+    }
+    // Active fast — show banner and start timer
+    showFastingBanner(fast);
+    updateFastingCard();
+  } catch(e) { updateFastingCard(); }
+}
+
+function showFastingBanner(fast) {
+  const banner = document.getElementById('fastingBanner');
+  if (!banner) return;
+  banner.style.display = 'flex';
+  // Tick immediately and then every second
+  updateFastingTimer(fast);
+  if (fastingTimerInterval) clearInterval(fastingTimerInterval);
+  fastingTimerInterval = setInterval(() => {
+    // Re-read from storage in case it changed
+    try {
+      const stored = localStorage.getItem(FASTING_KEY);
+      if (!stored) { clearInterval(fastingTimerInterval); banner.style.display = 'none'; return; }
+      const f = JSON.parse(stored);
+      if (!f.active || Date.now() >= f.endTime) {
+        clearInterval(fastingTimerInterval);
+        banner.style.display = 'none';
+        if (f.active) { f.active = false; localStorage.setItem(FASTING_KEY, JSON.stringify(f)); showToast('🎉 Fast complete!', 'success'); }
+        updateFastingCard();
+        return;
+      }
+      updateFastingTimer(f);
+    } catch(e) {}
+  }, 1000);
+}
+
+function updateFastingTimer(fast) {
+  const now       = Date.now();
+  const remaining = Math.max(0, fast.endTime - now);
+  const elapsed   = now - fast.startTime;
+  const totalMs   = fast.hours * 3600 * 1000;
+  const pct       = Math.min(100, Math.round(elapsed / totalMs * 100));
+
+  const hRem = Math.floor(remaining / 3600000);
+  const mRem = Math.floor((remaining % 3600000) / 60000);
+  const sRem = Math.floor((remaining % 60000) / 1000);
+
+  const hEl  = Math.floor(elapsed  / 3600000);
+  const mEl  = Math.floor((elapsed  % 3600000) / 60000);
+
+  const timerEl = document.getElementById('fastingTimer');
+  const subEl   = document.getElementById('fastingSubtitle');
+  if (timerEl) timerEl.textContent =
+    String(hRem).padStart(2,'0') + ':' + String(mRem).padStart(2,'0') + ':' + String(sRem).padStart(2,'0') + ' remaining';
+  if (subEl) subEl.textContent =
+    `${fast.hours}h fast · ${hEl}h ${mEl}m elapsed · ${pct}% complete`;
+}
+
+function updateFastingCard() {
+  const statusEl  = document.getElementById('fastingCardStatus');
+  const startBtn  = document.getElementById('fastingStartBtn');
+  const stopBtn   = document.getElementById('fastingStopBtn');
+  const presetsEl = document.getElementById('fastingPresets');
+  const customWr  = document.getElementById('fastingCustomWrap');
+  if (!statusEl) return;
+  try {
+    const stored = localStorage.getItem(FASTING_KEY);
+    if (!stored) throw new Error('none');
+    const fast = JSON.parse(stored);
+    if (!fast.active || Date.now() >= fast.endTime) throw new Error('inactive');
+    // Active
+    const now = Date.now();
+    const remaining = Math.max(0, fast.endTime - now);
+    const hRem = Math.floor(remaining / 3600000);
+    const mRem = Math.floor((remaining % 3600000) / 60000);
+    statusEl.innerHTML = `<strong style="color:#4527A0">⏱️ Fasting active</strong> — ${fast.hours}h window<br>
+      <span style="font-size:11.5px;color:var(--text-3)">${hRem}h ${mRem}m remaining until ${new Date(fast.endTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>`;
+    if (startBtn) startBtn.style.display = 'none';
+    if (stopBtn)  stopBtn.style.display  = 'block';
+    if (presetsEl) presetsEl.style.opacity = '0.4';
+    if (customWr)  customWr.style.display  = 'none';
+  } catch(e) {
+    statusEl.textContent = 'Not fasting. Select a fasting window to begin.';
+    if (startBtn) startBtn.style.display = 'block';
+    if (stopBtn)  stopBtn.style.display  = 'none';
+    if (presetsEl) presetsEl.style.opacity = '1';
+  }
+}
+
+/* ════════════════════════════════════════
    SUNSCREEN REMINDER
 ════════════════════════════════════════ */
 const SUNSCREEN_KEY = 'nt_sunscreen';
@@ -6188,11 +6413,7 @@ async function checkSunscreen() {
   const min  = now.getMinutes();
   if (hour < 6 || (hour === 6 && min < 0)) return;
 
-  const todayStr  = now.toISOString().slice(0, 10);
-  const lastShown = localStorage.getItem(SUNSCREEN_KEY);
-  if (lastShown === todayStr) return;
-
-  // Show banner immediately with basic message
+  // Show banner every open during daylight hours
   const banner = document.getElementById('sunscreenBanner');
   if (banner) banner.style.display = 'flex';
 
@@ -6303,14 +6524,17 @@ async function checkSunscreen() {
 }
 
 function dismissSunscreen() {
-  const todayStr = new Date().toISOString().slice(0, 10);
-  localStorage.setItem(SUNSCREEN_KEY, todayStr);
   const banner = document.getElementById('sunscreenBanner');
   if (banner) {
     banner.style.transition = 'opacity .3s, transform .3s';
     banner.style.opacity    = '0';
     banner.style.transform  = 'translateY(-100%)';
-    setTimeout(() => { banner.style.display = 'none'; }, 320);
+    setTimeout(() => {
+      banner.style.display = 'none';
+      banner.style.transition = '';
+      banner.style.opacity    = '';
+      banner.style.transform  = '';
+    }, 320);
   }
 }
 

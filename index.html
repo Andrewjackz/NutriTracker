@@ -1700,7 +1700,7 @@ a { color: inherit; text-decoration: none; }
               Predicted next-day weight change by activity level and calorie intake — based on your personal regression model.
               <strong style="color:var(--green)">Green = weight loss</strong> · <span style="color:var(--text-2)">Light green = stable</span> · <strong style="color:var(--red)">Red = weight gain</strong>
             </div>
-            <div id="stableMatrixEmpty" style="display:none;font-size:13px;color:var(--text-3);padding:12px 0">Build the model first (need 10+ days of data).</div>
+            <div id="stableMatrixEmpty" style="display:none;font-size:13px;color:var(--text-3);padding:12px 0">Requires 20+ days of weight + food logging to generate a reliable matrix.</div>
             <div class="sw-matrix-wrap" id="stableMatrixWrap" style="display:none"></div>
             <div id="stableMatrixNote" style="display:none;font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.6"></div>
           </div>
@@ -1957,7 +1957,7 @@ a { color: inherit; text-decoration: none; }
       <div>
         <div style="font-size:16px;font-weight:800;color:var(--blue)">v2.6 <span style="font-size:11px;font-weight:600;background:var(--blue);color:#fff;padding:2px 7px;border-radius:20px;margin-left:4px">Current</span></div>
         <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Photo &amp; barcode search · Personal weight model</div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Updated Wednesday 8 April 2026, 18:20 AEST</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:3px">🕐 Updated Thursday 9 April 2026, 09:00 AEST</div>
       </div>
       <div id="settingsDataStats" style="text-align:right;font-size:11px;color:var(--text-3);line-height:1.6"></div>
     </div>
@@ -5243,11 +5243,15 @@ function renderWeightModel() {
   const modelEmpty   = document.getElementById('modelEmpty');
   const summaryCard  = document.getElementById('modelSummaryCard');
 
-  if (wKeys.length < 10) {
+  if (wKeys.length < 20) {
     modelEmpty.style.display  = 'block';
     summaryCard.style.display = 'none';
     document.getElementById('stableMatrixEmpty').style.display = 'block';
     document.getElementById('stableMatrixWrap').style.display  = 'none';
+    modelEmpty.innerHTML = '<div class="es-icon">🧮</div>' +
+      'Need at least 20 days with weight logged to build a reliable model.<br>' +
+      '<span style="font-size:12px;color:var(--text-3);margin-top:6px;display:block">' +
+      'Currently have ' + wKeys.length + ' weight entries. Keep logging!</span>';
     return;
   }
   modelEmpty.style.display  = 'none';
@@ -5279,37 +5283,64 @@ function renderWeightModel() {
     obs.push({ cal, carbs, protein, fat, fibre, steps, runKm, burn, netCal, weight, deltaWt });
   }
 
-  if (obs.length < 10) {
+  // ── Need enough data for stable regression ──
+  // Rule: need at least 20 observations, and n > 5 * predictors to avoid overfitting
+  const MIN_OBS = 20;
+  if (obs.length < MIN_OBS) {
     modelEmpty.style.display  = 'block';
     summaryCard.style.display = 'none';
+    document.getElementById('stableMatrixEmpty').style.display = 'block';
+    document.getElementById('stableMatrixWrap').style.display  = 'none';
+    modelEmpty.innerHTML =
+      '<div class="es-icon">🧮</div>' +
+      'Need at least ' + MIN_OBS + ' days with both weight <em>and</em> food logged to build a model.<br>' +
+      '<span style="font-size:12px;color:var(--text-3);margin-top:6px;display:block">' +
+      'Have ' + wKeys.length + ' weight entries but only ' + obs.length + ' with food data on the prior day. Keep logging both!</span>';
     return;
   }
 
-  // ── Multiple linear regression (OLS) via normal equations ──
-  // y = b0 + b1*x1 + ... + bn*xn
-  // Define predictors — select those with enough variation
-  const predDefs = [
-    { key: 'cal',     label: '🔥 Calories',    unit: 'kcal' },
-    { key: 'carbs',   label: '🌾 Carbs',        unit: 'g'    },
-    { key: 'protein', label: '💪 Protein',      unit: 'g'    },
-    { key: 'fat',     label: '🥑 Fat',          unit: 'g'    },
-    { key: 'fibre',   label: '🥦 Fibre',        unit: 'g'    },
-    { key: 'steps',   label: '👟 Steps',        unit: 'steps'},
-    { key: 'runKm',   label: '🏃 Run km',       unit: 'km'   },
-    { key: 'burn',    label: '🔥 Total Burn',   unit: 'kcal' },
-    { key: 'netCal',  label: '⚡ Net Cal',       unit: 'kcal' },
-    { key: 'weight',  label: '⚖️ Weight',        unit: goals.units },
+  // ── Variable selection — use only independent, informative predictors ──
+  // Avoid multicollinearity: drop carbs/protein/fat/fibre when calories is present
+  // (they are subcomponents of calories and inflate variance dramatically)
+  // Priority order: net cal > calories > burn > steps > run km > weight
+  // Use at most floor(n/8) predictors to keep model well-specified
+  const n = obs.length;
+  const maxPreds = Math.max(2, Math.floor(n / 8));
+
+  const candidateDefs = [
+    { key: 'netCal',  label: '⚡ Net Calories',  unit: 'kcal',  priority: 1 },
+    { key: 'cal',     label: '🔥 Calories',       unit: 'kcal',  priority: 2 },
+    { key: 'burn',    label: '🔥 Total Burn',     unit: 'kcal',  priority: 3 },
+    { key: 'steps',   label: '👟 Steps',          unit: 'steps', priority: 4 },
+    { key: 'runKm',   label: '🏃 Run km',         unit: 'km',    priority: 5 },
+    { key: 'weight',  label: '⚖️ Weight',          unit: goals.units, priority: 6 },
+    { key: 'protein', label: '💪 Protein',        unit: 'g',     priority: 7 },
+    { key: 'fibre',   label: '🥦 Fibre',          unit: 'g',     priority: 8 },
   ];
 
-  // Filter out predictors with near-zero variance (not enough data)
-  const activePreds = predDefs.filter(p => {
-    const vals = obs.map(o => o[p.key]);
+  // Filter: must have sufficient variance (coefficient of variation > 2%)
+  const withVariance = candidateDefs.filter(pd => {
+    const vals = obs.map(o => o[pd.key]).filter(v => v != null && !isNaN(v));
+    if (vals.length < n * 0.5) return false; // less than half obs have this variable
     const mean = vals.reduce((s,v)=>s+v,0)/vals.length;
-    const variance = vals.reduce((s,v)=>s+(v-mean)**2,0)/vals.length;
-    return variance > 0.01;
+    if (Math.abs(mean) < 1e-9) return false;
+    const std  = Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/vals.length);
+    return (std / Math.abs(mean)) > 0.02; // CV > 2%
   });
 
-  const n = obs.length;
+  // Take top predictors by priority, capped at maxPreds
+  const activePreds = withVariance
+    .sort((a,b) => a.priority - b.priority)
+    .slice(0, maxPreds);
+
+  if (activePreds.length < 1) {
+    modelEmpty.style.display  = 'block';
+    summaryCard.style.display = 'none';
+    document.getElementById('modelEmpty').innerHTML =
+      '<div class="es-icon">🧮</div>Not enough variable data to build a model yet. Keep logging!';
+    return;
+  }
+
   const p = activePreds.length;
 
   // Build design matrix X (n × p+1) with intercept col
@@ -5353,6 +5384,17 @@ function renderWeightModel() {
   try { beta = solveLinear(XtX.map(r=>[...r]), [...XtY]); }
   catch(e) { modelEmpty.style.display='block'; summaryCard.style.display='none'; return; }
 
+  // Sanity check: if any beta is absurdly large, the matrix is near-singular
+  const MAX_COEFF = 100; // no single variable should move weight by >100 units per unit change
+  if (beta.some(b => !isFinite(b) || Math.abs(b) > MAX_COEFF)) {
+    modelEmpty.style.display  = 'block';
+    summaryCard.style.display = 'none';
+    document.getElementById('modelEmpty').innerHTML =
+      '<div class="es-icon">📉</div>Model is unstable with current data — variables are too correlated.<br>' +
+      '<span style="font-size:12px;color:var(--text-3);margin-top:6px;display:block">More data (30+ days) will produce reliable results. Currently ' + n + ' observations.</span>';
+    return;
+  }
+
   // ── Model diagnostics ──
   const yHat  = X.map(row => row.reduce((s,v,i)=>s+v*beta[i],0));
   const yMean = Y.reduce((s,v)=>s+v,0)/n;
@@ -5387,15 +5429,22 @@ function renderWeightModel() {
 
   // ── Display model summary ──
   const statsEl = document.getElementById('modelSummaryStats');
+  const r2Col   = r2 > 0.4 ? 'var(--green)' : r2 > 0.2 ? 'var(--yellow)' : 'var(--red)';
   statsEl.innerHTML = [
-    { val: n,            lbl: 'Observations',   col: 'var(--blue)' },
-    { val: r2.toFixed(3),lbl: 'R²',             col: r2>0.5?'var(--green)':'var(--yellow)' },
-    { val: adjR2.toFixed(3),lbl: 'Adj R²',      col: adjR2>0.4?'var(--green)':'var(--yellow)' },
+    { val: n,               lbl: 'Observations', col: 'var(--blue)' },
+    { val: p,               lbl: 'Predictors',   col: 'var(--text-2)' },
+    { val: r2.toFixed(3),   lbl: 'R²',           col: r2Col },
     { val: rmse.toFixed(3)+' '+goals.units, lbl:'RMSE', col:'var(--text-2)' },
-  ].map(s=>`<div style="flex:1;min-width:70px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:8px;text-align:center">
+  ].map(s=>`<div style="flex:1;min-width:60px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:8px;text-align:center">
     <div style="font-size:17px;font-weight:800;color:${s.col}">${s.val}</div>
     <div style="font-size:9.5px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px">${s.lbl}</div>
   </div>`).join('');
+  // Add data quality note
+  const qualityNote = r2 < 0.15 ? '⚠️ Low R² — model signal is weak with current data. More days = better fit.' :
+                      r2 < 0.35 ? '📈 Moderate fit — growing dataset will strengthen this.' :
+                      '✅ Reasonable fit for a biological system.';
+  statsEl.innerHTML += '<div style="width:100%;margin-top:8px;font-size:11.5px;color:var(--text-3);line-height:1.5">' + qualityNote +
+    ' Using ' + p + ' predictor' + (p!==1?'s':'') + ' (from ' + candidateDefs.length + ' candidates) to avoid overfitting ' + n + ' observations.</div>';
 
   // Show coefficients (skip intercept index 0, show only |t|>1)
   const coeffRows = activePreds.map((pd,i)=>({

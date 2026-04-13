@@ -827,6 +827,12 @@ a { color: inherit; text-decoration: none; }
 .sw-gain-3  { background: #B71C1C; color: #fff; }
 .sw-na      { background: var(--surface2); color: var(--text-3); }
 
+/* ── regression mode toggle ── */
+.reg-toggle-wrap { display:flex; gap:0; border-radius:var(--r-sm); overflow:hidden; border:1.5px solid var(--border); margin-bottom:16px; }
+.reg-toggle-btn  { flex:1; padding:9px 6px; border:none; background:var(--surface2); color:var(--text-2); font-size:12.5px; font-weight:700; cursor:pointer; transition:all .15s; }
+.reg-toggle-btn.active { background:var(--blue); color:#fff; }
+.reg-toggle-btn:first-child { border-right:1px solid var(--border); }
+
 /* ── exercise planner ── */
 .ex-plan-card { background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-sm); }
 .ex-plan-day-hdr { background:linear-gradient(135deg,#1B5E20,#2E7D32);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between; }
@@ -1586,44 +1592,77 @@ a { color: inherit; text-decoration: none; }
 
 
       <!-- Regression scatter charts grouped together -->
-      <div class="chart-card">
-        <div class="card-title">Yesterday's Calories → Today's Weight Change</div>
-        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Each point plots the previous day's calories against that morning's weight change. The regression reveals your net-neutral calorie level.</div>
-        <canvas id="scatterChart" height="280"></canvas>
-        <div id="chartEmpty" class="empty-state" style="padding:24px 0 12px">
-          <div class="es-icon">📊</div>
-          Log at least 3 days with both calories and weight to see your scatter plot.
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="card-title">📉 Regression Analysis</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:12px;line-height:1.5">
+          Shows how calories, burn and net calories relate to weight change. Toggle between daily (lagged: yesterday → today) and weekly (Mon–Sun average → weekly Δ weight) analysis.
         </div>
+        <div class="reg-toggle-wrap">
+          <button class="reg-toggle-btn active" id="regToggleDaily" onclick="setRegressionMode('daily')">📅 Daily (Lagged)</button>
+          <button class="reg-toggle-btn"        id="regToggleWeekly" onclick="setRegressionMode('weekly')">📆 Weekly Aggregated</button>
+        </div>
+        <div id="regModeNote" style="font-size:11px;color:var(--text-3);margin-bottom:12px;line-height:1.5;padding:6px 10px;background:var(--surface2);border-radius:var(--r-sm)"></div>
       </div>
-      <div id="equationCard" class="equation-card" style="display:none;margin-bottom:14px"></div>
 
-      <!-- Exercise burn vs next-day weight change -->
-      <div class="chart-card">
-        <div class="card-title">Exercise Burn → Next Day Weight Change</div>
-        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">
-          Yesterday's estimated exercise calorie burn (from steps) vs this morning's weight change. Shows whether more activity directly drives weight reduction the next day.
+      <!-- Daily mode scatter charts -->
+      <div id="regDailyCharts">
+        <div class="chart-card">
+          <div class="card-title">Yesterday's Calories → Today's Weight Change</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Each point plots the previous day's calories against that morning's weight change. The regression reveals your net-neutral calorie level.</div>
+          <canvas id="scatterChart" height="280"></canvas>
+          <div id="chartEmpty" class="empty-state" style="padding:24px 0 12px">
+            <div class="es-icon">📊</div>Log at least 3 days with both calories and weight to see your scatter plot.
+          </div>
         </div>
-        <canvas id="burnScatterChart" height="280"></canvas>
-        <div id="burnChartEmpty" class="empty-state" style="padding:24px 0 12px">
-          <div class="es-icon">👟</div>
-          Log at least 3 days with steps and weight to see this chart.
-        </div>
-      </div>
-      <div id="burnEqCard" class="equation-card" style="display:none;margin-bottom:14px"></div>
+        <div id="equationCard" class="equation-card" style="display:none;margin-bottom:14px"></div>
 
-      <!-- Personal net-cal regression — at the end for Andrew -->
-      <div class="chart-card">
-        <div class="card-title">Net Calories → Next Day Weight Change</div>
-        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">
-          Yesterday's <em>net</em> calories (consumed − walk burn) vs this morning's weight change. Net-neutral = your personal break-even point accounting for activity.
+        <div class="chart-card">
+          <div class="card-title">Exercise Burn → Next Day Weight Change</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Yesterday's estimated exercise calorie burn vs this morning's weight change.</div>
+          <canvas id="burnScatterChart" height="280"></canvas>
+          <div id="burnChartEmpty" class="empty-state" style="padding:24px 0 12px">
+            <div class="es-icon">👟</div>Log at least 3 days with steps and weight to see this chart.
+          </div>
         </div>
-        <canvas id="netScatterChart" height="280"></canvas>
-        <div id="netChartEmpty" class="empty-state" style="padding:24px 0 12px">
-          <div class="es-icon">🔬</div>
-          Log at least 3 days with calories, steps and weight to see this chart.
+        <div id="burnEqCard" class="equation-card" style="display:none;margin-bottom:14px"></div>
+
+        <div class="chart-card">
+          <div class="card-title">Net Calories → Next Day Weight Change</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Yesterday's <em>net</em> calories (consumed − burn) vs this morning's weight change.</div>
+          <canvas id="netScatterChart" height="280"></canvas>
+          <div id="netChartEmpty" class="empty-state" style="padding:24px 0 12px">
+            <div class="es-icon">🔬</div>Log at least 3 days with calories, steps and weight to see this chart.
+          </div>
         </div>
+        <div id="netEqCard2" class="equation-card" style="display:none;margin-bottom:14px"></div>
       </div>
-      <div id="netEqCard2" class="equation-card" style="display:none;margin-bottom:14px"></div>
+
+      <!-- Weekly mode scatter charts -->
+      <div id="regWeeklyCharts" style="display:none">
+        <div class="chart-card">
+          <div class="card-title">Weekly Avg Calories → Weekly Δ Weight</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Each point = one week. X = average daily calories consumed that week. Y = weight at end of week minus weight at start. Smoother signal than daily.</div>
+          <canvas id="wkScatterCal" height="280"></canvas>
+          <div id="wkCalEmpty" class="empty-state" style="padding:24px 0 12px"><div class="es-icon">📆</div>Need at least 3 complete weeks of data.</div>
+        </div>
+        <div id="wkEqCal" class="equation-card" style="display:none;margin-bottom:14px"></div>
+
+        <div class="chart-card">
+          <div class="card-title">Weekly Avg Burn → Weekly Δ Weight</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Average daily exercise burn across the week vs the week's total weight change. Shows whether activity level drives weekly outcomes.</div>
+          <canvas id="wkScatterBurn" height="280"></canvas>
+          <div id="wkBurnEmpty" class="empty-state" style="padding:24px 0 12px"><div class="es-icon">🔥</div>Need at least 3 complete weeks of data.</div>
+        </div>
+        <div id="wkEqBurn" class="equation-card" style="display:none;margin-bottom:14px"></div>
+
+        <div class="chart-card">
+          <div class="card-title">Weekly Avg Net Calories → Weekly Δ Weight</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Average daily net calories (consumed − burn) for the week vs weekly weight change. This is the most direct measure of your weekly energy balance.</div>
+          <canvas id="wkScatterNet" height="280"></canvas>
+          <div id="wkNetEmpty" class="empty-state" style="padding:24px 0 12px"><div class="es-icon">⚡</div>Need at least 3 complete weeks of data.</div>
+        </div>
+        <div id="wkEqNet" class="equation-card" style="display:none;margin-bottom:14px"></div>
+      </div>
 
       <!-- Correlation matrices -->
       <div class="chart-card" id="corrCard">
@@ -2052,6 +2091,8 @@ let activeTab = 'search';
 let calMonth = new Date();
 let currentResult = null;
 let selectedMealType = 'Breakfast';
+let regressionMode = 'daily';
+let wkScatterCalInst = null, wkScatterBurnInst = null, wkScatterNetInst = null;
 let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null, macroSplitChartInst = null, netCalTrendInst = null, netScatterChartInst = null, burnScatterChartInst = null, runTrendChartInst = null, burnSplitChartInst = null;
 
 function loadDB() {
@@ -4101,6 +4142,12 @@ function renderAnalytics() {
   document.getElementById('statAvgCal').textContent  = avgCal    || '—';
   document.getElementById('statWeightDelta').textContent = weightDelta;
 
+  // ── Render regression mode note ──
+  setRegressionModeNote(regressionMode);
+
+  // ── Weekly scatter charts ──
+  if (regressionMode === 'weekly') renderWeeklyScatter();
+
   // scatter: pair PREVIOUS day's calories with TODAY's weight change
   // Logic: you weigh yourself in the morning, so yesterday's food intake
   // is what drove today's morning weight. This gives the correct causal lag.
@@ -5244,6 +5291,191 @@ function renderBurnScatter() {
 }
 
 /* ════════════════════════════════════════
+   REGRESSION MODE TOGGLE + WEEKLY SCATTER
+════════════════════════════════════════ */
+function setRegressionMode(mode) {
+  regressionMode = mode;
+  document.getElementById('regToggleDaily').classList.toggle('active',  mode === 'daily');
+  document.getElementById('regToggleWeekly').classList.toggle('active', mode === 'weekly');
+  document.getElementById('regDailyCharts').style.display  = mode === 'daily'  ? 'block' : 'none';
+  document.getElementById('regWeeklyCharts').style.display = mode === 'weekly' ? 'block' : 'none';
+  setRegressionModeNote(mode);
+  if (mode === 'weekly') renderWeeklyScatter();
+}
+
+function setRegressionModeNote(mode) {
+  const el = document.getElementById('regModeNote');
+  if (!el) return;
+  if (mode === 'daily') {
+    el.textContent = '📅 Daily: each point = one day. Previous day intake vs next morning weight change. Good for spotting spikes but noisy — water retention dominates short-term.';
+  } else {
+    el.textContent = '📆 Weekly: each point = one full week (Mon-Sun). Average daily intake vs total weight change start to end. Smoother signal — better reflects true fat change. Needs 3+ complete weeks.';
+  }
+}
+
+function buildWeeklyObs() {
+  // Group days into ISO weeks (Mon–Sun)
+  const allKeys = Object.keys(db).sort();
+  const weeks   = {};
+  allKeys.forEach(k => {
+    const d  = new Date(k + 'T12:00:00');
+    // ISO week: Monday = day 1
+    const day = d.getDay() || 7; // 1=Mon … 7=Sun
+    const mon = new Date(d); mon.setDate(d.getDate() - (day - 1));
+    const weekKey = isoDate(mon);
+    if (!weeks[weekKey]) weeks[weekKey] = { keys: [], days: [] };
+    weeks[weekKey].keys.push(k);
+    weeks[weekKey].days.push(db[k]);
+  });
+
+  const obs = [];
+  Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([wk, wdata]) => {
+    const { keys, days } = wdata;
+    // Need at least 4 days of food data and at least 2 weight measurements
+    const foodDays  = days.filter(d => (d.items||[]).length > 0);
+    const wtDays    = days.filter(d => d.weight).map(d => d.weight);
+    if (foodDays.length < 4 || wtDays.length < 2) return;
+
+    const wtStart = wtDays[0];
+    const wtEnd   = wtDays[wtDays.length - 1];
+    const deltaWt = +(wtEnd - wtStart).toFixed(2);
+
+    const avgCal  = foodDays.reduce((s,d) => s + (d.items||[]).reduce((ss,i)=>ss+i.calories,0), 0) / foodDays.length;
+    const avgBurn = foodDays.reduce((s,d) => s + calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace), 0) / foodDays.length;
+    const avgNet  = avgCal - avgBurn;
+
+    obs.push({ week: wk, avgCal: +avgCal.toFixed(0), avgBurn: +avgBurn.toFixed(0), avgNet: +avgNet.toFixed(0), deltaWt, wtStart, wtEnd, n: foodDays.length });
+  });
+  return obs;
+}
+
+function fitLine(pts) {
+  const n   = pts.length;
+  if (n < 3) return null;
+  const sx  = pts.reduce((s,p)=>s+p.x,0);
+  const sy  = pts.reduce((s,p)=>s+p.y,0);
+  const sxy = pts.reduce((s,p)=>s+p.x*p.y,0);
+  const sx2 = pts.reduce((s,p)=>s+p.x*p.x,0);
+  const denom = n*sx2 - sx*sx;
+  if (Math.abs(denom) < 1e-9) return null;
+  const m      = (n*sxy - sx*sy) / denom;
+  const b      = (sy - m*sx) / n;
+  const yMean  = sy / n;
+  const ssTot  = pts.reduce((s,p)=>s+(p.y-yMean)**2,0);
+  const ssRes  = pts.reduce((s,p)=>s+(p.y-(m*p.x+b))**2,0);
+  const r2     = ssTot > 0 ? Math.max(0, 1 - ssRes/ssTot) : 0;
+  const neutral = Math.abs(m) > 1e-7 ? Math.round(-b/m) : null;
+  return { m, b, r2, n, neutral };
+}
+
+function drawWeeklyChart(canvasId, emptyId, eqCardId, pts, fit, xLabel, colour, neutralLabel) {
+  const canvas   = document.getElementById(canvasId);
+  const emptyEl  = document.getElementById(emptyId);
+  const eqCardEl = document.getElementById(eqCardId);
+
+  if (pts.length < 3) {
+    emptyEl.style.display  = 'block';
+    if (canvas) canvas.style.display = 'none';
+    if (eqCardEl) eqCardEl.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display  = 'none';
+  if (canvas) canvas.style.display = 'block';
+
+  const xVals = pts.map(p=>p.x);
+  const xMin  = Math.min(...xVals) * 0.97;
+  const xMax  = Math.max(...xVals) * 1.03;
+
+  const datasets = [
+    {
+      label: 'Weekly data',
+      data:  pts,
+      backgroundColor: colour + 'aa',
+      pointRadius: 7, pointHoverRadius: 9, type:'scatter'
+    }
+  ];
+  if (fit) {
+    datasets.push({
+      label: 'Regression line',
+      data:  [{ x: xMin, y: fit.m*xMin+fit.b }, { x: xMax, y: fit.m*xMax+fit.b }],
+      type:'line', borderColor: colour, borderWidth: 2.5,
+      pointRadius: 0, fill: false, tension: 0
+    });
+    // Net-neutral dashed line
+    if (fit.neutral && fit.neutral > 0 && fit.neutral < 15000) {
+      const yAtNeutral = fit.m * fit.neutral + fit.b;
+      datasets.push({
+        label: neutralLabel || 'Net-neutral',
+        data:  [{ x: fit.neutral, y: Math.min(...pts.map(p=>p.y)) - 0.3 },
+                { x: fit.neutral, y: Math.max(...pts.map(p=>p.y)) + 0.3 }],
+        type:'line', borderColor: '#F9A825', borderWidth: 2,
+        borderDash: [6,4], pointRadius: 0, fill: false, tension: 0
+      });
+    }
+  }
+
+  // Destroy existing instance
+  const instKey = canvasId + 'Inst';
+  if (window[instKey]) { try { window[instKey].destroy(); } catch(e){} }
+  window[instKey] = new Chart(canvas, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const p = ctx.raw;
+              return `Week of ${p.week||''}: ${xLabel} ${ctx.parsed.x.toLocaleString()}, Δwt ${ctx.parsed.y>0?'+':''}${ctx.parsed.y} ${goals.units}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { title: { display:true, text: xLabel, font:{size:11} },
+             grid:{ color:'rgba(0,0,0,.06)' } },
+        y: { title: { display:true, text: 'Weekly Δ Weight (' + goals.units + ')', font:{size:11} },
+             grid:{ color:'rgba(0,0,0,.06)' },
+             ticks:{ callback: v => (v>0?'+':'')+v+' '+goals.units } }
+      }
+    }
+  });
+
+  // Equation card
+  if (eqCardEl && fit) {
+    const sign = fit.b >= 0 ? '+' : '';
+    eqCardEl.style.display = 'block';
+    eqCardEl.innerHTML = `
+      <div class="eq-title">Weekly Regression — ${xLabel} → Δ Weight</div>
+      <div class="eq-formula">Δ Wt = ${fit.m.toFixed(5)} × ${xLabel} ${sign}${fit.b.toFixed(3)}</div>
+      <div class="eq-stats">
+        <div class="eq-stat"><div class="es-val">R² ${fit.r2.toFixed(3)}</div><div class="es-lbl">Fit Quality</div></div>
+        <div class="eq-stat"><div class="es-val">${fit.n}</div><div class="es-lbl">Weeks</div></div>
+        <div class="eq-stat"><div class="es-val">${fit.neutral ? fit.neutral.toLocaleString() : '—'}</div><div class="es-lbl">${neutralLabel||'Neutral'}</div></div>
+      </div>
+      ${fit.neutral && fit.neutral > 0 && fit.neutral < 15000 ? `
+      <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.15);border-radius:10px;font-size:12.5px;line-height:1.5">
+        🎯 Weekly neutral point: ~${fit.neutral.toLocaleString()} ${xLabel.toLowerCase()}/day average<br>
+        <span style="opacity:.75;font-size:11px">${fit.n} weeks of data · ${fit.r2 < 0.2 ? 'Weak signal — more data needed' : fit.r2 < 0.5 ? 'Moderate signal — growing dataset' : 'Strong signal'}</span>
+      </div>` : ''}`;
+  }
+}
+
+function renderWeeklyScatter() {
+  const obs = buildWeeklyObs();
+
+  const calPts  = obs.map(o => ({ x: o.avgCal,  y: o.deltaWt, week: o.week }));
+  const burnPts = obs.map(o => ({ x: o.avgBurn, y: o.deltaWt, week: o.week }));
+  const netPts  = obs.map(o => ({ x: o.avgNet,  y: o.deltaWt, week: o.week }));
+
+  drawWeeklyChart('wkScatterCal',  'wkCalEmpty',  'wkEqCal',  calPts,  fitLine(calPts),  'Avg Cal/day',    'rgba(21,101,192)',   'Neutral Cal');
+  drawWeeklyChart('wkScatterBurn', 'wkBurnEmpty', 'wkEqBurn', burnPts, fitLine(burnPts), 'Avg Burn/day',   'rgba(198,40,40)',    'Neutral Burn');
+  drawWeeklyChart('wkScatterNet',  'wkNetEmpty',  'wkEqNet',  netPts,  fitLine(netPts),  'Avg Net Cal/day','rgba(46,125,50)',    'Net-Neutral');
+}
+
+/* ════════════════════════════════════════
    PERSONAL WEIGHT MODEL
 ════════════════════════════════════════ */
 function toggleWeightModel() {
@@ -5841,6 +6073,9 @@ function renderNetScatter() {
     chartEmpty2.style.display = 'block';
     if (netScatterChartInst) { netScatterChartInst.destroy(); netScatterChartInst = null; }
   }
+
+  /* ════ WEEKLY REGRESSION ════ */
+  renderWeeklyScatter();
 }
 
 /* ════════════════════════════════════════

@@ -1120,6 +1120,13 @@ a { color: inherit; text-decoration: none; }
           You can also add a quantity hint below the photo — e.g. "large bowl" or "200g"
         </div>
         <input class="inp" id="photoHintInput" type="text" placeholder="Optional: quantity hint (e.g. large bowl, 200g…)" autocomplete="off" style="margin-top:8px;display:none">
+        <label id="photoSharedWrap" style="display:none;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--r-sm);border:1.5px solid var(--border);cursor:pointer">
+          <input type="checkbox" id="photoSharedChk" style="width:18px;height:18px;cursor:pointer;accent-color:var(--blue)">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text)">🍽️ Shared meal</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:1px">Halves all nutrition values — tick if this is a dish shared between two people</div>
+          </div>
+        </label>
       </div>
 
       <!-- ── BARCODE SCAN ── -->
@@ -1590,6 +1597,21 @@ a { color: inherit; text-decoration: none; }
         <canvas id="stWtChart" height="240"></canvas>
       </div>
 
+
+      <div class="chart-card">
+        <div class="card-title">Previous Day Net Calories → Weight Change</div>
+        <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11.5px;font-weight:600">
+          <span style="color:#7B1FA2">⚡ Prev Net Cal (left)</span>
+          <span style="color:#C62828">⚖️ Δ Weight (right)</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px;line-height:1.5">
+          Each bar = yesterday's net calories (consumed − burn). Line = this morning's weight change vs prior day. A clear pattern here confirms your energy balance is tracking.
+        </div>
+        <div id="netCalWtEmpty" class="empty-state" style="padding:20px 0 8px;display:none">
+          <div class="es-icon">⚡</div>Log calories, steps and weight on at least 3 days to see this chart.
+        </div>
+        <canvas id="netCalWtChart" height="240"></canvas>
+      </div>
 
       <!-- Regression scatter charts grouped together -->
       <div class="chart-card" style="margin-bottom:0">
@@ -2092,6 +2114,7 @@ let calMonth = new Date();
 let currentResult = null;
 let selectedMealType = 'Breakfast';
 let regressionMode = 'daily';
+let netCalWtChartInst = null;
 let wkScatterCalInst = null, wkScatterBurnInst = null, wkScatterNetInst = null;
 let scatterChartInst = null, calTrendInst = null, carbTrendInst = null, proteinTrendInst = null, fatTrendInst = null, fibreTrendInst = null, weightTrendInst = null, stepsTrendInst = null, wtCalChartInst = null, stWtChartInst = null, macroSplitChartInst = null, netCalTrendInst = null, netScatterChartInst = null, burnScatterChartInst = null, runTrendChartInst = null, burnSplitChartInst = null;
 
@@ -2161,6 +2184,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   renderTemplates();
   renderToday();
+  autoSelectMealType();
   renderCalendar();
   checkBackupReminder();
   checkSunscreen();
@@ -2232,6 +2256,7 @@ function switchTab(name) {
   activeTab = name;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + name));
+  if (name === 'search')    autoSelectMealType();
   if (name === 'today')     { renderToday(); updateFastingCard(); }
   if (name === 'calendar')  renderCalendar();
   if (name === 'analytics') renderAnalytics();
@@ -2977,9 +3002,21 @@ function selectMealType(btn) {
   document.querySelectorAll('.meal-type-btn').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
   selectedMealType = btn.dataset.mt;
-  // update the add button label if a result is already showing
   const addBtn = document.getElementById('addToMealBtn');
   if (addBtn) addBtn.textContent = '＋ Add to ' + selectedMealType;
+}
+
+function autoSelectMealType() {
+  const h = new Date().getHours();
+  const m = new Date().getMinutes();
+  const mins = h * 60 + m;
+  // Before 11:30 → Breakfast; 11:30–17:00 → Lunch; 17:00–23:59 → Dinner; midnight→6am → Snack
+  let mt = 'Snack';
+  if (mins < 690)       mt = 'Breakfast'; // < 11:30
+  else if (mins < 1020) mt = 'Lunch';     // 11:30 – 17:00
+  else if (mins < 1440) mt = 'Dinner';    // 17:00 – 24:00
+  const btn = document.querySelector('.meal-type-btn[data-mt="' + mt + '"]');
+  if (btn) selectMealType(btn);
 }
 
 /* ════════════════════════════════════════
@@ -3292,6 +3329,8 @@ function onPhotoSelected(event) {
     document.getElementById('photoDropZone').style.display = 'none';
     document.getElementById('photoAnalyseBtn').classList.add('visible');
     document.getElementById('photoHintInput').style.display = 'block';
+    document.getElementById('photoSharedWrap').style.display = 'flex';
+    document.getElementById('photoSharedChk').checked = false;
     document.getElementById('resultEl').style.display = 'none';
   };
   reader.readAsDataURL(file);
@@ -3304,6 +3343,8 @@ function clearPhoto() {
   document.getElementById('photoAnalyseBtn').classList.remove('visible');
   document.getElementById('photoHintInput').style.display = 'none';
   document.getElementById('photoHintInput').value = '';
+  document.getElementById('photoSharedWrap').style.display = 'none';
+  document.getElementById('photoSharedChk').checked = false;
   document.getElementById('photoFileInput').value = '';
   document.getElementById('resultEl').style.display = 'none';
 }
@@ -3376,7 +3417,25 @@ Respond ONLY with valid JSON like this, no markdown, no extra text:
     const raw   = data.content?.[0]?.text || '';
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('Could not parse nutrition data from photo');
-    const result = JSON.parse(match[0]);
+    let result = JSON.parse(match[0]);
+
+    // Apply shared meal halving if toggled
+    const isShared = document.getElementById('photoSharedChk')?.checked;
+    if (isShared) {
+      result = {
+        ...result,
+        food:       result.food + ' (shared ÷2)',
+        qty_label:  result.qty_label + ' ÷2',
+        qty_g:      Math.round((result.qty_g || 100) / 2),
+        calories:   Math.round(result.calories / 2),
+        carbs_g:    +((result.carbs_g    || 0) / 2).toFixed(1),
+        protein_g:  +((result.protein_g  || 0) / 2).toFixed(1),
+        fat_g:      +((result.fat_g      || 0) / 2).toFixed(1),
+        fiber_g:    +((result.fiber_g    || result.fibre_g || 0) / 2).toFixed(1),
+        fibre_g:    +((result.fibre_g    || result.fiber_g || 0) / 2).toFixed(1),
+        notes:      (result.notes || '') + ' · Shared meal — values halved',
+      };
+    }
 
     currentResult = result;
     addToHistory('📷 ' + result.food);
@@ -4795,6 +4854,112 @@ function renderAnalytics() {
   }
 
   // ── DUAL AXIS A: Weight vs Calories ──
+  // ── NET CAL → WEIGHT CHANGE (Dual axis: bars for net cal, line for Δwt) ──
+  if (netCalWtChartInst) netCalWtChartInst.destroy();
+  const netCalWtCanvas = document.getElementById('netCalWtChart');
+  const netCalWtEmpty  = document.getElementById('netCalWtEmpty');
+  const ncwtKeys = weightKeys.filter((k, i) => i > 0 && calByDate[weightKeys[i-1]]);
+
+  if (ncwtKeys.length < 3) {
+    netCalWtEmpty.style.display  = 'block';
+    netCalWtCanvas.style.display = 'none';
+  } else {
+    netCalWtEmpty.style.display  = 'none';
+    netCalWtCanvas.style.display = 'block';
+
+    // For each day with a weight reading, pair with prior day net cal
+    const ncwtLabels = [], ncwtNetCal = [], ncwtDeltaWt = [];
+    for (let i = 1; i < weightKeys.length; i++) {
+      const k     = weightKeys[i];
+      const kPrev = weightKeys[i-1];
+      if (!calByDate[kPrev]) continue;
+      const cal  = calByDate[kPrev] || 0;
+      const burn = burnByDate[kPrev] || calcBurn(db[kPrev]?.steps, db[kPrev]?.weight, goals.units, db[kPrev]?.runKm, db[kPrev]?.runPace);
+      const net  = cal - burn;
+      const dWt  = +(weightSeries[k] - weightSeries[kPrev]).toFixed(2);
+      ncwtLabels.push(k.slice(5));  // MM-DD
+      ncwtNetCal.push(net);
+      ncwtDeltaWt.push(dWt);
+    }
+
+    // Colour bars: surplus = red-tinted, deficit = green-tinted
+    const barColours = ncwtNetCal.map(v => v > 0 ? 'rgba(198,40,40,0.55)' : 'rgba(46,125,50,0.55)');
+
+    netCalWtChartInst = new Chart(netCalWtCanvas, {
+      type: 'bar',
+      data: {
+        labels: ncwtLabels,
+        datasets: [
+          {
+            label: 'Prev Day Net Cal',
+            data: ncwtNetCal,
+            backgroundColor: barColours,
+            borderColor: barColours.map(b => b.replace('0.55','0.9')),
+            borderWidth: 1,
+            yAxisID: 'yNet',
+            order: 2,
+          },
+          {
+            label: 'Weight Change (' + goals.units + ')',
+            data: ncwtDeltaWt,
+            type: 'line',
+            borderColor: '#7B1FA2',
+            backgroundColor: 'rgba(123,31,162,0.12)',
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointBackgroundColor: '#7B1FA2',
+            fill: false,
+            tension: 0.3,
+            yAxisID: 'yWt',
+            order: 1,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            display: true, position: 'top',
+            labels: { font: { size: 11 }, boxWidth: 12, padding: 10 }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                if (ctx.dataset.yAxisID === 'yNet') {
+                  const v = ctx.raw;
+                  return 'Net cal: ' + (v > 0 ? '+' : '') + Math.round(v).toLocaleString();
+                }
+                return 'Δ weight: ' + (ctx.raw > 0 ? '+' : '') + ctx.raw + ' ' + goals.units;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+          yNet: {
+            position: 'left',
+            title: { display: true, text: 'Net Cal', font: { size: 10 } },
+            grid: { color: 'rgba(0,0,0,.05)' },
+            ticks: {
+              font: { size: 10 },
+              callback: v => (v > 0 ? '+' : '') + Math.round(v/100)*100
+            }
+          },
+          yWt: {
+            position: 'right',
+            title: { display: true, text: 'Δ Weight (' + goals.units + ')', font: { size: 10 } },
+            grid: { drawOnChartArea: false },
+            ticks: {
+              font: { size: 10 },
+              callback: v => (v > 0 ? '+' : '') + v + ' ' + goals.units
+            }
+          }
+        }
+      }
+    });
+  }
+
   if (wtCalChartInst) wtCalChartInst.destroy();
   const wtCalEmpty  = document.getElementById('wtCalEmpty');
   const wtCalCanvas = document.getElementById('wtCalChart');

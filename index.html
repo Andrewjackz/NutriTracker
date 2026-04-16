@@ -4158,7 +4158,8 @@ function renderAnalytics() {
   const calSeries  = [];
   const carbSeries = [];
   const weightSeries = {};
-  const calByDate = {};
+  const calByDate  = {};
+  const burnByDate = {};
 
   const proteinSeries = [];
   const fatSeries     = [];
@@ -4185,7 +4186,8 @@ function renderAnalytics() {
     }
     if (d.weight) { weightSeries[k] = d.weight; weightTrend.push({ date: k, val: d.weight }); }
     if (d.steps)  stepsTrend.push({ date: k, val: d.steps });
-    calByDate[k] = totCal;
+    calByDate[k]  = totCal;
+    burnByDate[k] = burn;
   });
 
   // stats
@@ -4858,9 +4860,15 @@ function renderAnalytics() {
   if (netCalWtChartInst) netCalWtChartInst.destroy();
   const netCalWtCanvas = document.getElementById('netCalWtChart');
   const netCalWtEmpty  = document.getElementById('netCalWtEmpty');
-  const ncwtKeys = weightKeys.filter((k, i) => i > 0 && calByDate[weightKeys[i-1]]);
+  // Build ncwt pairs: consecutive weight days where prior day has any cal
+  const ncwtPairs = [];
+  for (let i = 1; i < weightKeys.length; i++) {
+    const k     = weightKeys[i];
+    const kPrev = weightKeys[i-1];
+    if (calByDate[kPrev] > 0) ncwtPairs.push({ k, kPrev });
+  }
 
-  if (ncwtKeys.length < 3) {
+  if (ncwtPairs.length < 3) {
     netCalWtEmpty.style.display  = 'block';
     netCalWtCanvas.style.display = 'none';
   } else {
@@ -4869,18 +4877,15 @@ function renderAnalytics() {
 
     // For each day with a weight reading, pair with prior day net cal
     const ncwtLabels = [], ncwtNetCal = [], ncwtDeltaWt = [];
-    for (let i = 1; i < weightKeys.length; i++) {
-      const k     = weightKeys[i];
-      const kPrev = weightKeys[i-1];
-      if (!calByDate[kPrev]) continue;
-      const cal  = calByDate[kPrev] || 0;
+    ncwtPairs.forEach(({ k, kPrev }) => {
+      const cal  = calByDate[kPrev]  || 0;
       const burn = burnByDate[kPrev] || calcBurn(db[kPrev]?.steps, db[kPrev]?.weight, goals.units, db[kPrev]?.runKm, db[kPrev]?.runPace);
-      const net  = cal - burn;
+      const net  = Math.round(cal - burn);
       const dWt  = +(weightSeries[k] - weightSeries[kPrev]).toFixed(2);
-      ncwtLabels.push(k.slice(5));  // MM-DD
+      ncwtLabels.push(k.slice(5));
       ncwtNetCal.push(net);
       ncwtDeltaWt.push(dWt);
-    }
+    });
 
     // Colour bars: surplus = red-tinted, deficit = green-tinted
     const barColours = ncwtNetCal.map(v => v > 0 ? 'rgba(198,40,40,0.55)' : 'rgba(46,125,50,0.55)');

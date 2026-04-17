@@ -589,6 +589,8 @@ a { color: inherit; text-decoration: none; }
 .wmg-protein .wmg-val { color: var(--green); }
 .wmg-fat .wmg-val { color: var(--yellow); }
 .wmg-fibre .wmg-val { color: var(--teal); }
+.wmg-net   .wmg-val { color: var(--purple, #6A1B9A); }
+.wmg-net   { border-color: rgba(106,27,154,0.25); }
 .wmg-steps .wmg-val { color: var(--text-2); }
 .week-weight-row { display: flex; gap: 16px; font-size: 12.5px; color: var(--text-2); margin-top: 6px; flex-wrap: wrap; }
 .week-weight-row span { font-weight: 700; }
@@ -1492,6 +1494,8 @@ a { color: inherit; text-decoration: none; }
 
       <!-- Weekly Summaries -->
       <div class="sec-label" style="color:#fff;opacity:0;height:0;margin:0"></div>
+      <!-- Total to Date summary -->
+      <div id="totalToDate"></div>
       <div id="weeklySummaries"></div>
 
       <div class="chart-card">
@@ -4146,6 +4150,7 @@ function calNav(dir) {
 ════════════════════════════════════════ */
 function renderAnalytics() {
   renderBMI();
+  renderTotalToDate();
   renderWeeklySummaries();
   renderStreaks();
   renderRunTrend();
@@ -6515,6 +6520,94 @@ function renderBMI() {
 /* ════════════════════════════════════════
    WEEKLY SUMMARIES
 ════════════════════════════════════════ */
+function renderTotalToDate() {
+  const el = document.getElementById('totalToDate');
+  if (!el) return;
+
+  const allKeys = Object.keys(db).sort();
+  if (!allKeys.length) { el.innerHTML = ''; return; }
+
+  // Accumulate over every day that has at least calories or weight
+  let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0;
+  let totBurn=0, totSteps=0;
+  let foodDays=0, stepDays=0, burnDays=0;
+  let wFirst=null, wLast=null, wFirstDate=null, wLastDate=null;
+  let exDays=0, waterDays=0, medsDays=0;
+  let firstDate=null, lastDate=null;
+
+  allKeys.forEach(k => {
+    const d = db[k];
+    const dc = (d.items||[]).reduce((s,i)=>s+i.calories,0);
+    if (dc > 0) {
+      if (!firstDate) firstDate = k;
+      lastDate = k;
+      totCal     += dc;
+      totCarb    += (d.items||[]).reduce((s,i)=>s+i.carbs_g,0);
+      totProtein += (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
+      totFat     += (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
+      totFibre   += (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
+      const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+      totBurn    += burn;
+      burnDays++;
+      foodDays++;
+    }
+    if (d.steps > 0) { totSteps += d.steps; stepDays++; }
+    if (d.exercise === true) exDays++;
+    if (d.water    === true) waterDays++;
+    if (d.meds     === true) medsDays++;
+    if (d.weight) {
+      if (!wFirst) { wFirst = d.weight; wFirstDate = k; }
+      wLast = d.weight; wLastDate = k;
+    }
+  });
+
+  if (!foodDays && !stepDays) { el.innerHTML = ''; return; }
+
+  const avgCal    = foodDays ? Math.round(totCal/foodDays)     : 0;
+  const avgCarb   = foodDays ? Math.round(totCarb/foodDays)    : 0;
+  const avgProt   = foodDays ? Math.round(totProtein/foodDays) : 0;
+  const avgFat    = foodDays ? Math.round(totFat/foodDays)     : 0;
+  const avgFib    = foodDays ? (totFibre/foodDays).toFixed(1)  : 0;
+  const avgBurn   = burnDays ? Math.round(totBurn/burnDays)    : 0;
+  const avgNet    = avgCal && avgBurn ? avgCal - avgBurn : null;
+  const avgSteps  = stepDays ? Math.round(totSteps/stepDays)   : 0;
+  const wDelta    = (wFirst && wLast && wFirstDate !== wLastDate)
+                    ? ((wLast-wFirst)>0?'+':'')+(wLast-wFirst).toFixed(1)+' '+goals.units : null;
+
+  // Date range label
+  const startLabel = firstDate ? new Date(firstDate+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+  const endLabel   = lastDate  ? new Date(lastDate +'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+
+  const netColStyle = avgNet === null ? '' : avgNet > 300 ? 'color:#C62828' : avgNet < -100 ? 'color:#2E7D32' : '';
+
+  el.innerHTML = `
+    <div class="sec-label" style="margin-top:4px">Total to Date</div>
+    <div class="week-card" style="border-color:var(--blue-mid,#90CAF9);background:linear-gradient(135deg,var(--surface) 0%,var(--blue-lt,#E3F2FD) 100%)">
+      <div class="week-card-header">
+        <span class="week-card-title" style="color:var(--blue)">📊 All-Time Summary</span>
+        <span class="week-card-range">${startLabel} – ${endLabel}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text-3);margin-bottom:10px">
+        <span style="font-weight:700;color:var(--blue)">📅 ${foodDays} food day${foodDays!==1?'s':''} logged</span>
+        ${stepDays  ? `<span>👟 ${stepDays} step day${stepDays!==1?'s':''}</span>` : ''}
+        ${exDays    ? `<span>💪 ${exDays} exercise day${exDays!==1?'s':''}</span>` : ''}
+        ${waterDays ? `<span>💧 ${waterDays} hydrated</span>` : ''}
+        ${medsDays  ? `<span>💊 ${medsDays} medicated</span>` : ''}
+        ${wDelta    ? `<span>⚖️ Weight change: <strong style="color:${wDelta.startsWith('+') ? '#C62828':'#2E7D32'}">${wDelta}</strong> (${wFirst} → ${wLast} ${goals.units})</span>` : ''}
+      </div>
+      <div class="week-macro-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="wmg wmg-cal"><div class="wmg-val">${avgCal.toLocaleString()}</div><div class="wmg-lbl">Avg Cal/day</div></div>
+        <div class="wmg wmg-net"><div class="wmg-val" style="${netColStyle}">${avgNet !== null ? (avgNet>0?'+':'')+avgNet.toLocaleString() : '—'}</div><div class="wmg-lbl">Avg Net/day</div></div>
+        <div class="wmg wmg-carb"><div class="wmg-val">${avgCarb}g</div><div class="wmg-lbl">Avg Carbs/d</div></div>
+        <div class="wmg wmg-protein"><div class="wmg-val">${avgProt}g</div><div class="wmg-lbl">Avg Protein/d</div></div>
+        <div class="wmg wmg-fat"><div class="wmg-val">${avgFat}g</div><div class="wmg-lbl">Avg Fat/d</div></div>
+        <div class="wmg wmg-fibre"><div class="wmg-val">${avgFib}g</div><div class="wmg-lbl">Avg Fibre/d</div></div>
+        <div class="wmg" style="border-color:#E1BEE7"><div class="wmg-val" style="color:#6A1B9A">${avgBurn ? avgBurn.toLocaleString() : '—'}</div><div class="wmg-lbl">Avg Burn/d</div></div>
+        <div class="wmg wmg-steps"><div class="wmg-val">${avgSteps ? avgSteps.toLocaleString() : '—'}</div><div class="wmg-lbl">Avg Steps/d</div></div>
+      </div>
+    </div>`;
+}
+
 function renderWeeklySummaries() {
   const el = document.getElementById('weeklySummaries');
   if (!el) return;
@@ -6545,7 +6638,8 @@ function renderWeeklySummaries() {
     const sunDate  = new Date(monDate); sunDate.setDate(sunDate.getDate() + 6);
     const rangeStr = monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' – ' + sunDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
-    let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, exDays=0, waterDays=0, medsDays=0, daysLogged=0;
+    let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, totBurn=0, daysWithBurn=0;
+    let exDays=0, waterDays=0, medsDays=0, daysLogged=0;
     let wStart=null, wEnd=null;
     const sortedDays = days.slice().sort();
     sortedDays.forEach(k => {
@@ -6557,6 +6651,9 @@ function renderWeeklySummaries() {
         totProtein += (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
         totFat     += (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
         totFibre   += (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
+        const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+        totBurn    += burn;
+        daysWithBurn++;
         daysLogged++;
       }
       if (d.steps) totSteps += d.steps;
@@ -6567,7 +6664,10 @@ function renderWeeklySummaries() {
     });
     if (!daysLogged && !totSteps) return;
     const avgCal  = daysLogged ? Math.round(totCal/daysLogged) : 0;
+    const avgBurn = daysWithBurn ? Math.round(totBurn/daysWithBurn) : 0;
+    const avgNet  = avgCal && avgBurn ? avgCal - avgBurn : null;
     const wDelta  = (wStart && wEnd && wStart !== wEnd) ? ((wEnd-wStart)>0?'+':'')+(wEnd-wStart).toFixed(1)+' '+goals.units : null;
+    const netColStyle = avgNet === null ? '' : avgNet > 300 ? 'color:#C62828' : avgNet < -100 ? 'color:#2E7D32' : '';
 
     html += `
       <div class="week-card">
@@ -6575,20 +6675,21 @@ function renderWeeklySummaries() {
           <span class="week-card-title">Week of ${monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
           <span class="week-card-range">${rangeStr}</span>
         </div>
-        <div class="week-macro-grid">
-          <div class="wmg wmg-cal"><div class="wmg-val">${Math.round(totCal).toLocaleString()}</div><div class="wmg-lbl">Total Cal</div></div>
-          <div class="wmg wmg-cal" style="border-color:#FFCDD2"><div class="wmg-val" style="color:var(--text-2)">${avgCal}</div><div class="wmg-lbl">Avg Cal/day</div></div>
-          <div class="wmg wmg-carb"><div class="wmg-val">${Math.round(totCarb)}g</div><div class="wmg-lbl">Carbs</div></div>
-          <div class="wmg wmg-protein"><div class="wmg-val">${Math.round(totProtein)}g</div><div class="wmg-lbl">Protein</div></div>
-          <div class="wmg wmg-fat"><div class="wmg-val">${Math.round(totFat)}g</div><div class="wmg-lbl">Fat</div></div>
-          <div class="wmg wmg-fibre"><div class="wmg-val">${Math.round(totFibre)}g</div><div class="wmg-lbl">Fibre</div></div>
+        <div class="week-macro-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="wmg wmg-cal"><div class="wmg-val">${avgCal.toLocaleString()}</div><div class="wmg-lbl">Avg Cal/day</div></div>
+          <div class="wmg wmg-net"><div class="wmg-val" style="${netColStyle}">${avgNet !== null ? (avgNet > 0 ? '+' : '') + avgNet.toLocaleString() : '—'}</div><div class="wmg-lbl">Avg Net/day</div></div>
+          <div class="wmg wmg-carb"><div class="wmg-val">${Math.round(totCarb/Math.max(1,daysLogged))}g</div><div class="wmg-lbl">Avg Carbs/d</div></div>
+          <div class="wmg wmg-protein"><div class="wmg-val">${Math.round(totProtein/Math.max(1,daysLogged))}g</div><div class="wmg-lbl">Avg Protein/d</div></div>
+          <div class="wmg wmg-fat"><div class="wmg-val">${Math.round(totFat/Math.max(1,daysLogged))}g</div><div class="wmg-lbl">Avg Fat/d</div></div>
+          <div class="wmg wmg-fibre"><div class="wmg-val">${Math.round(totFibre/Math.max(1,daysLogged))}g</div><div class="wmg-lbl">Avg Fibre/d</div></div>
+          <div class="wmg" style="border-color:#E1BEE7"><div class="wmg-val" style="color:#6A1B9A">${avgBurn ? avgBurn.toLocaleString() : '—'}</div><div class="wmg-lbl">Avg Burn/d</div></div>
+          <div class="wmg wmg-steps"><div class="wmg-val">${daysLogged ? Math.round(totSteps/daysLogged).toLocaleString() : '—'}</div><div class="wmg-lbl">Avg Steps/d</div></div>
         </div>
         <div class="week-weight-row">
           <span>📅 ${daysLogged} day${daysLogged!==1?'s':''} logged</span>
-          ${totSteps ? `<span>👟 ${totSteps.toLocaleString()} steps</span>` : ''}
-          ${exDays    ? `<span>💪 ${exDays} exercise day${exDays!==1?'s':''}</span>` : ''}
-          ${waterDays ? `<span>💧 ${waterDays} hydrated day${waterDays!==1?'s':''}</span>` : ''}
-          ${medsDays  ? `<span>💊 ${medsDays} medicated day${medsDays!==1?'s':''}</span>` : ''}
+          ${exDays    ? `<span>💪 ${exDays} ex</span>` : ''}
+          ${waterDays ? `<span>💧 ${waterDays} hydrated</span>` : ''}
+          ${medsDays  ? `<span>💊 ${medsDays} medicated</span>` : ''}
           ${wDelta   ? `<span>⚖️ ${wDelta}</span>` : ''}
         </div>
       </div>`;

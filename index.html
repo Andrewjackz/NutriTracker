@@ -7487,9 +7487,12 @@ async function checkSunscreen() {
   const min  = now.getMinutes();
   if (hour < 6 || (hour === 6 && min < 0)) return;
 
-  // Show banner every open during daylight hours
+  // Show banner every open during daylight hours, auto-dismiss after 15 seconds
   const banner = document.getElementById('sunscreenBanner');
-  if (banner) banner.style.display = 'flex';
+  if (banner) {
+    banner.style.display = 'flex';
+    setTimeout(() => dismissSunscreen(), 15000);
+  }
 
   // Try to get weather using stored or fresh coordinates
   try {

@@ -4216,8 +4216,6 @@ function renderAnalytics() {
   renderBMI();
   renderTotalToDate();
   renderWeeklySummaries();
-  renderWeightModel();
-  renderWeeklyWeightModel();
   renderStreaks();
   renderRunTrend();
   renderBurnSplit();
@@ -4279,6 +4277,10 @@ function renderAnalytics() {
 
   // ── Weekly scatter charts ──
   if (regressionMode === 'weekly') renderWeeklyScatter();
+
+  // ── Weight models — must run AFTER all charts (isolate any errors) ──
+  try { renderWeightModel(); }        catch(e) { console.warn('Daily weight model error:', e); }
+  try { renderWeeklyWeightModel(); }  catch(e) { console.warn('Weekly weight model error:', e); }
 
   // scatter: pair PREVIOUS day's calories with TODAY's weight change
   // Logic: you weigh yourself in the morning, so yesterday's food intake
@@ -5720,12 +5722,9 @@ function renderWeeklyScatter() {
    PERSONAL WEIGHT MODEL
 ════════════════════════════════════════ */
 function toggleWeightModel() {
-  const btn = document.getElementById('modelToggleBtn');
-  const sec = document.getElementById('modelSection');
-  const isOpen = sec.classList.contains('open');
-  btn.classList.toggle('open', !isOpen);
-  sec.classList.toggle('open', !isOpen);
-  if (!isOpen) renderWeightModel();
+  // modelToggleBtn replaced by tab toggle — just ensure both models render
+  try { renderWeightModel(); }       catch(e) { console.warn('Weight model:', e); }
+  try { renderWeeklyWeightModel(); } catch(e) { console.warn('Weekly model:', e); }
 }
 
 
@@ -5743,11 +5742,11 @@ function switchModelTab(tab) {
 }
 
 function renderWeightModel() {
+  const modelEmpty  = document.getElementById('modelEmpty');
+  const summaryCard = document.getElementById('modelSummaryCard');
+  if (!modelEmpty || !summaryCard) return; // panel not in DOM yet
   const allKeys = Object.keys(db).sort();
   const wKeys   = allKeys.filter(k => db[k]?.weight).sort();
-
-  const modelEmpty   = document.getElementById('modelEmpty');
-  const summaryCard  = document.getElementById('modelSummaryCard');
 
   if (wKeys.length < 20) {
     modelEmpty.style.display  = 'block';
@@ -6093,7 +6092,7 @@ function renderWeeklyWeightModel() {
   const emptyEl   = document.getElementById('wkModelEmpty');
   const summaryEl = document.getElementById('wkModelSummaryCard');
   const stableEl  = document.getElementById('wkStableWrap');
-  if (!emptyEl) return;
+  if (!emptyEl || !summaryEl) return; // panel not in DOM / not visible yet
 
   function show(empty) {
     emptyEl.style.display   = empty ? 'block' : 'none';

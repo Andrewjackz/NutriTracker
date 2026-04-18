@@ -2216,6 +2216,13 @@ function saveGoals() {
 }
 
 function todayKey() { return isoDate(new Date()); }
+function getMonday(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  return d.toISOString().slice(0, 10);
+}
+
 function isoDate(d) {
   return d.getFullYear() + '-' +
     String(d.getMonth()+1).padStart(2,'0') + '-' +
@@ -6104,17 +6111,10 @@ function renderWeeklyWeightModel() {
   // One row per week: avg-daily cal, avg-daily burn, avg-daily net,
   // avg-daily steps, avg-daily protein, avg-daily fibre
   // Outcome y = weekly Δweight / days_with_food  (avg daily Δwt)
-  function getMonday2(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
-    const day = d.getDay();
-    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-    return d.toISOString().slice(0,10);
-  }
-
   const allKeys = Object.keys(db).sort();
   const weekMap = {};
   allKeys.forEach(k => {
-    const mon = getMonday2(k);
+    const mon = getMonday(k);
     if (!weekMap[mon]) weekMap[mon] = [];
     weekMap[mon].push(k);
   });
@@ -7122,7 +7122,6 @@ function renderWeeklySummaries() {
   if (!allKeys.length) { el.innerHTML = ''; return; }
 
   // group into ISO weeks (Mon–Sun)
-  const getMonday2 = (dateStr) => { const d=new Date(dateStr+'T00:00:00'),day=d.getDay(); d.setDate(d.getDate()-(day===0?6:day-1)); return d.toISOString().slice(0,10); }
   const weeks = {};
   allKeys.forEach(k => {
     const mon = getMonday(k);

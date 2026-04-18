@@ -829,6 +829,20 @@ a { color: inherit; text-decoration: none; }
 .sw-gain-3  { background: #B71C1C; color: #fff; }
 .sw-na      { background: var(--surface2); color: var(--text-3); }
 
+/* ── weekly weight model ── */
+.wm-toggle-wrap { display:flex; gap:0; border-radius:var(--r-sm); overflow:hidden; border:1.5px solid var(--border); margin-bottom:14px; }
+.wm-toggle-btn  { flex:1; padding:8px 6px; border:none; background:var(--surface2); color:var(--text-2); font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; }
+.wm-toggle-btn.active { background:var(--blue); color:#fff; }
+.wm-toggle-btn:first-child { border-right:1px solid var(--border); }
+.wk-pred-card { background:var(--surface2); border:1.5px solid var(--border); border-radius:var(--r-sm); padding:10px 12px; margin-bottom:8px; }
+.wk-pred-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.wk-pred-week  { font-size:12.5px; font-weight:800; color:var(--text); }
+.wk-pred-range { font-size:10px; color:var(--text-3); }
+.wk-pred-grid  { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+.wk-pred-cell  { text-align:center; padding:6px 4px; border-radius:var(--r-sm); background:var(--surface); border:1px solid var(--border); }
+.wk-pred-val   { font-size:15px; font-weight:800; line-height:1; }
+.wk-pred-lbl   { font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-3); margin-top:3px; }
+
 /* ── regression mode toggle ── */
 .reg-toggle-wrap { display:flex; gap:0; border-radius:var(--r-sm); overflow:hidden; border:1.5px solid var(--border); margin-bottom:16px; }
 .reg-toggle-btn  { flex:1; padding:9px 6px; border:none; background:var(--surface2); color:var(--text-2); font-size:12.5px; font-weight:700; cursor:pointer; transition:all .15s; }
@@ -1750,7 +1764,8 @@ a { color: inherit; text-decoration: none; }
           <!-- Model summary card -->
           <div id="modelSummaryCard" style="display:none">
             <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Model Summary</div>
-            <div id="modelSummaryStats" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
+            <div id="modelSummaryStats" style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap"></div>
+            <div id="modelQualityNote" style="font-size:11px;color:var(--text-3);line-height:1.6;margin-bottom:10px;padding:6px 10px;background:var(--surface2);border-radius:var(--r-sm)"></div>
             <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Variable Coefficients <span style="font-weight:400;text-transform:none;letter-spacing:0">(effect on next-day Δ weight)</span></div>
             <div id="modelCoeffWrap"></div>
             <div style="font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.6">
@@ -1768,6 +1783,19 @@ a { color: inherit; text-decoration: none; }
             <div id="stableMatrixEmpty" style="display:none;font-size:13px;color:var(--text-3);padding:12px 0">Requires 20+ days of weight + food logging to generate a reliable matrix.</div>
             <div class="sw-matrix-wrap" id="stableMatrixWrap" style="display:none"></div>
             <div id="stableMatrixNote" style="display:none;font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.6"></div>
+            <!-- Weekly model tab -->
+            <div id="weeklyModelWrap" style="display:none;margin-top:14px;border-top:1.5px solid var(--border);padding-top:12px">
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">📆 Weekly Predictions</div>
+              <div style="font-size:11.5px;color:var(--text-3);line-height:1.6;margin-bottom:12px">Each week's actual average daily inputs fed through your personal OLS model to predict average daily weight change. Actual = real weight change that week.</div>
+              <div id="weeklyModelCards"></div>
+            </div>
+          </div>
+          <!-- Model view toggle -->
+          <div id="modelViewToggleWrap" style="display:none;margin-top:12px">
+            <div class="wm-toggle-wrap">
+              <button class="wm-toggle-btn active" id="wmToggleMatrix" onclick="setModelView('matrix')">⚖️ Stable Weight Matrix</button>
+              <button class="wm-toggle-btn"        id="wmToggleWeekly" onclick="setModelView('weekly')">📆 Weekly Predictions</button>
+            </div>
           </div>
         </div>
       </div>
@@ -5662,6 +5690,24 @@ function toggleWeightModel() {
   if (!isOpen) renderWeightModel();
 }
 
+function setModelView(view) {
+  document.getElementById('wmToggleMatrix').classList.toggle('active', view === 'matrix');
+  document.getElementById('wmToggleWeekly').classList.toggle('active', view === 'weekly');
+  const matrixSection = document.querySelector('.sw-matrix-wrap')?.closest('div[style*="border-top"]');
+  const weeklyWrap = document.getElementById('weeklyModelWrap');
+  const stableEl   = document.getElementById('stableMatrixWrap');
+  const stableNote = document.getElementById('stableMatrixNote');
+  if (view === 'matrix') {
+    if (stableEl)   stableEl.style.display  = 'block';
+    if (stableNote) stableNote.style.display = 'block';
+    if (weeklyWrap) weeklyWrap.style.display = 'none';
+  } else {
+    if (stableEl)   stableEl.style.display  = 'none';
+    if (stableNote) stableNote.style.display = 'none';
+    if (weeklyWrap) weeklyWrap.style.display = 'block';
+  }
+}
+
 function renderWeightModel() {
   const allKeys = Object.keys(db).sort();
   const wKeys   = allKeys.filter(k => db[k]?.weight).sort();
@@ -5865,12 +5911,13 @@ function renderWeightModel() {
     <div style="font-size:17px;font-weight:800;color:${s.col}">${s.val}</div>
     <div style="font-size:9.5px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px">${s.lbl}</div>
   </div>`).join('');
-  // Add data quality note
-  const qualityNote = r2 < 0.15 ? '⚠️ Low R² — model signal is weak with current data. More days = better fit.' :
+  // Quality note goes in its own block element (not inside the flex row)
+  const qualityNote = r2 < 0.15 ? '⚠️ Low R² — model signal is weak. More days = better fit.' :
                       r2 < 0.35 ? '📈 Moderate fit — growing dataset will strengthen this.' :
                       '✅ Reasonable fit for a biological system.';
-  statsEl.innerHTML += '<div style="width:100%;margin-top:8px;font-size:11.5px;color:var(--text-3);line-height:1.5">' + qualityNote +
-    ' Using ' + p + ' predictor' + (p!==1?'s':'') + ' (from ' + candidateDefs.length + ' candidates) to avoid overfitting ' + n + ' observations.</div>';
+  const noteEl = document.getElementById('modelQualityNote');
+  if (noteEl) noteEl.textContent = qualityNote + ' Using ' + p + ' predictor' +
+    (p!==1?'s':'') + ' from ' + candidateDefs.length + ' candidates · ' + n + ' observations.';
 
   // Show coefficients (skip intercept index 0, show only |t|>1)
   const coeffRows = activePreds.map((pd,i)=>({
@@ -5996,6 +6043,164 @@ function renderWeightModel() {
     Based on your personal OLS regression model (${n} observations, R²=${r2.toFixed(3)}). 
     Macro ratios scaled proportionally with calorie intake. 
     Model improves as data set grows. Treat as directional — not a precise prescription.`;
+
+  // Show the view toggle and render weekly predictions
+  const toggleWrap = document.getElementById('modelViewToggleWrap');
+  if (toggleWrap) toggleWrap.style.display = 'block';
+  renderWeeklyModelPredictions(activePreds, beta);
+}
+
+/* ════════════════════════════════════════
+   WEEKLY PERSONAL WEIGHT MODEL PREDICTIONS
+════════════════════════════════════════ */
+function setModelView(view) {
+  document.getElementById('wmToggleMatrix').classList.toggle('active', view === 'matrix');
+  document.getElementById('wmToggleWeekly').classList.toggle('active', view === 'weekly');
+  const stableEl   = document.getElementById('stableMatrixWrap');
+  const stableNote = document.getElementById('stableMatrixNote');
+  const weeklyWrap = document.getElementById('weeklyModelWrap');
+  if (view === 'matrix') {
+    if (stableEl)   stableEl.style.display   = 'block';
+    if (stableNote) stableNote.style.display  = 'block';
+    if (weeklyWrap) weeklyWrap.style.display  = 'none';
+  } else {
+    if (stableEl)   stableEl.style.display   = 'none';
+    if (stableNote) stableNote.style.display  = 'none';
+    if (weeklyWrap) weeklyWrap.style.display  = 'block';
+  }
+}
+
+function renderWeeklyModelPredictions(activePreds, beta) {
+  const el = document.getElementById('weeklyModelCards');
+  if (!el) return;
+
+  function getMonday(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const day = d.getDay();
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    return d.toISOString().slice(0, 10);
+  }
+
+  const allKeys = Object.keys(db).sort();
+  const weeks = {};
+  allKeys.forEach(k => {
+    const mon = getMonday(k);
+    if (!weeks[mon]) weeks[mon] = [];
+    weeks[mon].push(k);
+  });
+
+  const weekKeys = Object.keys(weeks).sort().reverse().slice(0, 10);
+  if (!weekKeys.length) { el.innerHTML = '<div style="font-size:13px;color:var(--text-3)">No weekly data available.</div>'; return; }
+
+  let html = '';
+
+  weekKeys.forEach(mon => {
+    const days = weeks[mon].slice().sort();
+    const monDate = new Date(mon + 'T00:00:00');
+    const sunDate = new Date(monDate); sunDate.setDate(sunDate.getDate() + 6);
+    const rangeStr = monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}) +
+                     ' – ' + sunDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+    let totCal=0, totCarb=0, totProt=0, totFat=0, totFib=0, totSteps=0, totBurn=0, totNet=0, totRunKm=0;
+    let foodDays=0; let wVals=[];
+
+    days.forEach(k => {
+      const d = db[k];
+      const cal = (d.items||[]).reduce((s,i)=>s+i.calories,0);
+      if (cal > 0) {
+        const carb  = (d.items||[]).reduce((s,i)=>s+i.carbs_g,0);
+        const prot  = (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
+        const fat   = (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
+        const fib   = (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
+        const burn  = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+        totCal   += cal; totCarb += carb; totProt += prot;
+        totFat   += fat; totFib  += fib;
+        totSteps += (d.steps||0); totBurn += burn;
+        totNet   += (cal - burn);
+        totRunKm += (d.runKm||0);
+        foodDays++;
+      }
+      if (d.weight) wVals.push(d.weight);
+    });
+
+    if (foodDays < 3) return; // need at least 3 food days for a meaningful average
+
+    const fd = foodDays;
+    const avgWt = wVals.length ? wVals.reduce((s,v)=>s+v,0)/wVals.length : 75;
+
+    // Build average daily input vector matching activePreds keys
+    const avgInputs = {
+      cal:     totCal/fd,
+      carbs:   totCarb/fd,
+      protein: totProt/fd,
+      fat:     totFat/fd,
+      fibre:   totFib/fd,
+      steps:   totSteps/fd,
+      burn:    totBurn/fd,
+      netCal:  totNet/fd,
+      runKm:   totRunKm/fd,
+      weight:  avgWt,
+    };
+
+    // Apply OLS model: predicted avg daily Δweight
+    let predicted = beta[0];
+    activePreds.forEach((pd, i) => {
+      predicted += beta[i+1] * (avgInputs[pd.key] || 0);
+    });
+    predicted = +predicted.toFixed(3);
+
+    // Actual weekly weight change (start of week → end of week)
+    const actualDelta = wVals.length >= 2
+      ? +(wVals[wVals.length-1] - wVals[0]).toFixed(2) : null;
+
+    // Colour helpers
+    const predCol = predicted > 0.05 ? '#C62828' : predicted < -0.05 ? '#2E7D32' : '#1565C0';
+    const actCol  = actualDelta === null ? 'var(--text-3)' :
+                    actualDelta > 0.05  ? '#C62828' :
+                    actualDelta < -0.05 ? '#2E7D32' : '#1565C0';
+    const ps = v => (v >= 0 ? '+' : '') + v;
+    const netAvg = Math.round(totNet/fd);
+
+    html += `
+      <div class="wk-pred-card">
+        <div class="wk-pred-card-header">
+          <span class="wk-pred-week">Week of ${monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+          <span class="wk-pred-range">${rangeStr} · ${fd} day${fd!==1?'s':''} logged</span>
+        </div>
+        <div class="wk-pred-grid">
+          <div class="wk-pred-cell">
+            <div class="wk-pred-val" style="color:var(--red)">${Math.round(totCal/fd).toLocaleString()}</div>
+            <div class="wk-pred-lbl">Avg Cal/day</div>
+          </div>
+          <div class="wk-pred-cell">
+            <div class="wk-pred-val" style="color:${netAvg > 300 ? '#C62828' : netAvg < -100 ? '#2E7D32' : 'var(--text-2)'}">
+              ${ps(netAvg)}
+            </div>
+            <div class="wk-pred-lbl">Avg Net/day</div>
+          </div>
+          <div class="wk-pred-cell">
+            <div class="wk-pred-val" style="color:#6A1B9A">${Math.round(totBurn/fd).toLocaleString()}</div>
+            <div class="wk-pred-lbl">Avg Burn/day</div>
+          </div>
+          <div class="wk-pred-cell" style="border-color:${predCol};background:${predicted>0.05?'#FFEBEE':predicted<-0.05?'#E8F5E9':'#E3F2FD'}">
+            <div class="wk-pred-val" style="color:${predCol}">${ps(predicted)} ${goals.units}</div>
+            <div class="wk-pred-lbl">Model Δwt/day</div>
+          </div>
+          <div class="wk-pred-cell" style="${actualDelta!==null?'border-color:'+actCol:''}">
+            <div class="wk-pred-val" style="color:${actCol}">
+              ${actualDelta !== null ? ps(actualDelta) + ' ' + goals.units : '—'}
+            </div>
+            <div class="wk-pred-lbl">Actual Δwt (week)</div>
+          </div>
+          <div class="wk-pred-cell">
+            <div class="wk-pred-val" style="color:var(--text-2)">${Math.round(totSteps/fd).toLocaleString()}</div>
+            <div class="wk-pred-lbl">Avg Steps/day</div>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  el.innerHTML = html || '<div style="font-size:13px;color:var(--text-3)">Need at least 3 food days per week to show predictions.</div>';
 }
 
 /* ════════════════════════════════════════

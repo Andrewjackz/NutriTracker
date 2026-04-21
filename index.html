@@ -5898,15 +5898,16 @@ function renderWeightModel() {
   const n = obs.length;
   const maxPreds = Math.max(2, Math.floor(n / 8));
 
+  // cal excluded — netCal=cal-burn already encodes intake; including both causes multicollinearity
   const candidateDefs = [
-    { key: 'netCal',  label: '⚡ Net Calories',  unit: 'kcal',  priority: 1 },
-    { key: 'cal',     label: '🔥 Calories',       unit: 'kcal',  priority: 2 },
-    { key: 'burn',    label: '🔥 Total Burn',     unit: 'kcal',  priority: 3 },
-    { key: 'steps',   label: '👟 Steps',          unit: 'steps', priority: 4 },
-    { key: 'runKm',   label: '🏃 Run km',         unit: 'km',    priority: 5 },
-    { key: 'weight',  label: '⚖️ Weight',          unit: goals.units, priority: 6 },
-    { key: 'protein', label: '💪 Protein',        unit: 'g',     priority: 7 },
-    { key: 'fibre',   label: '🥦 Fibre',          unit: 'g',     priority: 8 },
+    { key: 'netCal',  label: '⚡ Net Calories',  unit: 'kcal',  priority:1 },
+  // 'cal' removed — netCal already encodes calories; multicollinearity fix
+    { key: 'burn',    label: '🔥 Total Burn',     unit: 'kcal',  priority:2 },
+    { key: 'steps',   label: '👟 Steps',          unit: 'steps', priority:3 },
+    { key: 'runKm',   label: '🏃 Run km',         unit: 'km',    priority:4 },
+    { key: 'weight',  label: '⚖️ Weight',          unit: goals.units, priority:5 },
+    { key: 'protein', label: '💪 Protein',        unit: 'g',     priority:6 },
+    { key: 'fibre',   label: '🥦 Fibre',          unit: 'g',     priority:7 },
   ];
 
   // Filter: must have sufficient variance (coefficient of variation > 2%)
@@ -6035,8 +6036,10 @@ function renderWeightModel() {
                       r2 < 0.35 ? '📈 Moderate fit — growing dataset will strengthen this.' :
                       '✅ Reasonable fit for a biological system.';
   const noteEl = document.getElementById('modelQualityNote');
-  if (noteEl) noteEl.textContent = qualityNote + ' Using ' + p + ' predictor' +
-    (p!==1?'s':'') + ' from ' + candidateDefs.length + ' candidates · ' + n + ' observations.';
+  const predNames = activePreds.map(pd => pd.label.replace(/^[^\s]+ /,'')).join(', ');
+  if (noteEl) noteEl.textContent = qualityNote + ' Selected ' + p + ' predictor' +
+    (p!==1?'s':'') + ' by predictive strength from ' + candidateDefs.length +
+    ' candidates: ' + predNames + ' · ' + n + ' obs.';
 
   // Show coefficients (skip intercept index 0, show only |t|>1)
   const coeffRows = activePreds.map((pd,i)=>({
@@ -6243,25 +6246,37 @@ function renderWeeklyWeightModel() {
   }
 
   // ── Candidate predictors (same philosophy as daily model) ──────
+  // 'cal' excluded — netCal already encodes calories; including both causes
+  // multicollinearity making the calorie column in the matrix appear irrelevant.
   const wkCandidates = [
     { key:'netCal',  label:'⚡ Avg Net Cal/day',  unit:'kcal', priority:1 },
-    { key:'cal',     label:'🔥 Avg Cal/day',       unit:'kcal', priority:2 },
-    { key:'burn',    label:'🔥 Avg Burn/day',       unit:'kcal', priority:3 },
-    { key:'steps',   label:'👟 Avg Steps/day',      unit:'steps',priority:4 },
-    { key:'protein', label:'💪 Avg Protein/day',    unit:'g',    priority:5 },
-    { key:'fibre',   label:'🥦 Avg Fibre/day',      unit:'g',    priority:6 },
+    { key:'burn',    label:'🔥 Avg Burn/day',       unit:'kcal', priority:2 },
+    { key:'steps',   label:'👟 Avg Steps/day',      unit:'steps',priority:3 },
+    { key:'protein', label:'💪 Avg Protein/day',    unit:'g',    priority:4 },
+    { key:'fibre',   label:'🥦 Avg Fibre/day',      unit:'g',    priority:5 },
   ];
 
   const nWk = wkObs.length;
   const maxPreds = Math.max(2, Math.floor(nWk / 4)); // weekly: stricter ratio
 
+  const YwkDelta = wkObs.map(o => o.yAvgDaily);
+  const YwkMean  = YwkDelta.reduce((s,v)=>s+v,0) / YwkDelta.length;
+  function pearsonRwk(key) {
+    const xv = wkObs.map(o => o[key]);
+    const xm = xv.reduce((s,v)=>s+v,0) / xv.length;
+    const num = xv.reduce((s,v,i)=>s+(v-xm)*(YwkDelta[i]-YwkMean),0);
+    const den = Math.sqrt(xv.reduce((s,v)=>s+(v-xm)**2,0)*YwkDelta.reduce((s,v)=>s+(v-YwkMean)**2,0));
+    return den > 0.001 ? num/den : 0;
+  }
   const wkActive = wkCandidates.filter(pd => {
     const vals = wkObs.map(o => o[pd.key]);
     const mean = vals.reduce((s,v)=>s+v,0)/vals.length;
     if (Math.abs(mean) < 1e-9) return false;
     const std = Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/vals.length);
     return (std / Math.abs(mean)) > 0.02;
-  }).sort((a,b)=>a.priority-b.priority).slice(0, maxPreds);
+  }).map(pd => ({ ...pd, absR: Math.abs(pearsonRwk(pd.key)) }))
+    .sort((a,b) => b.absR - a.absR)   // highest |r| first
+    .slice(0, maxPreds);
 
   if (wkActive.length < 1) { show(true); return; }
   const pWk = wkActive.length;

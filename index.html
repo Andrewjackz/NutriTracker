@@ -2258,6 +2258,28 @@ function isoDate(d) {
 function getDay(key) { return db[key] || { items: [], weight: null }; }
 function setDay(key, val) { db[key] = val; saveDB(); }
 
+// effectiveDay: returns day with excluded fields masked to null/[]
+// Used by all analytics, regression and model code.
+// Raw db[key] is preserved for display, export and editing.
+function effectiveDay(key) {
+  const d = db[key];
+  if (!d) return { items: [], weight: null, steps: null, runKm: null, runPace: null };
+  return {
+    ...d,
+    weight: d.exclude_weight   ? null  : d.weight,
+    items:  d.exclude_cal      ? []    : (d.items || []),
+    steps:  d.exclude_exercise ? null  : d.steps,
+    runKm:  d.exclude_exercise ? null  : d.runKm,
+    runPace:d.exclude_exercise ? null  : d.runPace,
+  };
+}
+
+// Helper: is any exclusion active on this day?
+function hasExclusion(key) {
+  const d = db[key];
+  return d && (d.exclude_weight || d.exclude_cal || d.exclude_exercise);
+}
+
 /* ════════════════════════════════════════
    INIT
 ════════════════════════════════════════ */
@@ -4272,7 +4294,7 @@ function renderAnalytics() {
   const netCalSeries  = [];
 
   keys.forEach(k => {
-    const d = db[k];
+    const d = effectiveDay(k);   // respects exclusion flags
     const totCal     = d.items?.reduce((s,i)=>s+i.calories,0)||0;
     const totCarb    = d.items?.reduce((s,i)=>s+i.carbs_g,0)||0;
     const totProtein = d.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0;
@@ -5780,7 +5802,7 @@ function renderWeightModel() {
   const summaryCard = document.getElementById('modelSummaryCard');
   if (!modelEmpty || !summaryCard) return; // panel not in DOM yet
   const allKeys = Object.keys(db).sort();
-  const wKeys   = allKeys.filter(k => db[k]?.weight).sort();
+  const wKeys   = allKeys.filter(k => db[k]?.weight && !db[k]?.exclude_weight).sort();
 
   if (wKeys.length < 20) {
     modelEmpty.style.display  = 'block';
@@ -5802,8 +5824,8 @@ function renderWeightModel() {
   for (let i = 1; i < wKeys.length; i++) {
     const k    = wKeys[i];
     const kPrev = wKeys[i-1];
-    const d    = db[kPrev]; // prior day predictors
-    const dY   = db[k];    // outcome day
+    const d    = effectiveDay(kPrev); // prior day predictors — respects exclusion flags
+    const dY   = effectiveDay(k);    // outcome day
 
     const cal     = d.items?.reduce((s,it)=>s+it.calories,0)||0;
     if (cal === 0) continue; // skip days with no food logged
@@ -6864,7 +6886,13 @@ function renderDayView(key) {
       ${day.water===true?'<span style="background:var(--blue-lt);color:var(--blue);padding:3px 8px;border-radius:20px;font-weight:700">💧 Hydrated</span>':''}
       ${day.meds===true?'<span style="background:var(--purple-lt,#F3E5F5);color:var(--purple,#6A1B9A);padding:3px 8px;border-radius:20px;font-weight:700">💊 Medicated</span>':''}
       ${day.notes?`<span style="color:var(--text-3);font-size:11.5px;width:100%">📝 ${day.notes}</span>`:''}
-    </div>`;
+    </div>
+    ${(day.exclude_weight||day.exclude_cal||day.exclude_exercise)?`
+    <div style="background:var(--amber-lt,#FFF8E1);border:1.5px solid var(--amber,#F9A825);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:10px;font-size:11.5px;color:#7B5200;line-height:1.6">
+      ⚠️ <strong>Partially excluded from statistics:</strong>
+      ${day.exclude_weight?'⚖️ weight ':''}${day.exclude_cal?'🔥 calories ':''}${day.exclude_exercise?'👟 activity':''}
+      <span style="opacity:.7;display:block;font-size:10.5px;margin-top:2px">Raw data preserved — tap ✏️ Edit to change exclusion settings</span>
+    </div>`:''}`;
 
   if (!day.items.length) {
     html += `<div class="empty-state"><div class="es-icon">🍽️</div>Nothing logged this day.</div>`;
@@ -6987,6 +7015,38 @@ function renderDayEdit(key) {
       </div>
     </div>
 
+    <!-- Exclusion flags -->
+    <div class="day-edit-section">
+      <div class="day-edit-label" style="color:var(--amber,#F9A825)">⚠️ Exclude from Statistics &amp; Modelling</div>
+      <div style="font-size:11.5px;color:var(--text-3);line-height:1.5;margin-bottom:10px">
+        Tick to exclude this day's data from charts, regression and weight modelling. The raw data is preserved in full for your records — only the statistical analysis ignores it.
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:7px;cursor:pointer">
+        <input type="checkbox" id="deExclWeight" style="width:18px;height:18px;accent-color:var(--amber,#F9A825);cursor:pointer"
+               ${day.exclude_weight ? 'checked' : ''}>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text)">⚖️ Exclude weight reading</div>
+          <div style="font-size:11px;color:var(--text-3)">e.g. evening weigh-in, post-meal, wearing clothes</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:7px;cursor:pointer">
+        <input type="checkbox" id="deExclCal" style="width:18px;height:18px;accent-color:var(--amber,#F9A825);cursor:pointer"
+               ${day.exclude_cal ? 'checked' : ''}>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text)">🔥 Exclude calorie / food data</div>
+          <div style="font-size:11px;color:var(--text-3)">e.g. unusual day, travel, incomplete logging</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:7px;cursor:pointer">
+        <input type="checkbox" id="deExclEx" style="width:18px;height:18px;accent-color:var(--amber,#F9A825);cursor:pointer"
+               ${day.exclude_exercise ? 'checked' : ''}>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text)">👟 Exclude activity / burn data</div>
+          <div style="font-size:11px;color:var(--text-3)">e.g. step counter error, unusual exertion</div>
+        </div>
+      </label>
+    </div>
+
     <!-- Save -->
     <button class="day-edit-save-btn" onclick="saveDayEdit('${key}')">💾 Save Changes</button>
   `;
@@ -7054,6 +7114,11 @@ function saveDayEdit(key) {
 
   // Notes
   day.notes = document.getElementById('deNotes').value.trim() || '';
+
+  // Exclusion flags
+  day.exclude_weight   = document.getElementById('deExclWeight')?.checked || false;
+  day.exclude_cal      = document.getElementById('deExclCal')?.checked    || false;
+  day.exclude_exercise = document.getElementById('deExclEx')?.checked     || false;
 
   db[key] = day;
   saveDB();
@@ -7282,7 +7347,7 @@ function renderTotalToDate() {
   let firstDate=null, lastDate=null;
 
   allKeys.forEach(k => {
-    const d = db[k];
+    const d = effectiveDay(k);   // respects exclusion flags
     const dc = (d.items||[]).reduce((s,i)=>s+i.calories,0);
     if (dc > 0) {
       if (!firstDate) firstDate = k;
@@ -7382,7 +7447,7 @@ function renderWeeklySummaries() {
     let wStart=null, wEnd=null;
     const sortedDays = days.slice().sort();
     sortedDays.forEach(k => {
-      const d = db[k];
+      const d = effectiveDay(k);   // respects exclusion flags
       const dc = (d.items||[]).reduce((s,i)=>s+i.calories,0);
       if (dc > 0) {
         totCal     += dc;

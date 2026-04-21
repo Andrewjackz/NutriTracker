@@ -4852,7 +4852,7 @@ function renderAnalytics() {
   const macroAllKeys = Object.keys(db).sort();
   let mTotCarb=0, mTotProtein=0, mTotFat=0, mTotFibre=0, mDays=0;
   macroAllKeys.forEach(k => {
-    const d = db[k];
+    const d = effectiveDay(k);   // respects exclusion flags
     const dc = (d.items||[]).reduce((s,i)=>s+i.calories,0);
     if (dc > 0) {
       mTotCarb    += (d.items||[]).reduce((s,i)=>s+i.carbs_g,0);
@@ -5099,13 +5099,13 @@ function renderAnalytics() {
   const wtCalCanvas = document.getElementById('wtCalChart');
   // build joined dataset: days that have BOTH weight and calories
   const wtCalDays = keys
-    .filter(k => db[k]?.weight && (db[k].items||[]).reduce((s,i)=>s+i.calories,0) > 0)
+    .filter(k => { const e=effectiveDay(k); return e.weight && (e.items||[]).reduce((s,i)=>s+i.calories,0)>0; })
     .slice(-60)
-    .map(k => ({
+    .map(k => { const e=effectiveDay(k); return {
       date:   k.slice(5),
-      weight: db[k].weight,
-      cal:    Math.round((db[k].items||[]).reduce((s,i)=>s+i.calories,0))
-    }));
+      weight: e.weight,
+      cal:    Math.round((e.items||[]).reduce((s,i)=>s+i.calories,0))
+    }; });
 
   if (wtCalDays.length < 2) {
     wtCalEmpty.style.display  = 'block';
@@ -5180,13 +5180,13 @@ function renderAnalytics() {
   const stWtCanvas = document.getElementById('stWtChart');
   // days that have BOTH steps and weight
   const stWtDays = keys
-    .filter(k => db[k]?.steps && db[k]?.weight)
+    .filter(k => { const e=effectiveDay(k); return e.steps && e.weight; })
     .slice(-60)
-    .map(k => ({
+    .map(k => { const e=effectiveDay(k); return {
       date:   k.slice(5),
-      steps:  db[k].steps,
-      weight: db[k].weight
-    }));
+      steps:  e.steps,
+      weight: e.weight
+    }; });
 
   if (stWtDays.length < 2) {
     stWtEmpty.style.display  = 'block';
@@ -5269,10 +5269,10 @@ function renderBurnSplit() {
 
   // Build series: days that have steps or a run
   const splitDays = allKeys
-    .filter(k => db[k]?.steps || db[k]?.runKm)
+    .filter(k => (effectiveDay(k).steps || effectiveDay(k).runKm))
     .slice(-30)
     .map(k => {
-      const d = db[k];
+      const d = effectiveDay(k);   // respects exclusion flags
       const weightKg = d.weight
         ? (goals.units === 'kg' ? d.weight : d.weight / 2.205)
         : 80;
@@ -5456,8 +5456,9 @@ function renderBurnScatter() {
   const burnByDate   = {};
 
   keys3.forEach(k => {
-    const d = db[k];
-    if (d.weight) wSeries3[k] = d.weight;
+    const d  = effectiveDay(k);   // respects exclusion flags
+    const dr = db[k];
+    if (dr.weight && !dr.exclude_weight) wSeries3[k] = dr.weight;
     if (d.steps) {
       burnByDate[k] = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
     }
@@ -5617,33 +5618,34 @@ function buildWeeklyObs() {
   const allKeys = Object.keys(db).sort();
   const weeks   = {};
   allKeys.forEach(k => {
-    const d  = new Date(k + 'T12:00:00');
-    // ISO week: Monday = day 1
-    const day = d.getDay() || 7; // 1=Mon … 7=Sun
-    const mon = new Date(d); mon.setDate(d.getDate() - (day - 1));
+    const dt  = new Date(k + 'T12:00:00');
+    const day = dt.getDay() || 7;
+    const mon = new Date(dt); mon.setDate(dt.getDate() - (day - 1));
     const weekKey = isoDate(mon);
-    if (!weeks[weekKey]) weeks[weekKey] = { keys: [], days: [] };
-    weeks[weekKey].keys.push(k);
-    weeks[weekKey].days.push(db[k]);
+    if (!weeks[weekKey]) weeks[weekKey] = [];
+    weeks[weekKey].push(k);  // store keys, not raw day objects
   });
 
   const obs = [];
-  Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([wk, wdata]) => {
-    const { keys, days } = wdata;
-    // Need at least 4 days of food data and at least 2 weight measurements
-    const foodDays  = days.filter(d => (d.items||[]).length > 0);
-    const wtDays    = days.filter(d => d.weight).map(d => d.weight);
-    if (foodDays.length < 4 || wtDays.length < 2) return;
+  Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([wk, keys]) => {
+    // Use effectiveDay for all data — respects exclusion flags
+    const effDays = keys.map(k => ({ k, d: effectiveDay(k) }));
 
-    const wtStart = wtDays[0];
-    const wtEnd   = wtDays[wtDays.length - 1];
+    const foodEntries = effDays.filter(({d}) => (d.items||[]).length > 0);
+    // Only include weight values where weight is NOT excluded
+    const wtVals = effDays.map(({d}) => d.weight).filter(w => w != null);
+
+    if (foodEntries.length < 4 || wtVals.length < 2) return;
+
+    const wtStart = wtVals[0];
+    const wtEnd   = wtVals[wtVals.length - 1];
     const deltaWt = +(wtEnd - wtStart).toFixed(2);
 
-    const avgCal  = foodDays.reduce((s,d) => s + (d.items||[]).reduce((ss,i)=>ss+i.calories,0), 0) / foodDays.length;
-    const avgBurn = foodDays.reduce((s,d) => s + calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace), 0) / foodDays.length;
+    const avgCal  = foodEntries.reduce((s,{d}) => s + (d.items||[]).reduce((ss,i)=>ss+i.calories,0), 0) / foodEntries.length;
+    const avgBurn = foodEntries.reduce((s,{d}) => s + calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace), 0) / foodEntries.length;
     const avgNet  = avgCal - avgBurn;
 
-    obs.push({ week: wk, avgCal: +avgCal.toFixed(0), avgBurn: +avgBurn.toFixed(0), avgNet: +avgNet.toFixed(0), deltaWt, wtStart, wtEnd, n: foodDays.length });
+    obs.push({ week: wk, avgCal: +avgCal.toFixed(0), avgBurn: +avgBurn.toFixed(0), avgNet: +avgNet.toFixed(0), deltaWt, wtStart, wtEnd, n: foodEntries.length });
   });
   return obs;
 }
@@ -5830,6 +5832,9 @@ function renderWeightModel() {
     const cal     = d.items?.reduce((s,it)=>s+it.calories,0)||0;
     if (cal === 0) continue; // skip days with no food logged
 
+    // Skip pair if either weight is excluded (effectiveDay returns null for excluded weights)
+    if (!dY.weight || !d.weight) continue;
+
     const carbs   = d.items?.reduce((s,it)=>s+it.carbs_g,0)||0;
     const protein = d.items?.reduce((s,it)=>s+(it.protein_g||0),0)||0;
     const fat     = d.items?.reduce((s,it)=>s+(it.fat_g||0),0)||0;
@@ -5839,7 +5844,7 @@ function renderWeightModel() {
     const burn    = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
     const netCal  = cal - burn;
     const weight  = d.weight||0;
-    const deltaWt = db[k].weight - db[kPrev].weight;
+    const deltaWt = dY.weight - d.weight;  // effectiveDay — excluded weights skipped above
 
     obs.push({ cal, carbs, protein, fat, fibre, steps, runKm, burn, netCal, weight, deltaWt });
   }
@@ -6174,7 +6179,8 @@ function renderWeeklyWeightModel() {
     let totCal=0, totBurn=0, totCarb=0, totProt=0, totFat=0, totFib=0, totSteps=0;
     let foodDays=0; let wVals=[];
     days.forEach(k => {
-      const d = db[k];
+      const d  = effectiveDay(k);   // respects exclusion flags
+      const dr = db[k];
       const cal = (d.items||[]).reduce((s,i)=>s+i.calories,0);
       if (cal > 0) {
         const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
@@ -6456,7 +6462,8 @@ function renderWeeklyModelPredictions(activePreds, beta) {
     let foodDays=0; let wVals=[];
 
     days.forEach(k => {
-      const d = db[k];
+      const d  = effectiveDay(k);   // respects exclusion flags
+      const dr = db[k];
       const cal = (d.items||[]).reduce((s,i)=>s+i.calories,0);
       if (cal > 0) {
         const carb  = (d.items||[]).reduce((s,i)=>s+i.carbs_g,0);
@@ -6471,7 +6478,7 @@ function renderWeeklyModelPredictions(activePreds, beta) {
         totRunKm += (d.runKm||0);
         foodDays++;
       }
-      if (d.weight) wVals.push(d.weight);
+      if (dr.weight && !dr.exclude_weight) wVals.push(dr.weight);
     });
 
     if (foodDays < 3) return; // need at least 3 food days for a meaningful average
@@ -6566,32 +6573,33 @@ function renderFullCorrMatrix() {
 
   // Build a weight lookup for fast next-day delta access
   const weightLookup = {};
-  allKeys.forEach(k => { if (db[k]?.weight) weightLookup[k] = db[k].weight; });
+  allKeys.forEach(k => { const e=effectiveDay(k); if (e.weight) weightLookup[k] = e.weight; });
 
   // Next-day weight change: weight on the calendar day AFTER k minus weight on k
   // We look for the next key in allKeys that has a weight logged
   function nextDayWeightDelta(k) {
     const idx = allKeys.indexOf(k);
     if (idx < 0 || idx === allKeys.length - 1) return null;
-    // find the next key with weight logged
+    const dk = effectiveDay(k);
+    if (!dk.weight) return null;
     for (let i = idx + 1; i < allKeys.length; i++) {
-      if (db[allKeys[i]]?.weight && db[k]?.weight) {
-        return db[allKeys[i]].weight - db[k].weight;
-      }
+      const dn = effectiveDay(allKeys[i]);
+      if (dn.weight) return dn.weight - dk.weight;
     }
     return null;
   }
 
   // Variable definitions — each returns a value or null for a given date key
+  // All var functions use effectiveDay to respect exclusion flags
   const vars = [
-    { short: 'Cal',      name: '🔥 Calories',        fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+i.calories,0)||0; return v>0?v:null; } },
-    { short: 'Carbs',    name: '🌾 Carbs',            fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+i.carbs_g,0)||0; return v>0?v:null; } },
-    { short: 'Prot',     name: '💪 Protein',          fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0; return v>0?v:null; } },
-    { short: 'Fat',      name: '🥑 Fat',              fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0; return v>0?v:null; } },
-    { short: 'Fibre',    name: '🥦 Fibre',            fn: k => { const d=db[k]; const v=d?.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0; return v>0?v:null; } },
-    { short: 'Steps',    name: '👟 Steps',            fn: k => db[k]?.steps || null },
-    { short: 'Net Cal',  name: '⚡ Net Cal',          fn: k => { const d=db[k]; const cal=d?.items?.reduce((s,i)=>s+i.calories,0)||0; if(!cal) return null; return cal - calcBurn(d?.steps, d?.weight, goals.units); } },
-    { short: 'Weight',   name: '⚖️ Weight',           fn: k => db[k]?.weight || null },
+    { short: 'Cal',      name: '🔥 Calories',        fn: k => { const d=effectiveDay(k); const v=d.items?.reduce((s,i)=>s+i.calories,0)||0; return v>0?v:null; } },
+    { short: 'Carbs',    name: '🌾 Carbs',            fn: k => { const d=effectiveDay(k); const v=d.items?.reduce((s,i)=>s+i.carbs_g,0)||0; return v>0?v:null; } },
+    { short: 'Prot',     name: '💪 Protein',          fn: k => { const d=effectiveDay(k); const v=d.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0; return v>0?v:null; } },
+    { short: 'Fat',      name: '🥑 Fat',              fn: k => { const d=effectiveDay(k); const v=d.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0; return v>0?v:null; } },
+    { short: 'Fibre',    name: '🥦 Fibre',            fn: k => { const d=effectiveDay(k); const v=d.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0; return v>0?v:null; } },
+    { short: 'Steps',    name: '👟 Steps',            fn: k => effectiveDay(k).steps || null },
+    { short: 'Net Cal',  name: '⚡ Net Cal',          fn: k => { const d=effectiveDay(k); const cal=d.items?.reduce((s,i)=>s+i.calories,0)||0; if(!cal) return null; return cal - calcBurn(d.steps, d.weight, goals.units); } },
+    { short: 'Weight',   name: '⚖️ Weight',           fn: k => { const d=effectiveDay(k); return d.weight || null; } },
     { short: 'Δ Wt+1',  name: '📈 Next-day Δ Weight', fn: k => nextDayWeightDelta(k) },
   ];
 
@@ -6679,9 +6687,10 @@ function renderNetScatter() {
   const netByDate    = {};
 
   keys2.forEach(k => {
-    const d = db[k];
+    const d  = effectiveDay(k);          // respects exclusion flags
+    const dr = db[k];                    // raw — only for weight record keeping
     const totCal = d.items?.reduce((s,i)=>s+i.calories,0)||0;
-    if (d.weight) wSeries2[k] = d.weight;
+    if (dr.weight && !dr.exclude_weight) wSeries2[k] = dr.weight;
     if (totCal > 0) {
       const burn  = calcBurn(d.steps, d.weight, goals.units);
       netByDate[k] = totCal - burn;
@@ -6887,12 +6896,40 @@ function renderDayView(key) {
       ${day.meds===true?'<span style="background:var(--purple-lt,#F3E5F5);color:var(--purple,#6A1B9A);padding:3px 8px;border-radius:20px;font-weight:700">💊 Medicated</span>':''}
       ${day.notes?`<span style="color:var(--text-3);font-size:11.5px;width:100%">📝 ${day.notes}</span>`:''}
     </div>
-    ${(day.exclude_weight||day.exclude_cal||day.exclude_exercise)?`
-    <div style="background:var(--amber-lt,#FFF8E1);border:1.5px solid var(--amber,#F9A825);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:10px;font-size:11.5px;color:#7B5200;line-height:1.6">
-      ⚠️ <strong>Partially excluded from statistics:</strong>
-      ${day.exclude_weight?'⚖️ weight ':''}${day.exclude_cal?'🔥 calories ':''}${day.exclude_exercise?'👟 activity':''}
-      <span style="opacity:.7;display:block;font-size:10.5px;margin-top:2px">Raw data preserved — tap ✏️ Edit to change exclusion settings</span>
-    </div>`:''}`;
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-3);margin-bottom:8px">
+        ⚠️ Exclude from statistics &amp; modelling
+      </div>
+      <div style="font-size:10.5px;color:var(--text-3);margin-bottom:8px;line-height:1.4">
+        Tap to toggle. Raw data is always preserved — only the statistical analysis is affected.
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <button onclick="quickToggleExclusion('${key}','weight')"
+          style="padding:7px 11px;border-radius:20px;border:1.5px solid;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;
+                 background:${day.exclude_weight?'var(--amber,#F9A825)':'var(--surface2)'};
+                 color:${day.exclude_weight?'#5D3200':'var(--text-2)'};
+                 border-color:${day.exclude_weight?'var(--amber,#F9A825)':'var(--border)'}"
+          id="excl_weight_${key}">
+          ⚖️ Weight${day.exclude_weight?' ✓':''}
+        </button>
+        <button onclick="quickToggleExclusion('${key}','cal')"
+          style="padding:7px 11px;border-radius:20px;border:1.5px solid;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;
+                 background:${day.exclude_cal?'var(--amber,#F9A825)':'var(--surface2)'};
+                 color:${day.exclude_cal?'#5D3200':'var(--text-2)'};
+                 border-color:${day.exclude_cal?'var(--amber,#F9A825)':'var(--border)'}"
+          id="excl_cal_${key}">
+          🔥 Calories${day.exclude_cal?' ✓':''}
+        </button>
+        <button onclick="quickToggleExclusion('${key}','exercise')"
+          style="padding:7px 11px;border-radius:20px;border:1.5px solid;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;
+                 background:${day.exclude_exercise?'var(--amber,#F9A825)':'var(--surface2)'};
+                 color:${day.exclude_exercise?'#5D3200':'var(--text-2)'};
+                 border-color:${day.exclude_exercise?'var(--amber,#F9A825)':'var(--border)'}"
+          id="excl_ex_${key}">
+          👟 Activity${day.exclude_exercise?' ✓':''}
+        </button>
+      </div>
+    </div>`;
 
   if (!day.items.length) {
     html += `<div class="empty-state"><div class="es-icon">🍽️</div>Nothing logged this day.</div>`;
@@ -7057,6 +7094,26 @@ function renderDayEdit(key) {
     water:    day.water,
     meds:     day.meds,
   };
+}
+
+function quickToggleExclusion(key, field) {
+  const flagMap = { weight:'exclude_weight', cal:'exclude_cal', exercise:'exclude_exercise' };
+  const flag = flagMap[field];
+  if (!flag) return;
+  const day = getDay(key);
+  day[flag] = !day[flag];
+  db[key] = day;
+  saveDB();
+  // Re-render view to update button states and show toast
+  renderDayView(key);
+  const state = day[flag];
+  const labels = { weight:'Weight', cal:'Calories', exercise:'Activity' };
+  showToast(
+    state ? `⚠️ ${labels[field]} excluded from statistics` : `✓ ${labels[field]} included in statistics`,
+    state ? '' : 'success'
+  );
+  // Refresh calendar dots if visible
+  if (typeof renderCalGrid === 'function') { try { renderCalGrid(); } catch(e){} }
 }
 
 function cycleDayHabit(btnId, field) {

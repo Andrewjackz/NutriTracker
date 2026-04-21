@@ -4250,6 +4250,31 @@ function renderCalendar() {
           <button onclick="openDayDetail('${key}')" style="font-size:12px;font-weight:700;color:var(--blue);background:var(--blue-lt);border:none;padding:4px 10px;border-radius:20px">View items ›</button>
         </div>
         ` : `<div style="font-size:12.5px;color:var(--text-3);padding-top:4px">Nothing logged</div>`}
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3);margin-right:2px">⚠️ Excl:</span>
+          <button onclick="quickToggleExclusion('${key}','weight');renderCalendar()" 
+            style="padding:4px 9px;border-radius:20px;border:1.5px solid;font-size:11.5px;font-weight:700;cursor:pointer;
+                   background:${day.exclude_weight?'var(--amber,#F9A825)':'var(--surface2)'};
+                   color:${day.exclude_weight?'#5D3200':'var(--text-3)'};
+                   border-color:${day.exclude_weight?'var(--amber,#F9A825)':'var(--border)'}">
+            ⚖️${day.exclude_weight?' ✓':''}
+          </button>
+          <button onclick="quickToggleExclusion('${key}','cal');renderCalendar()"
+            style="padding:4px 9px;border-radius:20px;border:1.5px solid;font-size:11.5px;font-weight:700;cursor:pointer;
+                   background:${day.exclude_cal?'var(--amber,#F9A825)':'var(--surface2)'};
+                   color:${day.exclude_cal?'#5D3200':'var(--text-3)'};
+                   border-color:${day.exclude_cal?'var(--amber,#F9A825)':'var(--border)'}">
+            🔥${day.exclude_cal?' ✓':''}
+          </button>
+          <button onclick="quickToggleExclusion('${key}','exercise');renderCalendar()"
+            style="padding:4px 9px;border-radius:20px;border:1.5px solid;font-size:11.5px;font-weight:700;cursor:pointer;
+                   background:${day.exclude_exercise?'var(--amber,#F9A825)':'var(--surface2)'};
+                   color:${day.exclude_exercise?'#5D3200':'var(--text-3)'};
+                   border-color:${day.exclude_exercise?'var(--amber,#F9A825)':'var(--border)'}">
+            👟${day.exclude_exercise?' ✓':''}
+          </button>
+          ${(day.exclude_weight||day.exclude_cal||day.exclude_exercise)?'<span style="font-size:10px;color:var(--amber,#F9A825);font-weight:700">excluded from stats</span>':''}
+        </div>
       </div>`;
   }
 
@@ -7112,8 +7137,9 @@ function quickToggleExclusion(key, field) {
     state ? `⚠️ ${labels[field]} excluded from statistics` : `✓ ${labels[field]} included in statistics`,
     state ? '' : 'success'
   );
-  // Refresh calendar dots if visible
-  if (typeof renderCalGrid === 'function') { try { renderCalGrid(); } catch(e){} }
+  // Refresh calendar view if visible
+  try { renderCalGrid(); } catch(e){}
+  try { renderCalendar(); } catch(e){}
 }
 
 function cycleDayHabit(btnId, field) {

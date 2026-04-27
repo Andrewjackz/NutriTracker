@@ -1256,6 +1256,15 @@ a { color: inherit; text-decoration: none; }
             </div>
           </div>
         </div>
+        <div class="ring-item" id="ringNetWrap" style="display:none">
+          <div class="ring-donut" id="ringNet" style="--ring-color:var(--purple,#6A1B9A)">
+            <div class="ring-center">
+              <div class="ring-val" id="ringNetVal" style="color:var(--purple,#6A1B9A);font-size:10px;font-weight:800;line-height:1">—</div>
+              <div class="ring-lbl" style="font-size:7.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-3)">Net</div>
+              <div id="ringNetPct" style="font-size:8px;color:var(--purple,#6A1B9A);font-weight:700"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- totals -->
@@ -1441,6 +1450,17 @@ a { color: inherit; text-decoration: none; }
           <div style="flex:1">
             <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px">👟 Steps</div>
             <input class="inp" id="stepsGoalInp" type="number" value="10000" oninput="saveGoals()" style="padding:10px">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--purple,#6A1B9A);margin-bottom:5px">⚡ Net Cal Target <span style="font-weight:400;opacity:.7">(optional)</span></div>
+            <input class="inp" id="netCalGoalInp" type="number" placeholder="e.g. 1400" oninput="saveGoals()" style="padding:10px">
+          </div>
+          <div style="flex:2;display:flex;align-items:flex-end;padding-bottom:2px">
+            <div style="font-size:11px;color:var(--text-3);line-height:1.5">
+              Target net calories after burn. When set, adds a purple ring and goal line to the net cal chart. Leave blank to use the model's net-neutral instead.
+            </div>
           </div>
         </div>
         <div style="display:flex;gap:8px">
@@ -2218,8 +2238,8 @@ function loadDB() {
 }
 function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 function loadGoals() {
-  try { return JSON.parse(localStorage.getItem(GOAL_KEY)) || { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, targetWeight: null, units: 'lbs' }; }
-  catch { return { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, targetWeight: null, units: 'lbs' }; }
+  try { return JSON.parse(localStorage.getItem(GOAL_KEY)) || { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, netCalGoal: null, targetWeight: null, units: 'lbs' }; }
+  catch { return { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, netCalGoal: null, targetWeight: null, units: 'lbs' }; }
 }
 function saveGoals() {
   goals.calGoal     = parseInt(document.getElementById('calGoalInp').value)     || 2000;
@@ -2228,6 +2248,7 @@ function saveGoals() {
   goals.fatGoal     = parseInt(document.getElementById('fatGoalInp').value)     || 65;
   goals.fibreGoal   = parseInt(document.getElementById('fibreGoalInp').value)   || 30;
   goals.stepsGoal   = parseInt(document.getElementById('stepsGoalInp').value)   || 10000;
+  goals.netCalGoal  = parseInt(document.getElementById('netCalGoalInp').value)  || null;
   goals.units        = document.getElementById('unitsSel').value;
   const twRaw = document.getElementById('targetWeightInp').value.replace(',','.');
   goals.targetWeight = parseFloat(twRaw) || null;
@@ -2296,6 +2317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('stepsGoalInp').value   = goals.stepsGoal   || 10000;
   document.getElementById('unitsSel').value         = goals.units;
   if (goals.targetWeight) document.getElementById('targetWeightInp').value = goals.targetWeight;
+  if (goals.netCalGoal)   document.getElementById('netCalGoalInp').value  = goals.netCalGoal;
   document.getElementById('weightUnit').textContent = goals.units;
 
   // show api modal if no key
@@ -3781,10 +3803,39 @@ function renderToday() {
     if (runDisp) runDisp.style.display = 'none';
   }
   // auto-calculate burn from steps using weight-adjusted MET formula
+  // Net cal ring + tile (always shown when burn available)
+  const burn = calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace);
+  const net  = (day.steps || day.runKm) && totCal > 0 ? totCal - burn : null;
+
+  const ringNetWrap = document.getElementById('ringNetWrap');
+  const todayNetTile = document.getElementById('todayNetTile');
+  if (net !== null && goals.netCalGoal) {
+    const netPct = Math.min(Math.abs(net) / goals.netCalGoal * 100, 100);
+    const netColor = net > goals.netCalGoal + 100 ? 'var(--red)' :
+                     net < goals.netCalGoal - 100 ? 'var(--green)' : 'var(--purple,#6A1B9A)';
+    if (ringNetWrap) ringNetWrap.style.display = 'block';
+    if (todayNetTile) todayNetTile.style.display = 'block';
+    setRing('ringNet', netPct, 'ringNetPct');
+    const ringNetEl = document.getElementById('ringNet');
+    if (ringNetEl) ringNetEl.style.setProperty('--ring-color', netColor);
+    const ringNetValEl = document.getElementById('ringNetVal');
+    if (ringNetValEl) { ringNetValEl.style.color = netColor; ringNetValEl.textContent = net > 0 ? '+'+net : String(net); }
+    const todayNetEl = document.getElementById('todayNet');
+    if (todayNetEl) { todayNetEl.style.color = netColor; todayNetEl.textContent = (net > 0 ? '+' : '') + net; }
+  } else if (net !== null) {
+    // No target set — show net tile without ring (just informational)
+    if (ringNetWrap) ringNetWrap.style.display = 'none';
+    if (todayNetTile) todayNetTile.style.display = 'block';
+    const netColor = net > 300 ? 'var(--red)' : net < -100 ? 'var(--green)' : 'var(--purple,#6A1B9A)';
+    const todayNetEl = document.getElementById('todayNet');
+    if (todayNetEl) { todayNetEl.style.color = netColor; todayNetEl.textContent = (net > 0 ? '+' : '') + net; }
+  } else {
+    if (ringNetWrap) ringNetWrap.style.display = 'none';
+    if (todayNetTile) todayNetTile.style.display = 'none';
+  }
+
   const nd = document.getElementById('netCalDisplay');
   if ((day.steps || day.runKm) && totCal > 0) {
-    const burn = calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace);
-    const net  = totCal - burn;
     const weightNote = day.weight ? `${day.weight} ${goals.units}` : 'est. 80kg';
     const distUnit   = goals.distUnit !== 'miles' ? 'km' : 'mi';
     const runNote    = day.runKm ? ` · 🏃 ${day.runKm}${distUnit}${day.runPace ? ' @ ' + day.runPace + ' min/' + distUnit : ''}` : '';
@@ -4520,8 +4571,8 @@ function renderAnalytics() {
     const ncLabels   = ncDates30.map(d => d.date.slice(5));
     const consumed   = ncDates30.map(d => d.cal);
     const netVals    = ncDates30.map(d => {
-      const dayD = db[d.date];
-      const burn = calcBurn(dayD?.steps, dayD?.weight, goals.units, dayD?.runKm, dayD?.runPace);
+      const dayD = effectiveDay(d.date);
+      const burn = calcBurn(dayD.steps, dayD.weight, goals.units, dayD.runKm, dayD.runPace);
       return d.cal - burn;
     });
     netCalTrendInst = new Chart(document.getElementById('netCalTrendChart'), {
@@ -4552,7 +4603,19 @@ function renderAnalytics() {
             order: 1,
             yAxisID: 'y',
           },
-          { ...rollingDataset(ncLabels, netVals, 'rgba(13,71,161,0.75)', '7d avg net'), type: 'line', order: 0, yAxisID: 'y' }
+          { ...rollingDataset(ncLabels, netVals, 'rgba(13,71,161,0.75)', '7d avg net'), type: 'line', order: 0, yAxisID: 'y' },
+          ...(goals.netCalGoal ? [{
+            label: `Net Target (${goals.netCalGoal})`,
+            data: ncLabels.map(() => goals.netCalGoal),
+            borderColor: 'rgba(106,27,154,0.85)',
+            borderWidth: 2,
+            borderDash: [6,3],
+            pointRadius: 0,
+            fill: false,
+            type: 'line',
+            order: 0,
+            yAxisID: 'y',
+          }] : [])
         ]
       },
       options: {
@@ -5898,16 +5961,18 @@ function renderWeightModel() {
   const n = obs.length;
   const maxPreds = Math.max(2, Math.floor(n / 8));
 
-  // cal excluded — netCal=cal-burn already encodes intake; including both causes multicollinearity
+  // Energy collinearity note:
+  //   netCal = cal - burn  →  including cal, burn OR both alongside netCal
+  //   causes perfect/near-perfect multicollinearity, making the calorie axis
+  //   of the stable weight matrix appear flat. netCal is the ONLY energy variable.
+  //   Steps/runKm/protein/fibre become the secondary predictors as n grows.
   const candidateDefs = [
-    { key: 'netCal',  label: '⚡ Net Calories',  unit: 'kcal',  priority:1 },
-  // 'cal' removed — netCal already encodes calories; multicollinearity fix
-    { key: 'burn',    label: '🔥 Total Burn',     unit: 'kcal',  priority:2 },
-    { key: 'steps',   label: '👟 Steps',          unit: 'steps', priority:3 },
-    { key: 'runKm',   label: '🏃 Run km',         unit: 'km',    priority:4 },
-    { key: 'weight',  label: '⚖️ Weight',          unit: goals.units, priority:5 },
-    { key: 'protein', label: '💪 Protein',        unit: 'g',     priority:6 },
-    { key: 'fibre',   label: '🥦 Fibre',          unit: 'g',     priority:7 },
+    { key: 'netCal',  label: '⚡ Net Cal',        unit: 'kcal',  priority:1 },
+    { key: 'steps',   label: '👟 Steps',          unit: 'steps', priority:2 },
+    { key: 'runKm',   label: '🏃 Run km',         unit: 'km',    priority:3 },
+    { key: 'protein', label: '💪 Protein',        unit: 'g',     priority:4 },
+    { key: 'fibre',   label: '🥦 Fibre',          unit: 'g',     priority:5 },
+    { key: 'weight',  label: '⚖️ Prev Weight',    unit: goals.units, priority:6 },
   ];
 
   // Filter: must have sufficient variance (coefficient of variation > 2%)
@@ -6098,16 +6163,23 @@ function renderWeightModel() {
 
   function predictDeltaWt(calIn, burnIn) {
     const netC = calIn - burnIn;
-    // Approximate steps from burn (inverse of walk formula), using avgWeight
+    // Approximate steps from burn for step-based predictors (if selected)
     const wKg = goals.units==='kg' ? avgWeight : avgWeight/2.205;
     const approxSteps = wKg > 0 ? burnIn / (0.00057 * wKg) : avgSteps;
+    // Build predictor values — netCal is the sole energy variable.
+    // cal and burn are intentionally excluded from candidateDefs to prevent
+    // multicollinearity that would make the calorie axis of the matrix flat.
     const predVals = {
-      cal: calIn, carbs: avgCarbs*(calIn/avgCal), protein: avgProtein*(calIn/avgCal),
-      fat: avgFat*(calIn/avgCal), fibre: avgFibre*(calIn/avgCal),
-      steps: approxSteps, runKm: avgRunKm, burn: burnIn,
-      netCal: netC, weight: avgWeight
+      netCal:  netC,
+      steps:   approxSteps,
+      runKm:   avgRunKm,
+      protein: avgProtein * (calIn / Math.max(1, avgCal)),
+      fibre:   avgFibre   * (calIn / Math.max(1, avgCal)),
+      weight:  avgWeight,
+      // kept for backward compat but should not be selected:
+      cal: calIn, burn: burnIn,
+      carbs: avgCarbs*(calIn/Math.max(1,avgCal)), fat: avgFat*(calIn/Math.max(1,avgCal)),
     };
-    // Prediction = intercept + sum(coeff * value)
     let pred = beta[0];
     activePreds.forEach((pd,i) => { pred += beta[i+1] * (predVals[pd.key]||0); });
     return pred;
@@ -6246,14 +6318,14 @@ function renderWeeklyWeightModel() {
   }
 
   // ── Candidate predictors (same philosophy as daily model) ──────
-  // 'cal' excluded — netCal already encodes calories; including both causes
-  // multicollinearity making the calorie column in the matrix appear irrelevant.
+  // netCal is the sole energy variable — cal, burn and netCal are mutually
+  // collinear (netCal=cal-burn). Including any two causes the matrix calorie
+  // axis to flatten. netCal alone correctly represents energy balance.
   const wkCandidates = [
     { key:'netCal',  label:'⚡ Avg Net Cal/day',  unit:'kcal', priority:1 },
-    { key:'burn',    label:'🔥 Avg Burn/day',       unit:'kcal', priority:2 },
-    { key:'steps',   label:'👟 Avg Steps/day',      unit:'steps',priority:3 },
-    { key:'protein', label:'💪 Avg Protein/day',    unit:'g',    priority:4 },
-    { key:'fibre',   label:'🥦 Avg Fibre/day',      unit:'g',    priority:5 },
+    { key:'steps',   label:'👟 Avg Steps/day',    unit:'steps',priority:2 },
+    { key:'protein', label:'💪 Avg Protein/day',  unit:'g',    priority:3 },
+    { key:'fibre',   label:'🥦 Avg Fibre/day',    unit:'g',    priority:4 },
   ];
 
   const nWk = wkObs.length;
@@ -7690,6 +7762,7 @@ This will REPLACE all current data.`)) return;
       document.getElementById('unitsSel').value       = goals.units       || 'lbs';
       document.getElementById('weightUnit').textContent = goals.units || 'lbs';
       if (goals.targetWeight) document.getElementById('targetWeightInp').value = goals.targetWeight;
+  if (goals.netCalGoal)   document.getElementById('netCalGoalInp').value  = goals.netCalGoal;
       renderHistory();
       renderToday();
       renderCalendar();

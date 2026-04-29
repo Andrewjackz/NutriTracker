@@ -911,6 +911,28 @@ a { color: inherit; text-decoration: none; }
 .mp-meal-note  { font-size: 11.5px; color: var(--text-2); font-style: italic; line-height: 1.4; margin-bottom: 4px; }
 .mp-alts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .mp-alt-chip { font-size: 10.5px; padding: 2px 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text-2); font-weight: 600; }
+/* ── fridge chef ── */
+.fridge-chip { display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:var(--blue-lt);border:1.5px solid var(--blue-mid,#90CAF9);border-radius:20px;font-size:12px;font-weight:700;color:var(--blue); }
+.fridge-chip .fc-del { background:none;border:none;color:var(--blue);font-size:14px;cursor:pointer;padding:0 2px;line-height:1;font-weight:400;opacity:.7; }
+.fridge-chip .fc-del:active { opacity:1; }
+.recipe-card { background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:18px 16px;margin-bottom:12px; }
+.recipe-title { font-family:var(--ff-serif);font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px; }
+.recipe-meta  { display:flex;gap:12px;font-size:11.5px;color:var(--text-3);margin-bottom:14px;flex-wrap:wrap; }
+.recipe-meta span { display:flex;align-items:center;gap:4px; }
+.recipe-section-lbl { font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-3);margin:14px 0 7px; }
+.recipe-ing-list { list-style:none;padding:0;margin:0; }
+.recipe-ing-list li { display:flex;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px; }
+.recipe-ing-list li:last-child { border-bottom:none; }
+.recipe-ing-amt { font-weight:700;color:var(--blue);min-width:70px; }
+.recipe-step { display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border); }
+.recipe-step:last-child { border-bottom:none; }
+.recipe-step-num { width:26px;height:26px;min-width:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center; }
+.recipe-step-txt { font-size:13px;line-height:1.55;color:var(--text); }
+.recipe-macros { display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:14px;padding-top:12px;border-top:1.5px solid var(--border); }
+.recipe-macro-cell { text-align:center;background:var(--surface2);border-radius:var(--r-sm);padding:7px 4px; }
+.recipe-macro-val { font-size:15px;font-weight:800;color:var(--text); }
+.recipe-macro-lbl { font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-3);margin-top:2px; }
+
 .mp-generate-btn {
   width: 100%; padding: 16px; border-radius: var(--r);
   background: linear-gradient(135deg, #1565C0, #0D47A1);
@@ -1884,6 +1906,21 @@ a { color: inherit; text-decoration: none; }
     <!-- ── SCREEN: MEAL PLAN ── -->
     <div class="screen" id="screen-mealplan">
 
+      <!-- ── sub-tab toggle ── -->
+      <div style="display:flex;gap:0;border-radius:var(--r-sm);overflow:hidden;border:1.5px solid var(--border);margin-bottom:14px">
+        <button id="mealSubTabPlan" onclick="switchMealSubTab('plan')"
+          style="flex:1;padding:11px 6px;border:none;font-size:12.5px;font-weight:700;cursor:pointer;border-right:1px solid var(--border);background:var(--blue);color:#fff">
+          📅 7-Day Meal Plan
+        </button>
+        <button id="mealSubTabFridge" onclick="switchMealSubTab('fridge')"
+          style="flex:1;padding:11px 6px;border:none;font-size:12.5px;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text-2)">
+          🧊 Fridge Chef
+        </button>
+      </div>
+
+      <!-- ── MEAL PLAN PANEL ── -->
+      <div id="mealPanelPlan">
+
       <!-- calorie target mode -->
       <div class="card" style="margin-bottom:10px">
         <div class="card-title">🎯 Calorie Target</div>
@@ -1974,7 +2011,92 @@ a { color: inherit; text-decoration: none; }
         <div style="font-size:13px;color:var(--text-2);font-weight:600">Claude is planning your week…</div>
         <div style="font-size:11.5px;color:var(--text-3);margin-top:4px">This takes 10–20 seconds</div>
       </div>
-    </div>
+
+      </div><!-- end mealPanelPlan -->
+
+      <!-- ── FRIDGE CHEF PANEL ── -->
+      <div id="mealPanelFridge" style="display:none">
+
+        <div class="card" style="margin-bottom:10px">
+          <div class="card-title">🧊 What's in your fridge &amp; pantry?</div>
+          <div style="font-size:12px;color:var(--text-3);margin-bottom:10px;line-height:1.5">
+            Add your ingredients and Claude will suggest the best meal you can make right now — complete with a full recipe, step-by-step instructions and estimated macros.
+          </div>
+
+          <!-- Ingredient input -->
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <input class="inp" id="fridgeIngInput" type="text" placeholder="e.g. chicken breast, garlic, lemon…"
+              autocomplete="off" style="flex:1;padding:10px"
+              onkeydown="if(event.key==='Enter'){addFridgeIngredient()}">
+            <button onclick="addFridgeIngredient()"
+              style="padding:10px 16px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+              + Add
+            </button>
+          </div>
+
+          <!-- Ingredient chips -->
+          <div id="fridgeChips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin-bottom:10px"></div>
+
+          <!-- Quick add -->
+          <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Quick add</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px">
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'eggs')">🥚 Eggs</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'rice')">🍚 Rice</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'pasta')">🍝 Pasta</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'chicken breast')">🍗 Chicken</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'salmon')">🐟 Salmon</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'beef mince')">🥩 Beef Mince</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'onion')">🧅 Onion</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'garlic')">🧄 Garlic</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'tomatoes')">🍅 Tomatoes</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'potatoes')">🥔 Potatoes</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'spinach')">🥬 Spinach</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'cheese')">🧀 Cheese</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'butter')">🧈 Butter</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'olive oil')">🫒 Olive Oil</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'lemon')">🍋 Lemon</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'broccoli')">🥦 Broccoli</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'mushrooms')">🍄 Mushrooms</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'canned tomatoes')">🥫 Canned Tom.</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'bread')">🍞 Bread</button>
+            <button class="mp-pref-chip" onclick="quickAddFridge(this,'Greek yogurt')">🥛 Greek Yogurt</button>
+          </div>
+
+          <!-- Meal type + servings row -->
+          <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+              <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Meal type</div>
+              <div style="display:flex;flex-wrap:wrap;gap:5px">
+                <button class="mp-pref-chip sel" data-fridge-meal="any"       onclick="selectFridgeMealType(this)">🍽 Any</button>
+                <button class="mp-pref-chip"     data-fridge-meal="breakfast" onclick="selectFridgeMealType(this)">🌅 Breakfast</button>
+                <button class="mp-pref-chip"     data-fridge-meal="lunch"     onclick="selectFridgeMealType(this)">☀️ Lunch</button>
+                <button class="mp-pref-chip"     data-fridge-meal="dinner"    onclick="selectFridgeMealType(this)">🌙 Dinner</button>
+                <button class="mp-pref-chip"     data-fridge-meal="snack"     onclick="selectFridgeMealType(this)">🍎 Snack</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Servings</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <button onclick="changeFridgeServings(-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface2);font-size:18px;cursor:pointer;font-weight:700;line-height:1">−</button>
+                <div id="fridgeServingsVal" style="font-size:17px;font-weight:800;color:var(--text);min-width:20px;text-align:center">2</div>
+                <button onclick="changeFridgeServings(1)"  style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface2);font-size:18px;cursor:pointer;font-weight:700;line-height:1">+</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Generate button -->
+          <button id="fridgeChefBtn" onclick="generateFridgeRecipe()"
+            style="width:100%;padding:14px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(21,101,192,.3)">
+            👨‍🍳 Suggest a Meal &amp; Recipe
+          </button>
+        </div>
+
+        <!-- Recipe result -->
+        <div id="fridgeRecipeResult" style="display:none;margin-bottom:16px"></div>
+
+      </div><!-- end mealPanelFridge -->
+
+    </div><!-- end screen-mealplan -->
 
     <!-- ── SCREEN: EXERCISE ── -->
     <div class="screen" id="screen-exercise">
@@ -2517,6 +2639,275 @@ function initMealPlanTab() {
       }
     }
   } catch(e) {}
+}
+
+/* ════════════════════════════════════════
+   FRIDGE CHEF
+════════════════════════════════════════ */
+let fridgeIngredients = [];
+let fridgeServings    = 2;
+
+function switchMealSubTab(tab) {
+  const planBtn   = document.getElementById('mealSubTabPlan');
+  const fridgeBtn = document.getElementById('mealSubTabFridge');
+  const planPanel   = document.getElementById('mealPanelPlan');
+  const fridgePanel = document.getElementById('mealPanelFridge');
+  const isplan = tab === 'plan';
+  planBtn.style.background   = isplan ? 'var(--blue)' : 'var(--surface2)';
+  planBtn.style.color        = isplan ? '#fff' : 'var(--text-2)';
+  fridgeBtn.style.background = isplan ? 'var(--surface2)' : 'var(--blue)';
+  fridgeBtn.style.color      = isplan ? 'var(--text-2)' : '#fff';
+  planPanel.style.display    = isplan ? 'block' : 'none';
+  fridgePanel.style.display  = isplan ? 'none'  : 'block';
+}
+
+function addFridgeIngredient() {
+  const inp = document.getElementById('fridgeIngInput');
+  const val = inp.value.trim();
+  if (!val) return;
+  // support comma-separated input
+  val.split(',').map(s => s.trim()).filter(Boolean).forEach(ing => {
+    if (!fridgeIngredients.includes(ing.toLowerCase())) {
+      fridgeIngredients.push(ing.toLowerCase());
+    }
+  });
+  inp.value = '';
+  renderFridgeChips();
+}
+
+function quickAddFridge(btn, ingredient) {
+  if (!fridgeIngredients.includes(ingredient.toLowerCase())) {
+    fridgeIngredients.push(ingredient.toLowerCase());
+    renderFridgeChips();
+  }
+  btn.classList.toggle('sel');
+}
+
+function removeFridgeIngredient(ing) {
+  fridgeIngredients = fridgeIngredients.filter(i => i !== ing);
+  renderFridgeChips();
+}
+
+function renderFridgeChips() {
+  const el = document.getElementById('fridgeChips');
+  if (!el) return;
+  if (!fridgeIngredients.length) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--text-3);padding:4px 0">No ingredients added yet</span>';
+    return;
+  }
+  el.innerHTML = fridgeIngredients.map(ing => `
+    <div class="fridge-chip">
+      <span>${ing}</span>
+      <button class="fc-del" onclick="removeFridgeIngredient('${ing.replace(/'/g,"\'")}')" title="Remove">×</button>
+    </div>`).join('');
+}
+
+function selectFridgeMealType(btn) {
+  document.querySelectorAll('[data-fridge-meal]').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function changeFridgeServings(delta) {
+  fridgeServings = Math.max(1, Math.min(8, fridgeServings + delta));
+  const el = document.getElementById('fridgeServingsVal');
+  if (el) el.textContent = fridgeServings;
+}
+
+async function generateFridgeRecipe() {
+  if (!fridgeIngredients.length) {
+    showToast('Add at least one ingredient first!', '');
+    return;
+  }
+
+  const apiKey = localStorage.getItem('nt_api_key');
+  if (!apiKey) { showToast('Please set your Claude API key in Settings.', ''); return; }
+
+  const mealTypeBtn = document.querySelector('[data-fridge-meal].sel');
+  const mealType = mealTypeBtn ? mealTypeBtn.dataset.fridgeMeal : 'any';
+
+  // UI: loading state
+  const btn = document.getElementById('fridgeChefBtn');
+  const resultEl = document.getElementById('fridgeRecipeResult');
+  btn.disabled = true;
+  btn.textContent = '👨‍🍳 Finding the best recipe…';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = `
+    <div style="padding:30px 0;text-align:center">
+      <div class="thinking-dots" style="justify-content:center;margin-bottom:10px">
+        <span></span><span></span><span></span>
+      </div>
+      <div style="font-size:13px;color:var(--text-2);font-weight:600">Claude is raiding the fridge…</div>
+      <div style="font-size:11.5px;color:var(--text-3);margin-top:4px">Picking the best meal and writing the recipe</div>
+    </div>`;
+
+  // Scroll to result
+  setTimeout(() => resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+  const mealNote = mealType === 'any' ? '' : ` for ${mealType}`;
+  const userGoals = `Calorie goal: ${goals.calGoal} kcal/day, protein goal: ${goals.proteinGoal}g, carbs: ${goals.carbGoal}g, fat: ${goals.fatGoal}g.`;
+
+  const prompt = `You are a professional chef and nutritionist. The user has these ingredients available:
+${fridgeIngredients.join(', ')}
+
+Please suggest ONE excellent meal${mealNote} they can make right now using primarily these ingredients (you may assume they have basic pantry staples like salt, pepper, basic spices, water, cooking oil unless already listed).
+
+The meal should be for ${fridgeServings} serving${fridgeServings !== 1 ? 's' : ''}.
+User nutrition goals: ${userGoals}
+
+Respond ONLY with a valid JSON object (no markdown, no backticks, no preamble):
+{
+  "name": "Meal name",
+  "tagline": "One-line description",
+  "prepTime": "X mins",
+  "cookTime": "X mins", 
+  "totalTime": "X mins",
+  "difficulty": "Easy|Medium|Hard",
+  "mealType": "Breakfast|Lunch|Dinner|Snack",
+  "servings": ${fridgeServings},
+  "ingredients": [
+    {"amount": "2", "unit": "large", "item": "chicken breasts"},
+    {"amount": "3", "unit": "cloves", "item": "garlic, minced"}
+  ],
+  "steps": [
+    "Step 1 instruction here.",
+    "Step 2 instruction here."
+  ],
+  "tips": "Optional chef tip or variation suggestion.",
+  "macrosPerServing": {
+    "calories": 450,
+    "protein": 38,
+    "carbs": 32,
+    "fat": 14,
+    "fibre": 4
+  },
+  "usedIngredients": ["chicken breast", "garlic"],
+  "extraIngredients": ["salt", "pepper"]
+}`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+                 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514', max_tokens: 1500,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!resp.ok) throw new Error(`API error ${resp.status}`);
+    const data = await resp.json();
+    const raw = data.content?.[0]?.text || '';
+    const json = raw.replace(/```json|```/g, '').trim();
+    const recipe = JSON.parse(json);
+    renderFridgeRecipe(recipe);
+
+  } catch (err) {
+    resultEl.innerHTML = `
+      <div class="card" style="border-color:var(--red)">
+        <div style="color:var(--red);font-weight:700;margin-bottom:6px">⚠️ Couldn't generate recipe</div>
+        <div style="font-size:12.5px;color:var(--text-2)">${err.message}</div>
+        <button onclick="generateFridgeRecipe()" style="margin-top:10px;padding:9px 16px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-weight:700;cursor:pointer">Try again</button>
+      </div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '👨‍🍳 Suggest Another Meal';
+  }
+}
+
+function renderFridgeRecipe(r) {
+  const el = document.getElementById('fridgeRecipeResult');
+  if (!el) return;
+
+  const m = r.macrosPerServing || {};
+  const macroColour = { calories:'var(--red)', protein:'var(--green)', carbs:'var(--blue)', fat:'var(--yellow)', fibre:'var(--teal)' };
+
+  const ingsHtml = (r.ingredients || []).map(i => {
+    const isFromFridge = fridgeIngredients.some(f =>
+      i.item.toLowerCase().includes(f) || f.includes(i.item.toLowerCase().split(',')[0]));
+    return `<li>
+      <span class="recipe-ing-amt">${i.amount}${i.unit ? ' ' + i.unit : ''}</span>
+      <span style="${isFromFridge ? 'color:var(--text)' : 'color:var(--text-3)'}">${i.item}${isFromFridge ? '' : ' <span style="font-size:10px;color:var(--text-3)">(pantry)</span>'}</span>
+    </li>`;
+  }).join('');
+
+  const stepsHtml = (r.steps || []).map((step, i) => `
+    <div class="recipe-step">
+      <div class="recipe-step-num">${i + 1}</div>
+      <div class="recipe-step-txt">${step}</div>
+    </div>`).join('');
+
+  const macrosHtml = ['calories','protein','carbs','fat','fibre'].map(k => `
+    <div class="recipe-macro-cell">
+      <div class="recipe-macro-val" style="color:${macroColour[k]}">${m[k] || '—'}</div>
+      <div class="recipe-macro-lbl">${k}</div>
+    </div>`).join('');
+
+  const usedHtml = (r.usedIngredients || []).map(i =>
+    `<span style="background:var(--blue-lt);color:var(--blue);padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">${i}</span>`).join(' ');
+  const extraHtml = (r.extraIngredients || []).map(i =>
+    `<span style="background:var(--surface2);color:var(--text-3);padding:2px 8px;border-radius:20px;font-size:11px">${i}</span>`).join(' ');
+
+  el.innerHTML = `
+    <div class="recipe-card">
+      <div class="recipe-title">${r.name || 'Your Meal'}</div>
+      <div style="font-size:13px;color:var(--text-2);margin-bottom:10px;font-style:italic">${r.tagline || ''}</div>
+      <div class="recipe-meta">
+        <span>⏱ Prep ${r.prepTime || '—'}</span>
+        <span>🔥 Cook ${r.cookTime || '—'}</span>
+        <span>⏰ Total ${r.totalTime || '—'}</span>
+        <span>📊 ${r.difficulty || 'Medium'}</span>
+        <span>🍽 ${r.servings || fridgeServings} serving${(r.servings || fridgeServings) !== 1 ? 's' : ''}</span>
+        <span>${r.mealType || ''}</span>
+      </div>
+
+      ${usedHtml || extraHtml ? `
+        <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Ingredients used</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${usedHtml}</div>
+        ${extraHtml ? `<div style="font-size:10.5px;color:var(--text-3);margin-bottom:12px">+ pantry staples: <span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;display:inline-flex">${extraHtml}</span></div>` : ''}
+      ` : ''}
+
+      <div class="recipe-section-lbl">📋 Ingredients</div>
+      <ul class="recipe-ing-list">${ingsHtml}</ul>
+
+      <div class="recipe-section-lbl">👨‍🍳 Method</div>
+      <div>${stepsHtml}</div>
+
+      ${r.tips ? `
+        <div class="recipe-section-lbl">💡 Chef's tip</div>
+        <div style="font-size:12.5px;color:var(--text-2);line-height:1.55;padding:10px;background:var(--blue-lt);border-radius:var(--r-sm);border-left:3px solid var(--blue)">${r.tips}</div>
+      ` : ''}
+
+      <div class="recipe-section-lbl">📊 Macros per serving</div>
+      <div class="recipe-macros">${macrosHtml}</div>
+
+      <button onclick="logFridgeRecipeMeal('${(r.name||'').replace(/'/g,"\'")}', ${JSON.stringify(m)})"
+        style="width:100%;margin-top:14px;padding:11px;background:var(--green);color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:700;cursor:pointer">
+        ✅ Log this meal to today
+      </button>
+    </div>`;
+}
+
+function logFridgeRecipeMeal(name, macros) {
+  const key = todayKey();
+  const day = getDay(key);
+  const mealTypeBtn = document.querySelector('[data-fridge-meal].sel');
+  const mt = mealTypeBtn?.dataset.fridgeMeal;
+  const mealType = (!mt || mt === 'any') ? autoMealType() : mt.charAt(0).toUpperCase() + mt.slice(1);
+  day.items.push({
+    name: name,
+    mealType: mealType,
+    calories: Math.round(macros.calories || 0),
+    carbs_g:  Math.round(macros.carbs    || 0),
+    protein_g:Math.round(macros.protein  || 0),
+    fat_g:    Math.round(macros.fat      || 0),
+    fibre_g:  Math.round(macros.fibre    || 0),
+    qty_label: `${fridgeServings} serving${fridgeServings !== 1 ? 's' : ''}`,
+    scale: 1,
+    logged_at: new Date().toISOString()
+  });
+  db[key] = day; saveDB(); renderToday();
+  showToast(`✅ ${name} logged to ${mealType}!`, 'success');
 }
 
 async function generateMealPlan() {

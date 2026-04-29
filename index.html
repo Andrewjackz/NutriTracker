@@ -6150,6 +6150,7 @@ function renderWeightModel() {
 
   // Calorie bands — centred around user's average intake
   const avgCal    = obs.reduce((s,o)=>s+o.cal,0)/obs.length;
+  const calMin  = Math.max(500,  Math.round(avgCal*0.5/100)*100);
   const calMax  = Math.round(avgCal*1.6/100)*100;
   const calStep = Math.round((calMax-calMin)/7/50)*50 || 100;
   const calBands = [];

@@ -2063,7 +2063,7 @@ a { color: inherit; text-decoration: none; }
           </div>
 
           <!-- Meal type + servings row -->
-          <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap">
+          <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap">
             <div style="flex:1;min-width:200px">
               <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Meal type</div>
               <div style="display:flex;flex-wrap:wrap;gap:5px">
@@ -2081,6 +2081,20 @@ a { color: inherit; text-decoration: none; }
                 <div id="fridgeServingsVal" style="font-size:17px;font-weight:800;color:var(--text);min-width:20px;text-align:center">2</div>
                 <button onclick="changeFridgeServings(1)"  style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface2);font-size:18px;cursor:pointer;font-weight:700;line-height:1">+</button>
               </div>
+            </div>
+          </div>
+
+          <!-- Prep time filter -->
+          <div style="margin-bottom:14px">
+            <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">⏱ Max prep + cook time</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              <button class="mp-pref-chip sel" data-fridge-time="any"  onclick="selectFridgePrepTime(this)">⚡ Any</button>
+              <button class="mp-pref-chip"     data-fridge-time="10"   onclick="selectFridgePrepTime(this)">10 mins</button>
+              <button class="mp-pref-chip"     data-fridge-time="15"   onclick="selectFridgePrepTime(this)">15 mins</button>
+              <button class="mp-pref-chip"     data-fridge-time="20"   onclick="selectFridgePrepTime(this)">20 mins</button>
+              <button class="mp-pref-chip"     data-fridge-time="30"   onclick="selectFridgePrepTime(this)">30 mins</button>
+              <button class="mp-pref-chip"     data-fridge-time="45"   onclick="selectFridgePrepTime(this)">45 mins</button>
+              <button class="mp-pref-chip"     data-fridge-time="60"   onclick="selectFridgePrepTime(this)">1 hour</button>
             </div>
           </div>
 
@@ -2707,6 +2721,11 @@ function selectFridgeMealType(btn) {
   btn.classList.add('sel');
 }
 
+function selectFridgePrepTime(btn) {
+  document.querySelectorAll('[data-fridge-time]').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
 function changeFridgeServings(delta) {
   fridgeServings = Math.max(1, Math.min(8, fridgeServings + delta));
   const el = document.getElementById('fridgeServingsVal');
@@ -2743,13 +2762,16 @@ async function generateFridgeRecipe() {
   // Scroll to result
   setTimeout(() => resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
 
-  const mealNote = mealType === 'any' ? '' : ` for ${mealType}`;
+  const prepTimeBtn = document.querySelector('[data-fridge-time].sel');
+  const prepTimeVal = prepTimeBtn ? prepTimeBtn.dataset.fridgeTime : 'any';
+  const prepTimeNote = prepTimeVal === 'any' ? '' : ` that can be prepared and cooked in ${prepTimeVal} minutes or less`;
+  const mealNote = (mealType === 'any' ? '' : ` for ${mealType}`) + prepTimeNote;
   const userGoals = `Calorie goal: ${goals.calGoal} kcal/day, protein goal: ${goals.proteinGoal}g, carbs: ${goals.carbGoal}g, fat: ${goals.fatGoal}g.`;
 
   const prompt = `You are a professional chef and nutritionist. The user has these ingredients available:
 ${fridgeIngredients.join(', ')}
 
-Please suggest ONE excellent meal${mealNote} they can make right now using primarily these ingredients (you may assume they have basic pantry staples like salt, pepper, basic spices, water, cooking oil unless already listed).
+Please suggest ONE excellent meal${mealNote} they can make right now using primarily these ingredients${prepTimeVal !== 'any' ? '. IMPORTANT: Total preparation + cooking time must be ' + prepTimeVal + ' minutes or less. Choose a recipe that genuinely fits this constraint.' : ''} (you may assume they have basic pantry staples like salt, pepper, basic spices, water, cooking oil unless already listed).
 
 The meal should be for ${fridgeServings} serving${fridgeServings !== 1 ? 's' : ''}.
 User nutrition goals: ${userGoals}
@@ -4144,22 +4166,27 @@ function renderToday() {
   const proteinGoal = goals.proteinGoal || Math.round(goals.calGoal * 0.15 / 4);
   const fatGoal     = goals.fatGoal     || Math.round(goals.calGoal * 0.3  / 9);
   const fibreGoal   = goals.fibreGoal   || 30;
-  const calPct     = Math.min(totCal     / goals.calGoal  * 100, 100);
-  const carbPct    = Math.min(totCarb    / goals.carbGoal * 100, 100);
-  const proteinPct = Math.min(totProtein / proteinGoal    * 100, 100);
-  const fatPct     = Math.min(totFat     / fatGoal        * 100, 100);
-  const fibrePct   = Math.min(totFibre   / fibreGoal      * 100, 100);
+  const calPct     = goals.calGoal   > 0 ? totCal     / goals.calGoal  * 100 : 0;
+  const carbPct    = goals.carbGoal  > 0 ? totCarb    / goals.carbGoal * 100 : 0;
+  const proteinPct = proteinGoal     > 0 ? totProtein / proteinGoal    * 100 : 0;
+  const fatPct     = fatGoal         > 0 ? totFat     / fatGoal        * 100 : 0;
+  const fibrePct   = fibreGoal       > 0 ? totFibre   / fibreGoal      * 100 : 0;
   // conic-gradient rings — works perfectly in Safari, Chrome, Edge
   function setRing(id, pct, pctElId) {
-    const effective = Math.min(Math.max(pct, 0), 100);
-    const deg = effective / 100 * 360;
+    const visualPct = Math.min(Math.max(pct, 0), 100); // arc capped at 100%
+    const deg = visualPct / 100 * 360;
     const el = document.getElementById(id);
     if (el) {
       const color = el.style.getPropertyValue('--ring-color') || '#ccc';
       el.style.background = `conic-gradient(${color} ${deg.toFixed(1)}deg, var(--border) ${deg.toFixed(1)}deg)`;
     }
     const pEl = document.getElementById(pctElId);
-    if (pEl) pEl.textContent = Math.round(effective) + '%';
+    if (pEl) {
+      const realPct = Math.round(Math.max(pct, 0));
+      pEl.textContent = realPct + '%';
+      // Colour the % label red when over target to signal the overage
+      pEl.style.color = realPct > 100 ? 'var(--red)' : '';
+    }
   }
   setRing('ringCal',     calPct,     'ringCalPct');
   setRing('ringCarb',    carbPct,    'ringCarbPct');
@@ -4205,7 +4232,7 @@ function renderToday() {
   const ringNetWrap = document.getElementById('ringNetWrap');
   const todayNetTile = document.getElementById('todayNetTile');
   if (net !== null && goals.netCalGoal) {
-    const netPct = Math.min(Math.abs(net) / goals.netCalGoal * 100, 100);
+    const netPct = goals.netCalGoal > 0 ? Math.abs(net) / goals.netCalGoal * 100 : 0;
     const netColor = net > goals.netCalGoal + 100 ? 'var(--red)' :
                      net < goals.netCalGoal - 100 ? 'var(--green)' : 'var(--purple,#6A1B9A)';
     if (ringNetWrap) ringNetWrap.style.display = 'block';
@@ -4637,10 +4664,10 @@ function renderCalendar() {
     const proteinGoal = goals.proteinGoal || Math.round(goals.calGoal * 0.15 / 4);
     const fatGoal     = goals.fatGoal     || Math.round(goals.calGoal * 0.3  / 9);
     const fibreGoal   = goals.fibreGoal   || 30;
-    const calPct     = Math.min(totCal     / goals.calGoal  * 100, 100).toFixed(1);
-    const carbPct    = Math.min(totCarb    / goals.carbGoal * 100, 100).toFixed(1);
-    const proteinPct = Math.min(totProtein / proteinGoal    * 100, 100).toFixed(1);
-    const fatPct     = Math.min(totFat     / fatGoal        * 100, 100).toFixed(1);
+    const calPct     = (goals.calGoal  > 0 ? totCal     / goals.calGoal  * 100 : 0).toFixed(1);
+    const carbPct    = (goals.carbGoal > 0 ? totCarb    / goals.carbGoal * 100 : 0).toFixed(1);
+    const proteinPct = (proteinGoal    > 0 ? totProtein / proteinGoal    * 100 : 0).toFixed(1);
+    const fatPct     = (fatGoal        > 0 ? totFat     / fatGoal        * 100 : 0).toFixed(1);
     const fibrePct   = Math.min(totFibre   / fibreGoal      * 100, 100).toFixed(1);
 
     const dow = date.toLocaleDateString('en-US', { weekday:'short' });

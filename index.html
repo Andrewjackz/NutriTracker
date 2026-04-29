@@ -6149,8 +6149,7 @@ function renderWeightModel() {
   ];
 
   // Calorie bands — centred around user's average intake
-  const avgCal = obs.reduce((s,o)=>s+o.cal,0)/obs.length;
-  const calMin  = Math.max(500,  Math.round(avgCal*0.5/100)*100);
+  const avgCal    = obs.reduce((s,o)=>s+o.cal,0)/obs.length;
   const calMax  = Math.round(avgCal*1.6/100)*100;
   const calStep = Math.round((calMax-calMin)/7/50)*50 || 100;
   const calBands = [];
@@ -6218,7 +6217,10 @@ function renderWeightModel() {
     <tbody>`;
 
   activityLevels.forEach(act => {
-    html += `<tr><td class="sw-row-lbl">${act.label}<br><span style="font-size:9px;font-weight:400;color:var(--text-3)">${act.burn} kcal burn</span></td>`;
+    const approxSteps = act.burn > 0
+      ? '~' + Math.round(act.burn / (0.00057 * (avgWeight || 72)) / 500) * 500 + ' steps'
+      : 'sedentary';
+    html += `<tr><td class="sw-row-lbl">${act.label}<br><span style="font-size:9px;font-weight:400;color:var(--text-3)">${act.burn} kcal burn</span><br><span style="font-size:8.5px;font-weight:400;color:var(--text-3);opacity:.8">${approxSteps}</span></td>`;
     calBands.forEach(cal => {
       const delta = predictDeltaWt(cal, act.burn);
       const cls = swClass(delta);
@@ -6523,7 +6525,10 @@ function renderWeeklyWeightModel() {
     </tr></thead><tbody>`;
 
   activityLevelsWk.forEach(act => {
-    html += `<tr><td class="sw-row-lbl">${act.label}<br><span style="font-size:9px;font-weight:400;color:var(--text-3)">${act.burn} kcal burn</span></td>`;
+    const approxSteps = act.burn > 0
+      ? '~' + Math.round(act.burn / (0.00057 * (avgWtWk || 72)) / 500) * 500 + ' steps'
+      : 'sedentary';
+    html += `<tr><td class="sw-row-lbl">${act.label}<br><span style="font-size:9px;font-weight:400;color:var(--text-3)">${act.burn} kcal burn</span><br><span style="font-size:8.5px;font-weight:400;color:var(--text-3);opacity:.8">${approxSteps}</span></td>`;
     calBandsWk.forEach(cal => {
       const delta = predictWkDelta(cal, act.burn);
       const cls   = delta<=-0.3?'sw-loss-2':delta<=-0.05?'sw-loss-1':delta<=0.05?'sw-stable':delta<=0.2?'sw-gain-1':delta<=0.4?'sw-gain-2':'sw-gain-3';

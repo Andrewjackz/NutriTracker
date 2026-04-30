@@ -2680,6 +2680,13 @@ function initMealPlanTab() {
    MEAL PLAN — RECIPE ON DEMAND
 ════════════════════════════════════════ */
 const mpRecipeCache = {};  // cache by meal name to avoid duplicate API calls
+let   mpMealLookup  = {};  // populated by renderMealPlan; maps index → meal object
+
+function openMpRecipeByIdx(idx) {
+  const meal = mpMealLookup[idx];
+  if (!meal) { console.warn('mpMealLookup miss for idx', idx); return; }
+  openMpRecipe(meal);
+}
 
 function openMpRecipe(meal) {
   const overlay = document.getElementById('mpRecipeOverlay');
@@ -3180,6 +3187,7 @@ Respond ONLY with a valid JSON array — no markdown, no extra text:
 }
 
 function renderMealPlan(plan, calT, carbT, protT, fatT, fibT, save) {
+  mpMealLookup = {};  // reset on each render
   // Week average summary
   const avgCal  = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.calories||0),0)/plan.length);
   const avgCarb = Math.round(plan.reduce((s,d)=>s+(d.day_totals?.carbs_g||0),0)/plan.length);
@@ -3216,12 +3224,14 @@ function renderMealPlan(plan, calT, carbT, protT, fatT, fibT, save) {
         ? `<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">🔀 Try instead:</div>
            <div class="mp-alts">${alts.map(a=>`<span class="mp-alt-chip">${a}</span>`).join('')}</div>`
         : '';
-      const mealKey = encodeURIComponent(JSON.stringify({
+      // Store meal data in the lookup map; use index as key for the onclick
+      const mpIdx = Object.keys(mpMealLookup).length;
+      mpMealLookup[mpIdx] = {
         name: meal.name, type: meal.type,
         calories: meal.calories, carbs_g: meal.carbs_g,
         protein_g: meal.protein_g, fat_g: meal.fat_g, fibre_g: meal.fibre_g,
         note: meal.note || ''
-      }));
+      };
       return `<div class="mp-meal">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1;min-width:0">
@@ -3230,7 +3240,7 @@ function renderMealPlan(plan, calT, carbT, protT, fatT, fibT, save) {
             <div class="mp-meal-macros">${meal.calories} kcal · ${meal.carbs_g}g carbs · ${meal.protein_g}g protein · ${meal.fat_g}g fat · ${meal.fibre_g}g fibre</div>
             ${meal.note ? `<div class="mp-meal-note">${meal.note}</div>` : ''}
           </div>
-          <button class="mp-recipe-btn" onclick="openMpRecipe(${mealKey})" title="Ingredients &amp; recipe">
+          <button class="mp-recipe-btn" onclick="openMpRecipeByIdx(${mpIdx})" title="Ingredients &amp; recipe">
             📋 Recipe
           </button>
         </div>

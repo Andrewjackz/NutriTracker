@@ -2292,6 +2292,20 @@ a { color: inherit; text-decoration: none; }
       </div>
     </div>
 
+    <!-- ── API USAGE REPORT ── -->
+    <div style="margin-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--text-2)">📊 API Usage Report</div>
+        <div style="display:flex;gap:6px">
+          <button onclick="renderApiUsage()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--surface2);font-size:11px;font-weight:700;cursor:pointer;color:var(--text-2)">↻ Refresh</button>
+          <button onclick="clearApiUsage()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--surface2);font-size:11px;font-weight:700;cursor:pointer;color:var(--text-3)">🗑 Clear</button>
+        </div>
+      </div>
+      <div id="apiUsageReport" style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:14px">
+        <div style="font-size:12.5px;color:var(--text-3);text-align:center;padding:10px 0">Tap Refresh to load usage data</div>
+      </div>
+    </div>
+
     <div style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:var(--r-sm);text-align:center">
       <div style="font-size:11px;color:var(--text-3);line-height:1.6">
         NutriTrack · Built with Claude (Anthropic) · Hosted on GitHub Pages<br>
@@ -2337,6 +2351,223 @@ a { color: inherit; text-decoration: none; }
 
 <script>
 /* ════════════════════════════════════════
+   API USAGE REPORT (SETTINGS)
+════════════════════════════════════════ */
+function renderApiUsage() {
+  const el = document.getElementById('apiUsageReport');
+  if (!el) return;
+
+  const log = loadUsage();
+  if (!log.length) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--text-3);text-align:center;padding:12px 0">No API calls recorded yet.<br><span style="font-size:11px">Usage is tracked automatically from your next API call.</span></div>';
+    return;
+  }
+
+  // Current month
+  const now  = new Date();
+  const thisMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const monthLog  = log.filter(e => e.month === thisMonth);
+
+  // All-time totals
+  const allIn  = log.reduce((s,e)=>s+e.in,0);
+  const allOut = log.reduce((s,e)=>s+e.out,0);
+  const allCalls = log.length;
+
+  // This month totals
+  const mIn    = monthLog.reduce((s,e)=>s+e.in,0);
+  const mOut   = monthLog.reduce((s,e)=>s+e.out,0);
+  const mCalls = monthLog.length;
+
+  // Cost calc
+  function cost(entries) {
+    return entries.reduce((s,e) => {
+      const p = PRICING[e.model] || PRICING.default;
+      return s + (e.in/1e6)*p.input + (e.out/1e6)*p.output;
+    }, 0);
+  }
+  const mCost  = cost(monthLog);
+  const allCost= cost(log);
+
+  // Avg latency this month
+  const latencies = monthLog.filter(e=>e.ms>0).map(e=>e.ms);
+  const avgMs = latencies.length ? Math.round(latencies.reduce((s,v)=>s+v,0)/latencies.length) : null;
+
+  // Breakdown by call type this month
+  const typeMap = {};
+  monthLog.forEach(e => {
+    if (!typeMap[e.type]) typeMap[e.type] = { calls:0, in:0, out:0 };
+    typeMap[e.type].calls++;
+    typeMap[e.type].in  += e.in;
+    typeMap[e.type].out += e.out;
+  });
+
+  // Daily cost trend this month (last 14 days)
+  const dayMap = {};
+  monthLog.forEach(e => {
+    const day = e.ts.slice(0,10);
+    if (!dayMap[day]) dayMap[day] = { in:0, out:0 };
+    dayMap[day].in  += e.in;
+    dayMap[day].out += e.out;
+  });
+  const dayKeys = Object.keys(dayMap).sort().slice(-14);
+
+  const typeLabels = {
+    'food-search':'🔍 Food Search','meal-plan':'📅 Meal Plan',
+    'mp-recipe':'📋 Recipe','fridge-chef':'🧊 Fridge Chef',
+    'photo':'📷 Photo','barcode':'🔲 Barcode','exercise':'🏋️ Exercise'
+  };
+  const fmtCost = v => v < 0.01 ? '<$0.01' : '$' + v.toFixed(3);
+  const fmtTok  = v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1000 ? (v/1000).toFixed(1)+'k' : String(v);
+
+  // Project month-end cost
+  const dayOfMonth  = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const projCost    = dayOfMonth > 0 ? (mCost / dayOfMonth) * daysInMonth : mCost;
+
+  el.innerHTML = `
+    <!-- Month header -->
+    <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--text-3);margin-bottom:10px">
+      ${now.toLocaleDateString('en-US',{month:'long',year:'numeric'})} — Month to Date
+    </div>
+
+    <!-- KPI tiles -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px">
+      ${[
+        ['Estimated Cost',  fmtCost(mCost),   'var(--blue)',   'MTD'],
+        ['Projected Cost',  fmtCost(projCost), 'var(--red)',    'Month-end'],
+        ['API Calls',       mCalls,            'var(--text)',   'This month'],
+        ['Input Tokens',    fmtTok(mIn),       'var(--green)',  'Consumed'],
+        ['Output Tokens',   fmtTok(mOut),      'var(--purple,#6A1B9A)', 'Generated'],
+        ['Avg Latency',     avgMs ? (avgMs/1000).toFixed(1)+'s' : '—', 'var(--yellow)', 'Per call'],
+      ].map(([lbl,val,col,sub])=>`
+        <div style="background:var(--surface2);border-radius:var(--r-sm);padding:9px 8px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:${col};line-height:1">${val}</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-3);margin-top:3px">${lbl}</div>
+          <div style="font-size:9px;color:var(--text-3);opacity:.75">${sub}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Breakdown by feature -->
+    ${Object.keys(typeMap).length ? `
+      <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--text-3);margin-bottom:8px">By Feature</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px">
+        <thead>
+          <tr style="border-bottom:1.5px solid var(--border)">
+            <th style="text-align:left;padding:4px 6px;font-weight:700;color:var(--text-3);font-size:10.5px">Feature</th>
+            <th style="text-align:right;padding:4px 4px;font-weight:700;color:var(--text-3);font-size:10.5px">Calls</th>
+            <th style="text-align:right;padding:4px 4px;font-weight:700;color:var(--text-3);font-size:10.5px">Tokens</th>
+            <th style="text-align:right;padding:4px 6px;font-weight:700;color:var(--text-3);font-size:10.5px">Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.entries(typeMap).sort((a,b)=>b[1].calls-a[1].calls).map(([type,d])=>`
+            <tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:6px 6px;color:var(--text);font-weight:600">${typeLabels[type]||type}</td>
+              <td style="padding:6px 4px;text-align:right;color:var(--text-2)">${d.calls}</td>
+              <td style="padding:6px 4px;text-align:right;color:var(--text-3);font-size:11px">${fmtTok(d.in+d.out)}</td>
+              <td style="padding:6px 6px;text-align:right;color:var(--blue);font-weight:700">${fmtCost(cost(monthLog.filter(e=>e.type===type)))}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>` : ''}
+
+    <!-- Daily sparkline (cost per day) -->
+    ${dayKeys.length > 1 ? `
+      <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--text-3);margin-bottom:8px">Daily Cost Trend</div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:40px;margin-bottom:4px;padding:0 2px">
+        ${(()=>{
+          const vals = dayKeys.map(d => {
+            const p = PRICING.default;
+            return (dayMap[d].in/1e6)*p.input + (dayMap[d].out/1e6)*p.output;
+          });
+          const mx = Math.max(...vals) || 0.001;
+          return vals.map((v,i) => `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="${dayKeys[i]}: ${fmtCost(v)}">
+              <div style="width:100%;background:var(--blue);border-radius:2px 2px 0 0;height:${Math.max(3,Math.round(v/mx*36))}px;opacity:.85"></div>
+            </div>`).join('');
+        })()}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-3);padding:0 2px">
+        <span>${dayKeys[0]?.slice(5)}</span>
+        <span>${dayKeys[dayKeys.length-1]?.slice(5)}</span>
+      </div>
+      <div style="margin-top:2px;font-size:10px;color:var(--text-3);text-align:right">Avg/day: ${fmtCost(mCost/Math.max(1,dayKeys.length))}</div>
+    ` : ''}
+
+    <!-- All-time footer -->
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text-3)">
+      <span>All-time: <strong style="color:var(--text)">${allCalls} calls</strong> · ${fmtTok(allIn+allOut)} tokens</span>
+      <span>Total cost: <strong style="color:var(--blue)">${fmtCost(allCost)}</strong></span>
+    </div>
+
+    <!-- Pricing note -->
+    <div style="margin-top:8px;font-size:10px;color:var(--text-3);line-height:1.5;opacity:.8">
+      Rates: Sonnet $3.00/M input · $15.00/M output. Estimates only — verify against your Anthropic console.
+    </div>`;
+}
+
+function clearApiUsage() {
+  if (!confirm('Clear all API usage history?')) return;
+  localStorage.removeItem(USAGE_KEY);
+  renderApiUsage();
+  showToast('Usage history cleared', '');
+}
+
+// Auto-render when settings tab opens
+function openSettings() {
+  document.getElementById('screen-settings')?.scrollTo(0,0);
+  renderApiUsage();
+}
+
+/* ════════════════════════════════════════
+   API USAGE TRACKING
+════════════════════════════════════════ */
+const PRICING = {
+  // Per-million-token rates (USD) — update if Anthropic changes pricing
+  'claude-sonnet-4-20250514': { input: 3.00,  output: 15.00  },
+  'claude-opus-4-20250514':   { input: 15.00, output: 75.00  },
+  'claude-haiku-4-20251001':  { input: 0.25,  output: 1.25   },
+  'default':                  { input: 3.00,  output: 15.00  },
+};
+
+function loadUsage() {
+  try { return JSON.parse(localStorage.getItem(USAGE_KEY)) || []; }
+  catch { return []; }
+}
+function saveUsage(log) {
+  try { localStorage.setItem(USAGE_KEY, JSON.stringify(log)); } catch {}
+}
+
+function logApiCall(callType, model, inputTokens, outputTokens, durationMs) {
+  const log = loadUsage();
+  const now = new Date();
+  log.push({
+    ts:       now.toISOString(),
+    month:    now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'),
+    type:     callType,       // 'search','photo','barcode','mealplan','exercise','recipe','fridge'
+    model:    model || 'claude-sonnet-4-20250514',
+    in:       inputTokens  || 0,
+    out:      outputTokens || 0,
+    ms:       durationMs   || 0,
+  });
+  // Keep last 500 entries max
+  if (log.length > 500) log.splice(0, log.length - 500);
+  saveUsage(log);
+}
+
+// Wrapper: call after every successful Anthropic API response
+function trackUsage(callType, model, responseData, startTime) {
+  try {
+    const usage = responseData?.usage || {};
+    logApiCall(
+      callType, model,
+      usage.input_tokens  || 0,
+      usage.output_tokens || 0,
+      Date.now() - (startTime || Date.now())
+    );
+  } catch(e) { /* never block main flow */ }
+}
+
+/* ════════════════════════════════════════
    STATE & STORAGE
 ════════════════════════════════════════ */
 const DB_KEY      = 'nt_data_v2';
@@ -2348,6 +2579,7 @@ const TMPL_KEY    = 'nt_templates';
 const MEALPLAN_KEY = 'nt_mealplan';
 const EXPLAN_KEY   = 'nt_explan';
 const FASTING_KEY  = 'nt_fasting';
+const USAGE_KEY    = 'nt_api_usage';   // array of call log entries
 
 let db       = loadDB();
 let goals    = loadGoals();
@@ -2758,6 +2990,7 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, no preamble):
   "tips": "Optional tip or variation."
 }`;
 
+  const t0 = Date.now();
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
@@ -2770,6 +3003,7 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, no preamble):
   });
   if (!resp.ok) throw new Error(`API error ${resp.status}`);
   const data = await resp.json();
+  trackUsage('mp-recipe', 'claude-sonnet-4-20250514', data, t0);
   const raw  = data.content?.[0]?.text || '';
   return JSON.parse(raw.replace(/```json|```/g,'').trim());
 }
@@ -2973,7 +3207,8 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, no preamble):
 }`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const t0 = Date.now();
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
                  'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
@@ -2985,6 +3220,7 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, no preamble):
 
     if (!resp.ok) throw new Error(`API error ${resp.status}`);
     const data = await resp.json();
+    trackUsage('fridge-chef', 'claude-sonnet-4-20250514', data, t0);
     const raw = data.content?.[0]?.text || '';
     const json = raw.replace(/```json|```/g, '').trim();
     const recipe = JSON.parse(json);
@@ -3154,7 +3390,8 @@ Respond ONLY with a valid JSON array — no markdown, no extra text:
 ]`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const t0 = Date.now();
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3173,7 +3410,8 @@ Respond ONLY with a valid JSON array — no markdown, no extra text:
       throw new Error(err.error?.message || `API error ${resp.status}`);
     }
     const data  = await resp.json();
-    const raw   = data.content?.[0]?.text || '';
+    trackUsage('meal-plan', 'claude-sonnet-4-20250514', data, t0);
+    cent?.[0]?.text || '';
     const match = raw.match(/\[[\s\S]*\]/);
     if (!match) throw new Error('Could not parse meal plan response');
     const plan = JSON.parse(match[0]);
@@ -3794,6 +4032,7 @@ Respond ONLY with valid JSON like this, no markdown, no extra text:
   "notes": "One brief insight about this food"
 }`;
 
+    const t0 = Date.now();
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -3815,6 +4054,7 @@ Respond ONLY with valid JSON like this, no markdown, no extra text:
     }
 
     const data = await resp.json();
+    trackUsage('food-search', 'claude-sonnet-4-20250514', data, t0);
     const raw  = data.content?.[0]?.text || '';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Could not parse nutrition data');

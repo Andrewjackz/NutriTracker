@@ -615,6 +615,86 @@ a { color: inherit; text-decoration: none; }
 /* ═══════════════════════════════
    DAY DETAIL MODAL
 ═══════════════════════════════ */
+/* ── Brutal Honesty Banner ── */
+#brutalBanner {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.72);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(3px);
+  animation: brutalFadeIn .25s ease;
+}
+@keyframes brutalFadeIn { from { opacity:0; } to { opacity:1; } }
+#brutalBanner.hiding {
+  animation: brutalFadeOut .3s ease forwards;
+}
+@keyframes brutalFadeOut { to { opacity:0; transform:scale(0.96); } }
+
+.brutal-flag {
+  position: relative;
+  transform: rotate(-4deg);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  max-width: 82vw;
+}
+.brutal-flag-body {
+  background: #C62828;
+  border-radius: 12px;
+  padding: 28px 32px 24px;
+  box-shadow: 0 12px 48px rgba(198,40,40,.55), 0 3px 10px rgba(0,0,0,.4);
+  border: 3px solid #FF5252;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+/* Diagonal stripe texture overlay */
+.brutal-flag-body::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent, transparent 18px,
+    rgba(255,255,255,0.04) 18px, rgba(255,255,255,0.04) 20px
+  );
+  pointer-events: none;
+}
+.brutal-flag-top {
+  font-size: 11px; font-weight: 800; letter-spacing: 2.5px;
+  text-transform: uppercase; color: rgba(255,255,255,0.7);
+  margin-bottom: 10px;
+}
+.brutal-flag-main {
+  font-family: var(--ff-serif, Georgia, serif);
+  font-size: clamp(28px, 8vw, 42px);
+  font-weight: 900; line-height: 1.1;
+  color: #fff;
+  text-shadow: 0 3px 12px rgba(0,0,0,0.5);
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+.brutal-flag-sub {
+  font-size: 13px; color: rgba(255,255,255,0.82);
+  font-style: italic; line-height: 1.5; margin-bottom: 18px;
+}
+.brutal-flag-dismiss {
+  display: inline-block;
+  padding: 9px 24px;
+  background: rgba(255,255,255,0.15);
+  border: 1.5px solid rgba(255,255,255,0.4);
+  border-radius: 24px;
+  color: #fff; font-size: 13px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.3px;
+  transition: background .15s;
+}
+.brutal-flag-dismiss:hover { background: rgba(255,255,255,0.25); }
+/* Corner ribbon accent */
+.brutal-flag-ribbon {
+  position: absolute; top: 0; right: 0;
+  width: 0; height: 0;
+  border-left: 40px solid transparent;
+  border-top: 40px solid rgba(255,255,255,0.18);
+}
+
 .day-modal-overlay {
   position: fixed; inset: 0; background: rgba(13,27,62,.5);
   backdrop-filter: blur(6px); z-index: 200;
@@ -2335,6 +2415,22 @@ a { color: inherit; text-decoration: none; }
   </div>
 </div>
 
+<!-- ════ BRUTAL HONESTY BANNER ════ -->
+<div id="brutalBanner" onclick="dismissBrutalBanner()" style="display:none" aria-label="Motivational reminder">
+  <div class="brutal-flag" onclick="event.stopPropagation(); dismissBrutalBanner()">
+    <div class="brutal-flag-body">
+      <div class="brutal-flag-ribbon"></div>
+      <div class="brutal-flag-top">🚨 &nbsp; Daily Reminder &nbsp; 🚨</div>
+      <div class="brutal-flag-main">BE BRUTALLY<br>HONEST</div>
+      <div class="brutal-flag-sub">
+        Log every bite. Every sip. Every cheat.<br>
+        The data only works if it's real.
+      </div>
+      <div class="brutal-flag-dismiss">I will — let me in 💪</div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Meal plan recipe sheet -->
@@ -2657,6 +2753,13 @@ function saveGoals() {
 }
 
 function todayKey() { return isoDate(new Date()); }
+function dismissBrutalBanner() {
+  const banner = document.getElementById('brutalBanner');
+  if (!banner || banner.style.display === 'none') return;
+  banner.classList.add('hiding');
+  setTimeout(() => { banner.style.display = 'none'; banner.classList.remove('hiding'); }, 320);
+}
+
 function getMonday(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   const day = d.getDay();
@@ -2698,6 +2801,15 @@ function hasExclusion(key) {
    INIT
 ════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
+  // Show brutal honesty banner on every open
+  (function() {
+    const banner = document.getElementById('brutalBanner');
+    if (!banner) return;
+    banner.style.display = 'flex';
+    // Auto-dismiss after 4 seconds
+    setTimeout(() => dismissBrutalBanner(), 4000);
+  })();
+
   // header date
   document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
 

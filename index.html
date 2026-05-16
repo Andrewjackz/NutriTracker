@@ -1678,7 +1678,10 @@ a { color: inherit; text-decoration: none; }
 
         <!-- Date range selector -->
         <div style="margin-bottom:10px">
-          <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Date Range</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Date Range</div>
+          <div id="chartRangeLabel" style="font-size:11px;font-weight:700;color:var(--blue)"></div>
+        </div>
           <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px" id="chartRangePresets">
             <button class="cr-btn sel" data-range="all"  onclick="setChartRange('all',this)">All</button>
             <button class="cr-btn"     data-range="30"   onclick="setChartRange('30',this)">30d</button>
@@ -5338,6 +5341,7 @@ function calNav(dir) {
    ANALYTICS
 ════════════════════════════════════════ */
 function renderAnalytics() {
+  updateChartRangeLabel();
   renderBMI();
   renderTotalToDate();
   renderWeeklySummaries();
@@ -5716,17 +5720,16 @@ function renderAnalytics() {
   const calLabels = _calAgg.map(d => d.label);
   const calGoalDs = goalDataset(calLabels, goals.calGoal, 'rgba(211,47,47,0.7)');
   calTrendInst = new Chart(document.getElementById('calTrendChart'), {
-    type: 'bar',
+    type: chartAgg==='daily'?'bar':'line',
     data: {
       labels: calLabels,
       datasets: [
         {
-          label: 'Calories',
-          data: trendDates.map(d => d.cal),
-          backgroundColor: trendDates.map(d => d.cal > goals.calGoal ? 'rgba(211,47,47,0.75)' : 'rgba(21,101,192,0.65)'),
-          borderRadius: 6,
+          label: chartAgg==='daily'?'Calories':chartAgg==='weekly'?'Avg Cal/week':'Avg Cal/month',
+          data: _calAgg.map(d => d.val),
+          backgroundColor: _calAgg.map(d => (d.val||0) > goals.calGoal ? 'rgba(211,47,47,0.75)' : 'rgba(21,101,192,0.65)'),
+          borderRadius: chartAgg==='daily'?6:3,
           order: 1,
-          type: 'bar',
         },
         ...(calGoalDs ? [{ ...calGoalDs, label: `Goal (${goals.calGoal.toLocaleString()})`, type: 'line' }] : [])
       ]
@@ -5791,8 +5794,8 @@ function renderAnalytics() {
     data: {
       labels: carbLabels,
       datasets: [
-        { label: 'Carbs (g)', data: trendDates.map(d => d.carb), borderColor: '#1565C0', backgroundColor: 'rgba(21,101,192,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#1565C0', order: 1 },
-        rollingDataset(carbLabels, trendDates.map(d=>d.carb), 'rgba(13,71,161,0.8)', '7-day avg'),
+        { label: 'Carbs (g)', data: _carbAgg.map(d=>d.val), borderColor: '#1565C0', backgroundColor: 'rgba(21,101,192,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#1565C0', order: 1 },
+        rollingDataset(carbLabels, _carbAgg.map(d=>d.val), 'rgba(13,71,161,0.8)', '7-day avg'),
         ...(carbGoalDs ? [{ ...carbGoalDs, label: `Goal (${goals.carbGoal}g)` }] : [])
       ]
     },
@@ -5810,8 +5813,8 @@ function renderAnalytics() {
     data: {
       labels: proteinLabels,
       datasets: [
-        { label: 'Protein (g)', data: proteinDates.map(d => d.val), borderColor: '#2E7D32', backgroundColor: 'rgba(46,125,50,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#2E7D32', order: 1 },
-        rollingDataset(proteinLabels, proteinDates.map(d=>d.val), 'rgba(27,94,32,0.8)', '7-day avg'),
+        { label: 'Protein (g)', data: _protAgg.map(d=>d.val), borderColor: '#2E7D32', backgroundColor: 'rgba(46,125,50,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#2E7D32', order: 1 },
+        rollingDataset(proteinLabels, _protAgg.map(d=>d.val), 'rgba(27,94,32,0.8)', '7-day avg'),
         ...(proteinGoalDs ? [{ ...proteinGoalDs, label: `Goal (${goals.proteinGoal}g)` }] : [])
       ]
     },
@@ -5829,8 +5832,8 @@ function renderAnalytics() {
     data: {
       labels: fatLabels,
       datasets: [
-        { label: 'Fat (g)', data: fatDates.map(d => d.val), borderColor: '#F9A825', backgroundColor: 'rgba(249,168,37,0.12)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#F9A825', order: 1 },
-        rollingDataset(fatLabels, fatDates.map(d=>d.val), 'rgba(230,81,0,0.8)', '7-day avg'),
+        { label: 'Fat (g)', data: _fatAgg.map(d=>d.val), borderColor: '#F9A825', backgroundColor: 'rgba(249,168,37,0.12)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#F9A825', order: 1 },
+        rollingDataset(fatLabels, _fatAgg.map(d=>d.val), 'rgba(230,81,0,0.8)', '7-day avg'),
         ...(fatGoalDs ? [{ ...fatGoalDs, label: `Goal (${goals.fatGoal}g)` }] : [])
       ]
     },
@@ -5849,8 +5852,8 @@ function renderAnalytics() {
     data: {
       labels: fibreLabels,
       datasets: [
-        { label: 'Fibre (g)', data: fibreDates.map(d => d.val), borderColor: '#00695C', backgroundColor: 'rgba(0,105,92,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#00695C', order: 1 },
-        rollingDataset(fibreLabels, fibreDates.map(d=>d.val), 'rgba(0,77,64,0.8)', '7-day avg'),
+        { label: 'Fibre (g)', data: _fibAgg.map(d=>d.val), borderColor: '#00695C', backgroundColor: 'rgba(0,105,92,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#00695C', order: 1 },
+        rollingDataset(fibreLabels, _fibAgg.map(d=>d.val), 'rgba(0,77,64,0.8)', '7-day avg'),
         ...(fibreGoalDs ? [{ ...fibreGoalDs, label: `Goal (${fibreGoalVal}g)` }] : [])
       ]
     },
@@ -6206,14 +6209,16 @@ function renderAnalytics() {
     const wtMin2 = Math.min(...wtCalDays.map(d=>d.weight));
     const wtMax2 = Math.max(...wtCalDays.map(d=>d.weight));
     const wtPad2 = (wtMax2 - wtMin2) * 0.15 || 1;
+    const _wcWtAgg  = aggregateData(wtCalDays.map(d=>({date:d.date,val:d.weight})), chartAgg);
+    const _wcCalAgg = aggregateData(wtCalDays.map(d=>({date:d.date,val:d.cal})), chartAgg);
     wtCalChartInst = new Chart(wtCalCanvas, {
       type: 'line',
       data: {
-        labels: wtCalDays.map(d => d.date),
+        labels: _wcWtAgg.map(d => d.label),
         datasets: [
           {
             label: `Weight (${goals.units})`,
-            data: wtCalDays.map(d => d.weight),
+            data: _wcWtAgg.map(d => d.val),
             borderColor: '#C62828',
             backgroundColor: 'rgba(198,40,40,0.07)',
             fill: true, tension: 0.3,
@@ -6222,8 +6227,8 @@ function renderAnalytics() {
             yAxisID: 'yWeight',
           },
           {
-            label: 'Calories',
-            data: wtCalDays.map(d => d.cal),
+            label: chartAgg==='daily'?'Calories':'Avg Calories',
+            data: _wcCalAgg.map(d => d.val),
             borderColor: '#1565C0',
             backgroundColor: 'transparent',
             fill: false, tension: 0.3,
@@ -6292,8 +6297,8 @@ function renderAnalytics() {
         labels: stWtDays.map(d => d.date),
         datasets: [
           {
-            label: 'Steps',
-            data: stWtDays.map(d => d.steps),
+            label: chartAgg==='daily'?'Steps':'Avg Steps',
+            data: _swStAgg.map(d => d.val),
             borderColor: '#2E7D32',
             backgroundColor: 'rgba(46,125,50,0.08)',
             fill: true, tension: 0.3,
@@ -6303,7 +6308,7 @@ function renderAnalytics() {
           },
           {
             label: `Weight (${goals.units})`,
-            data: stWtDays.map(d => d.weight),
+            data: _swWtAgg.map(d => d.val),
             borderColor: '#C62828',
             backgroundColor: 'transparent',
             fill: false, tension: 0.3,
@@ -6699,7 +6704,23 @@ function setChartRange(range, btn) {
   if (btn) btn.classList.add('sel');
   const customEl = document.getElementById('chartCustomRange');
   if (customEl) customEl.style.display = range === 'custom' ? 'flex' : 'none';
-  if (range !== 'custom') { chartDateFrom = null; chartDateTo = null; renderAnalytics(); }
+  if (range !== 'custom') {
+    chartDateFrom = null; chartDateTo = null;
+    updateChartRangeLabel();
+    renderAnalytics();
+  }
+}
+
+function updateChartRangeLabel() {
+  const el = document.getElementById('chartRangeLabel');
+  if (!el) return;
+  const keys = getChartKeys();
+  if (!keys.length) { el.textContent = ''; return; }
+  const from = keys[0]; const to = keys[keys.length-1];
+  if (chartRange === 'all') el.textContent = `${keys.length} days`;
+  else if (chartRange === 'custom' && chartDateFrom && chartDateTo)
+    el.textContent = `${new Date(from+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date(to+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})} (${keys.length}d)`;
+  else el.textContent = `Last ${chartRange} days (${keys.length} logged)`;
 }
 
 function setChartAgg(agg, btn) {
@@ -6714,6 +6735,7 @@ function applyCustomRange() {
   const to   = document.getElementById('chartDateTo')?.value;
   if (from && to && from <= to) {
     chartDateFrom = from; chartDateTo = to;
+    updateChartRangeLabel();
     renderAnalytics();
   }
 }

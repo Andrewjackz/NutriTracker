@@ -1686,7 +1686,7 @@ a { color: inherit; text-decoration: none; }
             <button class="cr-btn"     data-range="90"   onclick="setChartRange('90',this)">90d</button>
             <button class="cr-btn"     data-range="custom" onclick="setChartRange('custom',this)">Custom</button>
           </div>
-          <div id="chartCustomRange" style="display:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div id="chartCustomRange" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="date" id="chartDateFrom" class="inp" style="flex:1;padding:7px 9px;font-size:12px" onchange="applyCustomRange()">
             <span style="font-size:12px;color:var(--text-3)">→</span>
             <input type="date" id="chartDateTo"   class="inp" style="flex:1;padding:7px 9px;font-size:12px" onchange="applyCustomRange()">
@@ -5348,8 +5348,8 @@ function renderAnalytics() {
   renderNetScatter();
   renderFullCorrMatrix();
   renderBurnScatter();
-  // build dataset: days with both cal and weight, sorted
-  const keys = Object.keys(db).sort();
+  // build dataset: filtered by chart range setting
+  const keys = getChartKeys();
   const calSeries  = [];
   const carbSeries = [];
   const weightSeries = {};
@@ -5710,9 +5710,8 @@ function renderAnalytics() {
   // cal trend
   if (calTrendInst) calTrendInst.destroy();
   // Use getChartKeys-filtered calSeries + aggregation
-  const _calFiltered = calSeries.filter(d => getChartKeys().includes(d.date));
-  const _calAgg   = aggregateData(_calFiltered.map(d=>({date:d.date,val:d.cal})), chartAgg);
-  const trendDates = _calFiltered;  // kept for color mapping in daily mode
+  const _calAgg = aggregateData(calSeries.map(d=>({date:d.date,val:d.cal})), chartAgg);
+  const trendDates = calSeries;  // calSeries already filtered by getChartKeys()
   const calLabels = _calAgg.map(d => d.label);
   const calGoalDs = goalDataset(calLabels, goals.calGoal, 'rgba(211,47,47,0.7)');
   calTrendInst = new Chart(document.getElementById('calTrendChart'), {
@@ -5855,8 +5854,7 @@ function renderAnalytics() {
 
   // weight trend
   if (weightTrendInst) weightTrendInst.destroy();
-  const _wtFiltered = weightTrend.filter(d => getChartKeys().includes(d.date));
-  const _wtAgg2  = aggregateData(_wtFiltered.map(d=>({date:d.date,val:d.val})), chartAgg);
+  const _wtAgg2 = aggregateData(weightTrend.map(d=>({date:d.date,val:d.val})), chartAgg);
   const wtDates  = _wtAgg2;  // use aggregated objects
   const weightChartEmpty = document.getElementById('weightChartEmpty');
   const weightCanvas     = document.getElementById('weightTrendChart');
@@ -6024,8 +6022,7 @@ function renderAnalytics() {
 
   // steps trend
   if (stepsTrendInst) stepsTrendInst.destroy();
-  const _stFiltered = stepsTrend.filter(d => getChartKeys().includes(d.date));
-  const _stAgg2  = aggregateData(_stFiltered.map(d=>({date:d.date,val:d.val})), chartAgg);
+  const _stAgg2 = aggregateData(stepsTrend.map(d=>({date:d.date,val:d.val})), chartAgg);
   const stDates  = _stAgg2;
   const stepsChartEmpty = document.getElementById('stepsChartEmpty');
   const stepsCanvas     = document.getElementById('stepsTrendChart');

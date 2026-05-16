@@ -5560,15 +5560,16 @@ function renderAnalytics() {
   if (!netCalTrendInst) netCalTrendInst = null;
   if (netCalTrendInst) { netCalTrendInst.destroy(); netCalTrendInst = null; }
   // build combined consumed + net series aligned on same dates
-  const ncDates30 = calSeries.slice(-30);
+  const ncDates30 = calSeries;  // already filtered by getChartKeys()
   if (ncDates30.length >= 2) {
-    const ncLabels   = ncDates30.map(d => d.date.slice(5));
-    const consumed   = ncDates30.map(d => d.cal);
-    const netVals    = ncDates30.map(d => {
-      const dayD = effectiveDay(d.date);
-      const burn = calcBurn(dayD.steps, dayD.weight, goals.units, dayD.runKm, dayD.runPace);
-      return d.cal - burn;
-    });
+    const _ncLabAgg  = aggregateData(ncDates30.map(d=>({date:d.date,val:d.cal})), chartAgg);
+    const ncLabels   = _ncLabAgg.map(d=>d.label);
+    const consumed   = _ncLabAgg.map(d=>d.val);
+    const netVals    = aggregateData(ncDates30.map(d=>{
+      const ed = effectiveDay(d.date);
+      const burn = calcBurn(ed.steps, ed.weight, goals.units, ed.runKm, ed.runPace);
+      return {date:d.date, val: d.cal > 0 ? d.cal - burn : null};
+    }), chartAgg).map(d=>d.val);
     netCalTrendInst = new Chart(document.getElementById('netCalTrendChart'), {
       type: 'bar',
       data: {
@@ -5782,7 +5783,8 @@ function renderAnalytics() {
 
   // carb trend
   if (carbTrendInst) carbTrendInst.destroy();
-  const carbLabels = trendDates.map(d => d.date.slice(5));
+  const _carbAgg = aggregateData(trendDates.map(d=>({date:d.date,val:d.carb})), chartAgg);
+  const carbLabels = _carbAgg.map(d=>d.label);
   const carbGoalDs = goalDataset(carbLabels, goals.carbGoal, 'rgba(21,101,192,0.55)');
   carbTrendInst = new Chart(document.getElementById('carbTrendChart'), {
     type: 'line',
@@ -5799,8 +5801,9 @@ function renderAnalytics() {
 
   // protein trend
   if (proteinTrendInst) proteinTrendInst.destroy();
-  const proteinDates = proteinSeries.slice(-30);
-  const proteinLabels = proteinDates.map(d => d.date.slice(5));
+  const proteinDates = proteinSeries;
+  const _protAgg = aggregateData(proteinDates.map(d=>({date:d.date,val:d.val})), chartAgg);
+  const proteinLabels = _protAgg.map(d=>d.label);
   const proteinGoalDs = goalDataset(proteinLabels, goals.proteinGoal, 'rgba(46,125,50,0.55)');
   proteinTrendInst = new Chart(document.getElementById('proteinTrendChart'), {
     type: 'line',
@@ -5817,8 +5820,9 @@ function renderAnalytics() {
 
   // fat trend
   if (fatTrendInst) fatTrendInst.destroy();
-  const fatDates = fatSeries.slice(-30);
-  const fatLabels = fatDates.map(d => d.date.slice(5));
+  const fatDates = fatSeries;
+  const _fatAgg = aggregateData(fatDates.map(d=>({date:d.date,val:d.val})), chartAgg);
+  const fatLabels = _fatAgg.map(d=>d.label);
   const fatGoalDs = goalDataset(fatLabels, goals.fatGoal, 'rgba(249,168,37,0.7)');
   fatTrendInst = new Chart(document.getElementById('fatTrendChart'), {
     type: 'line',
@@ -5835,8 +5839,9 @@ function renderAnalytics() {
 
   // fibre trend
   if (fibreTrendInst) fibreTrendInst.destroy();
-  const fibreDates = fibreSeries.slice(-30);
-  const fibreLabels = fibreDates.map(d => d.date.slice(5));
+  const fibreDates = fibreSeries;
+  const _fibAgg = aggregateData(fibreDates.map(d=>({date:d.date,val:d.val})), chartAgg);
+  const fibreLabels = _fibAgg.map(d=>d.label);
   const fibreGoalVal = goals.fibreGoal || 30;
   const fibreGoalDs = goalDataset(fibreLabels, fibreGoalVal, 'rgba(0,105,92,0.6)');
   fibreTrendInst = new Chart(document.getElementById('fibreTrendChart'), {
@@ -5934,7 +5939,7 @@ function renderAnalytics() {
   const macroKcalEl      = document.getElementById('macroSplitKcal');
 
   // average across all logged days
-  const macroAllKeys = Object.keys(db).sort();
+  const macroAllKeys = getChartKeys();
   let mTotCarb=0, mTotProtein=0, mTotFat=0, mTotFibre=0, mDays=0;
   macroAllKeys.forEach(k => {
     const d = effectiveDay(k);   // respects exclusion flags
@@ -6186,7 +6191,6 @@ function renderAnalytics() {
   // build joined dataset: days that have BOTH weight and calories
   const wtCalDays = keys
     .filter(k => { const e=effectiveDay(k); return e.weight && (e.items||[]).reduce((s,i)=>s+i.calories,0)>0; })
-    .slice(-60)
     .map(k => { const e=effectiveDay(k); return {
       date:   k.slice(5),
       weight: e.weight,
@@ -6267,7 +6271,6 @@ function renderAnalytics() {
   // days that have BOTH steps and weight
   const stWtDays = keys
     .filter(k => { const e=effectiveDay(k); return e.steps && e.weight; })
-    .slice(-60)
     .map(k => { const e=effectiveDay(k); return {
       date:   k.slice(5),
       steps:  e.steps,
@@ -6351,12 +6354,11 @@ function renderBurnSplit() {
   const splitCanvas = document.getElementById('burnSplitChart');
   if (!splitCanvas) return;
 
-  const allKeys = Object.keys(db).sort();
+  const allKeys = getChartKeys();
 
   // Build series: days that have steps or a run
   const splitDays = allKeys
     .filter(k => (effectiveDay(k).steps || effectiveDay(k).runKm))
-    .slice(-30)
     .map(k => {
       const d = effectiveDay(k);   // respects exclusion flags
       const weightKg = d.weight
@@ -6452,10 +6454,9 @@ function renderRunTrend() {
   const runCanvas = document.getElementById('runTrendChart');
   if (!runCanvas) return;
 
-  const allKeys = Object.keys(db).sort();
+  const allKeys = getChartKeys();
   const runDays = allKeys
     .filter(k => db[k]?.runKm && db[k]?.runPace)
-    .slice(-30)
     .map(k => ({ date: k.slice(5), km: db[k].runKm, pace: db[k].runPace }));
 
   if (runDays.length < 2) {
@@ -6537,7 +6538,7 @@ function renderRunTrend() {
    EXERCISE BURN SCATTER — BURN vs Δ WEIGHT
 ════════════════════════════════════════ */
 function renderBurnScatter() {
-  const keys3        = Object.keys(db).sort();
+  const keys3        = getChartKeys();
   const wSeries3     = {};
   const burnByDate   = {};
 
@@ -6778,7 +6779,7 @@ function setRegressionModeNote(mode) {
 
 function buildWeeklyObs() {
   // Group days into ISO weeks (Mon–Sun)
-  const allKeys = Object.keys(db).sort();
+  const allKeys = getChartKeys();
   const weeks   = {};
   allKeys.forEach(k => {
     const dt  = new Date(k + 'T12:00:00');
@@ -6966,7 +6967,7 @@ function renderWeightModel() {
   const modelEmpty  = document.getElementById('modelEmpty');
   const summaryCard = document.getElementById('modelSummaryCard');
   if (!modelEmpty || !summaryCard) return; // panel not in DOM yet
-  const allKeys = Object.keys(db).sort();
+  const allKeys = getChartKeys();
   const wKeys   = allKeys.filter(k => db[k]?.weight && !db[k]?.exclude_weight).sort();
 
   if (wKeys.length < 20) {
@@ -7343,7 +7344,7 @@ function renderWeeklyWeightModel() {
   // One row per week: avg-daily cal, avg-daily burn, avg-daily net,
   // avg-daily steps, avg-daily protein, avg-daily fibre
   // Outcome y = weekly Δweight / days_with_food  (avg daily Δwt)
-  const allKeys = Object.keys(db).sort();
+  const allKeys = getChartKeys();
   const weekMap = {};
   allKeys.forEach(k => {
     const mon = getMonday(k);
@@ -7762,7 +7763,7 @@ function renderFullCorrMatrix() {
   if (!el) return;
 
   // Build daily data arrays — all same-day, all dates with at least calories logged
-  const allKeys = Object.keys(db).sort();
+  const allKeys = getChartKeys();
 
   // Build a weight lookup for fast next-day delta access
   const weightLookup = {};
@@ -7875,7 +7876,7 @@ function renderFullCorrMatrix() {
    NET CAL SCATTER — PERSONAL REGRESSION
 ════════════════════════════════════════ */
 function renderNetScatter() {
-  const keys2        = Object.keys(db).sort();
+  const keys2        = getChartKeys();
   const wSeries2     = {};
   const netByDate    = {};
 

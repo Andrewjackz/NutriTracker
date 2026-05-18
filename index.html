@@ -1655,6 +1655,8 @@ a { color: inherit; text-decoration: none; }
         <div class="stat-tile"><div class="stv" id="statWeightDelta">—</div><div class="stl">Weight Δ</div></div>
       </div>
 
+
+
       <!-- Streak Counters -->
       <div id="streakSection" style="margin-bottom:4px"></div>
 
@@ -1674,6 +1676,96 @@ a { color: inherit; text-decoration: none; }
       <div id="totalToDate"></div>
       <div id="weeklySummaries"></div>
       <div id="monthlySummaries"></div>
+
+      <!-- ── CUSTOM CHART TOOL ── -->
+      <div class="chart-card" style="padding:16px;margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:4px">📈 Custom Chart</div>
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:12px;line-height:1.5">Select any two variables and a date range to plot a dual-axis chart.</div>
+
+        <!-- Variable selectors -->
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <div style="flex:1">
+            <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">Left axis — line</div>
+            <select id="cctVar1" class="cct-sel">
+              <option value="weight">⚖️ Weight</option>
+              <option value="cal">🔥 Calories</option>
+              <option value="netCal">⚡ Net Calories</option>
+              <option value="carbs">🌾 Carbs (g)</option>
+              <option value="protein">💪 Protein (g)</option>
+              <option value="fat">🥑 Fat (g)</option>
+              <option value="fibre">🥦 Fibre (g)</option>
+              <option value="steps">👟 Steps</option>
+              <option value="burn">🔥 Burn (kcal)</option>
+              <option value="runKm">🏃 Run km</option>
+              <option value="bmi">📊 BMI</option>
+              <option value="wtDelta_d">⚖️ Δ Weight daily</option>
+              <option value="wtDelta_w">⚖️ Δ Weight (7d avg)</option>
+              <option value="wtDelta_m">⚖️ Δ Weight (30d avg)</option>
+              <option value="cal_w">🔥 Calories (7d avg)</option>
+              <option value="cal_m">🔥 Calories (30d avg)</option>
+              <option value="netCal_w">⚡ Net Cal (7d avg)</option>
+              <option value="netCal_m">⚡ Net Cal (30d avg)</option>
+              <option value="weight_w">⚖️ Weight (7d avg)</option>
+              <option value="weight_m">⚖️ Weight (30d avg)</option>
+              <option value="steps_w">👟 Steps (7d avg)</option>
+              <option value="steps_m">👟 Steps (30d avg)</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">Right axis — bars</div>
+            <select id="cctVar2" class="cct-sel">
+              <option value="cal">🔥 Calories</option>
+              <option value="netCal">⚡ Net Calories</option>
+              <option value="steps">👟 Steps</option>
+              <option value="burn">🔥 Burn (kcal)</option>
+              <option value="carbs">🌾 Carbs (g)</option>
+              <option value="protein">💪 Protein (g)</option>
+              <option value="fat">🥑 Fat (g)</option>
+              <option value="fibre">🥦 Fibre (g)</option>
+              <option value="weight">⚖️ Weight</option>
+              <option value="runKm">🏃 Run km</option>
+              <option value="bmi">📊 BMI</option>
+              <option value="wtDelta_d">⚖️ Δ Weight daily</option>
+              <option value="wtDelta_w">⚖️ Δ Weight (7d avg)</option>
+              <option value="wtDelta_m">⚖️ Δ Weight (30d avg)</option>
+              <option value="cal_w">🔥 Calories (7d avg)</option>
+              <option value="cal_m">🔥 Calories (30d avg)</option>
+              <option value="netCal_w">⚡ Net Cal (7d avg)</option>
+              <option value="netCal_m">⚡ Net Cal (30d avg)</option>
+              <option value="weight_w">⚖️ Weight (7d avg)</option>
+              <option value="weight_m">⚖️ Weight (30d avg)</option>
+              <option value="steps_w">👟 Steps (7d avg)</option>
+              <option value="steps_m">👟 Steps (30d avg)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Range buttons -->
+        <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Date range</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
+          <button class="cct-range-btn sel" data-cct-range="all"   onclick="selectCctRange(this)">All</button>
+          <button class="cct-range-btn"     data-cct-range="7"     onclick="selectCctRange(this)">7d</button>
+          <button class="cct-range-btn"     data-cct-range="30"    onclick="selectCctRange(this)">30d</button>
+          <button class="cct-range-btn"     data-cct-range="60"    onclick="selectCctRange(this)">60d</button>
+          <button class="cct-range-btn"     data-cct-range="90"    onclick="selectCctRange(this)">90d</button>
+          <button class="cct-range-btn"     data-cct-range="120"   onclick="selectCctRange(this)">120d</button>
+          <button class="cct-range-btn"     data-cct-range="custom" onclick="selectCctRange(this)">Custom</button>
+        </div>
+        <div id="cctCustomRange" style="display:none;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <input type="date" id="cctDateFrom" class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px">
+          <span style="font-size:12px;color:var(--text-3)">→</span>
+          <input type="date" id="cctDateTo" class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px">
+        </div>
+
+        <button onclick="renderCustomChart()"
+          style="width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:12px">
+          📊 Plot Chart
+        </button>
+
+        <div id="cctEmpty" style="display:none;text-align:center;padding:20px 0;font-size:13px;color:var(--text-3)">Not enough data for the selected range.</div>
+        <canvas id="customChartCanvas" height="260" style="display:none"></canvas>
+        <div id="cctStats" style="margin-top:10px;display:none;gap:8px;flex-wrap:wrap"></div>
+      </div>
 
       <div class="chart-card">
         <div class="card-title">Daily Calories — Trend</div>
@@ -1807,73 +1899,7 @@ a { color: inherit; text-decoration: none; }
         <div id="regModeNote" style="font-size:11px;color:var(--text-3);margin-bottom:12px;line-height:1.5;padding:6px 10px;background:var(--surface2);border-radius:var(--r-sm)"></div>
       </div>
 
-      <!-- ── CUSTOM CHART TOOL ── -->
-      <div class="chart-card" style="padding:16px;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:4px">📈 Custom Chart</div>
-        <div style="font-size:12px;color:var(--text-3);margin-bottom:12px;line-height:1.5">Select any two variables and a date range to plot a dual-axis chart.</div>
 
-        <!-- Variable selectors -->
-        <div style="display:flex;gap:8px;margin-bottom:10px">
-          <div style="flex:1">
-            <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">Left axis — line</div>
-            <select id="cctVar1" class="cct-sel">
-              <option value="weight">⚖️ Weight</option>
-              <option value="cal">🔥 Calories</option>
-              <option value="netCal">⚡ Net Calories</option>
-              <option value="carbs">🌾 Carbs (g)</option>
-              <option value="protein">💪 Protein (g)</option>
-              <option value="fat">🥑 Fat (g)</option>
-              <option value="fibre">🥦 Fibre (g)</option>
-              <option value="steps">👟 Steps</option>
-              <option value="burn">🔥 Burn (kcal)</option>
-              <option value="runKm">🏃 Run km</option>
-              <option value="bmi">📊 BMI</option>
-            </select>
-          </div>
-          <div style="flex:1">
-            <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">Right axis — bars</div>
-            <select id="cctVar2" class="cct-sel">
-              <option value="cal">🔥 Calories</option>
-              <option value="netCal">⚡ Net Calories</option>
-              <option value="steps">👟 Steps</option>
-              <option value="burn">🔥 Burn (kcal)</option>
-              <option value="carbs">🌾 Carbs (g)</option>
-              <option value="protein">💪 Protein (g)</option>
-              <option value="fat">🥑 Fat (g)</option>
-              <option value="fibre">🥦 Fibre (g)</option>
-              <option value="weight">⚖️ Weight</option>
-              <option value="runKm">🏃 Run km</option>
-              <option value="bmi">📊 BMI</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Range buttons -->
-        <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Date range</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
-          <button class="cct-range-btn sel" data-cct-range="all"   onclick="selectCctRange(this)">All</button>
-          <button class="cct-range-btn"     data-cct-range="7"     onclick="selectCctRange(this)">7d</button>
-          <button class="cct-range-btn"     data-cct-range="30"    onclick="selectCctRange(this)">30d</button>
-          <button class="cct-range-btn"     data-cct-range="60"    onclick="selectCctRange(this)">60d</button>
-          <button class="cct-range-btn"     data-cct-range="90"    onclick="selectCctRange(this)">90d</button>
-          <button class="cct-range-btn"     data-cct-range="120"   onclick="selectCctRange(this)">120d</button>
-          <button class="cct-range-btn"     data-cct-range="custom" onclick="selectCctRange(this)">Custom</button>
-        </div>
-        <div id="cctCustomRange" style="display:none;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-          <input type="date" id="cctDateFrom" class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px">
-          <span style="font-size:12px;color:var(--text-3)">→</span>
-          <input type="date" id="cctDateTo" class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px">
-        </div>
-
-        <button onclick="renderCustomChart()"
-          style="width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:12px">
-          📊 Plot Chart
-        </button>
-
-        <div id="cctEmpty" style="display:none;text-align:center;padding:20px 0;font-size:13px;color:var(--text-3)">Not enough data for the selected range.</div>
-        <canvas id="customChartCanvas" height="260" style="display:none"></canvas>
-        <div id="cctStats" style="margin-top:10px;display:none;gap:8px;flex-wrap:wrap"></div>
-      </div>
 
       <!-- Daily mode scatter charts -->
       <div id="regDailyCharts">
@@ -2983,7 +3009,7 @@ function switchTab(name) {
   if (name === 'search')    autoSelectMealType();
   if (name === 'today')     { renderToday(); updateFastingCard(); }
   if (name === 'calendar')  renderCalendar();
-  if (name === 'analytics') renderAnalytics();
+  if (name === 'analytics') { renderAnalytics(); restoreCctState(); }
   if (name === 'mealplan')  initMealPlanTab();
   if (name === 'exercise')  initExerciseTab();
 }
@@ -6729,6 +6755,36 @@ function getChartKeys() {
 let cctRange     = 'all';
 let cctChartInst = null;
 
+function restoreCctState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('nt_cct'));
+    if (!saved) return;
+
+    // Restore selects
+    const v1El = document.getElementById('cctVar1');
+    const v2El = document.getElementById('cctVar2');
+    if (v1El && saved.v1) v1El.value = saved.v1;
+    if (v2El && saved.v2) v2El.value = saved.v2;
+
+    // Restore range buttons
+    if (saved.range) {
+      cctRange = saved.range;
+      document.querySelectorAll('[data-cct-range]').forEach(b => {
+        b.classList.toggle('sel', b.dataset.cctRange === saved.range);
+      });
+      const customDiv = document.getElementById('cctCustomRange');
+      if (customDiv) customDiv.style.display = saved.range === 'custom' ? 'flex' : 'none';
+    }
+
+    // Restore custom dates
+    if (saved.from) { const el = document.getElementById('cctDateFrom'); if (el) el.value = saved.from; }
+    if (saved.to)   { const el = document.getElementById('cctDateTo');   if (el) el.value = saved.to;   }
+
+    // Auto-replot if there was a previous chart
+    if (saved.v1 && saved.v2) renderCustomChart();
+  } catch(e) {}
+}
+
 function selectCctRange(btn) {
   cctRange = btn.dataset.cctRange;
   document.querySelectorAll('[data-cct-range]').forEach(b => b.classList.remove('sel'));
@@ -6754,20 +6810,52 @@ function cctGetValue(dayObj, varKey) {
     case 'burn':    return d.steps||d.runKm ? calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace)||null : null;
     case 'runKm':   return d.runKm  || null;
     case 'bmi':     { if(!d.weight||!goals.heightCm) return null; const h=goals.heightCm/100; return Math.round(d.weight/(h*h)*10)/10; }
+    case 'wtDelta_d': {
+      const _s=Object.keys(db).sort(),_i=_s.indexOf(dayObj.key);
+      if(_i<1)return null;
+      const _p=effectiveDay(_s[_i-1]);
+      return(d.weight&&_p.weight)?Math.round((d.weight-_p.weight)*100)/100:null;
+    }
+    case 'wtDelta_w':  return cctRollingAvg(dayObj.key,'wtDelta_d',7);
+    case 'wtDelta_m':  return cctRollingAvg(dayObj.key,'wtDelta_d',30);
+    case 'cal_w':      return cctRollingAvg(dayObj.key,'cal',7);
+    case 'cal_m':      return cctRollingAvg(dayObj.key,'cal',30);
+    case 'netCal_w':   return cctRollingAvg(dayObj.key,'netCal',7);
+    case 'netCal_m':   return cctRollingAvg(dayObj.key,'netCal',30);
+    case 'weight_w':   return cctRollingAvg(dayObj.key,'weight',7);
+    case 'weight_m':   return cctRollingAvg(dayObj.key,'weight',30);
+    case 'steps_w':    return cctRollingAvg(dayObj.key,'steps',7);
+    case 'steps_m':    return cctRollingAvg(dayObj.key,'steps',30);
     default: return null;
   }
+}
+function cctRollingAvg(key,baseVar,days){
+  const s=Object.keys(db).sort(),idx=s.indexOf(key);
+  if(idx<0)return null;
+  const vals=[];
+  for(let i=Math.max(0,idx-days+1);i<=idx;i++){
+    const v=cctGetValue({key:s[i],raw:db[s[i]]},baseVar);
+    if(v!=null)vals.push(v);
+  }
+  return vals.length?Math.round(vals.reduce((a,b)=>a+b)/vals.length*100)/100:null;
 }
 
 const CCT_LABELS = {
   cal:'Calories',netCal:'Net Cal',carbs:'Carbs (g)',protein:'Protein (g)',
   fat:'Fat (g)',fibre:'Fibre (g)',weight:'Weight',steps:'Steps',
-  burn:'Burn (kcal)',runKm:'Run km',bmi:'BMI'
+  burn:'Burn (kcal)',runKm:'Run km',bmi:'BMI',
+  wtDelta_d:'Δ Wt/day',wtDelta_w:'Δ Wt 7d avg',wtDelta_m:'Δ Wt 30d avg',
+  cal_w:'Cal 7d avg',cal_m:'Cal 30d avg',netCal_w:'Net Cal 7d avg',netCal_m:'Net Cal 30d avg',
+  weight_w:'Weight 7d avg',weight_m:'Weight 30d avg',steps_w:'Steps 7d avg',steps_m:'Steps 30d avg',
 };
 const CCT_COLORS = {
   cal:'rgba(211,47,47,',netCal:'rgba(106,27,154,',carbs:'rgba(21,101,192,',
   protein:'rgba(46,125,50,',fat:'rgba(249,168,37,',fibre:'rgba(0,105,92,',
   weight:'rgba(198,40,40,',steps:'rgba(21,101,192,',burn:'rgba(106,27,154,',
-  runKm:'rgba(46,125,50,',bmi:'rgba(100,100,200,'
+  runKm:'rgba(46,125,50,',bmi:'rgba(100,100,200,',
+  wtDelta_d:'rgba(198,40,40,',wtDelta_w:'rgba(198,40,40,',wtDelta_m:'rgba(198,40,40,',
+  cal_w:'rgba(211,47,47,',cal_m:'rgba(211,47,47,',netCal_w:'rgba(106,27,154,',netCal_m:'rgba(106,27,154,',
+  weight_w:'rgba(198,40,40,',weight_m:'rgba(198,40,40,',steps_w:'rgba(21,101,192,',steps_m:'rgba(21,101,192,',
 };
 
 function renderCustomChart() {
@@ -6833,7 +6921,7 @@ function renderCustomChart() {
           order: 1,
         },
         {
-          type: 'bar',
+          type:(v2.endsWith('_w')||v2.endsWith('_m')||v2==='wtDelta_d'||v2==='weight'||v2==='bmi')?'line':'bar',
           label: CCT_LABELS[v2],
           data: vals2,
           backgroundColor: c2+'0.6)',
@@ -6903,6 +6991,15 @@ function renderCustomChart() {
       <div style="font-size:16px;font-weight:800;color:${col};line-height:1">${val}</div>
       <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-3);margin-top:3px">${lbl}</div>
     </div>`).join('');
+
+  // Persist settings
+  try {
+    localStorage.setItem('nt_cct', JSON.stringify({
+      v1, v2, range: cctRange,
+      from: document.getElementById('cctDateFrom')?.value || '',
+      to:   document.getElementById('cctDateTo')?.value   || ''
+    }));
+  } catch(e) {}
 }
 
 function setRegressionModeNote(mode) {

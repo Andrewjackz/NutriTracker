@@ -903,6 +903,10 @@ a { color: inherit; text-decoration: none; }
 .model-toggle-btn .mtb-chevron { font-size: 18px; transition: transform .3s; }
 .model-toggle-btn.open .mtb-chevron { transform: rotate(180deg); }
 .model-section { display: none; margin-top: 0; }
+/* ── Custom Chart Tool ── */
+.cct-sel { flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;background:var(--surface2);color:var(--text);cursor:pointer; }
+.cct-range-btn { padding:7px 12px;border:1.5px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text-2);font-size:12px;font-weight:700;cursor:pointer; }
+.cct-range-btn.sel { background:var(--blue);color:#fff;border-color:var(--blue); }
 
 .mw-tab { background: var(--surface2); color: var(--text-2); }
 .mw-tab.active-tab { background: var(--blue); color: #fff; }
@@ -5995,6 +5999,7 @@ function renderAnalytics() {
     stepsCanvas.style.display = 'block';
     const stepsGoalVal = goals.stepsGoal || 10000;
     const stLabels    = stDates.map(d => d.date.slice(5));
+    const stVals      = stDates.map(d => d.val);
     const stGoalDs    = goalDataset(stLabels, stepsGoalVal, 'rgba(46,125,50,0.65)');
     stepsTrendInst = new Chart(stepsCanvas, {
       type: 'bar',
@@ -6648,6 +6653,188 @@ function setRegressionMode(mode) {
 
 function getChartKeys() {
   return Object.keys(db).sort();
+}
+
+/* ════════════════════════════════════════
+   CUSTOM CHART TOOL
+════════════════════════════════════════ */
+let cctRange     = 'all';
+let cctChartInst = null;
+
+function selectCctRange(btn) {
+  cctRange = btn.dataset.cctRange;
+  document.querySelectorAll('[data-cct-range]').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  const customDiv = document.getElementById('cctCustomRange');
+  if (customDiv) customDiv.style.display = cctRange === 'custom' ? 'flex' : 'none';
+}
+
+function cctGetValue(dayObj, varKey) {
+  if (!dayObj) return null;
+  const d = effectiveDay(dayObj.key);
+  const dr = dayObj.raw;
+  const cal = (d.items||[]).reduce((s,i)=>s+i.calories,0);
+  switch(varKey) {
+    case 'cal':     return cal > 0 ? cal : null;
+    case 'netCal':  { if(!cal) return null; const b=calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace); return cal-b; }
+    case 'carbs':   return cal>0 ? (d.items||[]).reduce((s,i)=>s+i.carbs_g,0)||null : null;
+    case 'protein': return cal>0 ? (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0)||null : null;
+    case 'fat':     return cal>0 ? (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0)||null : null;
+    case 'fibre':   return cal>0 ? (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||null : null;
+    case 'weight':  return d.weight || null;
+    case 'steps':   return d.steps  || null;
+    case 'burn':    return d.steps||d.runKm ? calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace)||null : null;
+    case 'runKm':   return d.runKm  || null;
+    case 'bmi':     { if(!d.weight||!goals.heightCm) return null; const h=goals.heightCm/100; return Math.round(d.weight/(h*h)*10)/10; }
+    default: return null;
+  }
+}
+
+const CCT_LABELS = {
+  cal:'Calories',netCal:'Net Cal',carbs:'Carbs (g)',protein:'Protein (g)',
+  fat:'Fat (g)',fibre:'Fibre (g)',weight:'Weight',steps:'Steps',
+  burn:'Burn (kcal)',runKm:'Run km',bmi:'BMI'
+};
+const CCT_COLORS = {
+  cal:'rgba(211,47,47,',netCal:'rgba(106,27,154,',carbs:'rgba(21,101,192,',
+  protein:'rgba(46,125,50,',fat:'rgba(249,168,37,',fibre:'rgba(0,105,92,',
+  weight:'rgba(198,40,40,',steps:'rgba(21,101,192,',burn:'rgba(106,27,154,',
+  runKm:'rgba(46,125,50,',bmi:'rgba(100,100,200,'
+};
+
+function renderCustomChart() {
+  const v1  = document.getElementById('cctVar1')?.value;
+  const v2  = document.getElementById('cctVar2')?.value;
+  const canvas  = document.getElementById('customChartCanvas');
+  const emptyEl = document.getElementById('cctEmpty');
+  const statsEl = document.getElementById('cctStats');
+  if (!canvas || !v1 || !v2) return;
+
+  // Build date range
+  const allKeys = Object.keys(db).sort();
+  let keys = allKeys;
+  if (cctRange === 'custom') {
+    const from = document.getElementById('cctDateFrom')?.value;
+    const to   = document.getElementById('cctDateTo')?.value;
+    if (from && to) keys = allKeys.filter(k => k >= from && k <= to);
+  } else if (cctRange !== 'all') {
+    const days = parseInt(cctRange);
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    const cutStr = cutoff.toISOString().slice(0,10);
+    keys = allKeys.filter(k => k >= cutStr);
+  }
+
+  // Build series
+  const dayObjs = keys.map(k => ({ key: k, raw: db[k] }));
+  const labels  = dayObjs.map(d => d.key.slice(5));
+  const vals1   = dayObjs.map(d => cctGetValue(d, v1));
+  const vals2   = dayObjs.map(d => cctGetValue(d, v2));
+
+  const hasData = vals1.some(v=>v!==null) || vals2.some(v=>v!==null);
+  if (!hasData || keys.length < 2) {
+    canvas.style.display = 'none';
+    emptyEl.style.display = 'block';
+    statsEl.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  canvas.style.display  = 'block';
+
+  if (cctChartInst) { cctChartInst.destroy(); cctChartInst = null; }
+
+  const c1 = CCT_COLORS[v1] || 'rgba(21,101,192,';
+  const c2 = CCT_COLORS[v2] || 'rgba(211,47,47,';
+
+  cctChartInst = new Chart(canvas, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'line',
+          label: CCT_LABELS[v1],
+          data: vals1,
+          borderColor: c1+'0.9)',
+          backgroundColor: c1+'0.08)',
+          borderWidth: 2.2,
+          pointRadius: vals1.length > 60 ? 0 : 3,
+          pointBackgroundColor: c1+'0.9)',
+          fill: false,
+          tension: 0.3,
+          yAxisID: 'y1',
+          spanGaps: true,
+          order: 1,
+        },
+        {
+          type: 'bar',
+          label: CCT_LABELS[v2],
+          data: vals2,
+          backgroundColor: c2+'0.6)',
+          borderColor: c2+'0.85)',
+          borderWidth: 1,
+          borderRadius: 3,
+          yAxisID: 'y2',
+          order: 2,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { boxWidth: 14, font: { size: 11 }, color: 'var(--text-2)' } },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const d = new Date(keys[items[0].dataIndex]+'T00:00:00');
+              return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            maxTicksLimit: 12,
+            color: 'var(--text-3)',
+            font: { size: 10 },
+            maxRotation: 45,
+          },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        y1: {
+          type: 'linear', position: 'left',
+          title: { display: true, text: CCT_LABELS[v1], color: c1+'0.9)', font: { size: 11, weight: '700' } },
+          ticks: { color: c1+'0.9)', font: { size: 10 } },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        },
+        y2: {
+          type: 'linear', position: 'right',
+          title: { display: true, text: CCT_LABELS[v2], color: c2+'0.9)', font: { size: 11, weight: '700' } },
+          ticks: { color: c2+'0.9)', font: { size: 10 } },
+          grid: { drawOnChartArea: false }
+        }
+      }
+    }
+  });
+
+  // Summary stats
+  const validV1 = vals1.filter(v=>v!==null);
+  const validV2 = vals2.filter(v=>v!==null);
+  const avg1 = validV1.length ? (validV1.reduce((s,v)=>s+v,0)/validV1.length) : null;
+  const avg2 = validV2.length ? (validV2.reduce((s,v)=>s+v,0)/validV2.length) : null;
+  const fmtN = v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(1);
+
+  const tiles = [];
+  if (avg1 !== null) tiles.push([CCT_LABELS[v1]+' avg', fmtN(avg1), c1+'1)']);
+  if (avg2 !== null) tiles.push([CCT_LABELS[v2]+' avg', fmtN(avg2), c2+'1)']);
+  tiles.push(['Days plotted', keys.length, 'var(--text-2)']);
+
+  statsEl.style.display = 'flex';
+  statsEl.innerHTML = tiles.map(([lbl,val,col])=>`
+    <div style="flex:1;min-width:80px;background:var(--surface2);border-radius:var(--r-sm);padding:8px;text-align:center;border:1.5px solid var(--border)">
+      <div style="font-size:16px;font-weight:800;color:${col};line-height:1">${val}</div>
+      <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-3);margin-top:3px">${lbl}</div>
+    </div>`).join('');
 }
 
 function setRegressionModeNote(mode) {

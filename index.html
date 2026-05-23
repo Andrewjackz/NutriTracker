@@ -1767,6 +1767,55 @@ a { color: inherit; text-decoration: none; }
         <div id="cctStats" style="margin-top:10px;display:none;gap:8px;flex-wrap:wrap"></div>
       </div>
 
+      <!-- ── SINGLE-AXIS CUSTOM CHART ── -->
+      <div class="chart-card" style="padding:16px;margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:4px">📉 Single-Axis Chart</div>
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:12px;line-height:1.5">Plot up to four variables on one shared axis — ideal for comparing trends at the same scale.</div>
+
+        <!-- Variable rows -->
+        <div id="sctVarRows" style="margin-bottom:12px">
+          <!-- rows injected by JS -->
+        </div>
+        <button onclick="addSctVar()" id="sctAddBtn"
+          style="padding:6px 14px;border:1.5px solid var(--blue);border-radius:20px;background:var(--blue-lt);color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:12px">
+          + Add variable
+        </button>
+
+        <!-- Date range -->
+        <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Date range</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
+          <button class="cct-range-btn sel" data-sct-range="all"    onclick="selectSctRange(this)">All</button>
+          <button class="cct-range-btn"     data-sct-range="7"      onclick="selectSctRange(this)">7d</button>
+          <button class="cct-range-btn"     data-sct-range="30"     onclick="selectSctRange(this)">30d</button>
+          <button class="cct-range-btn"     data-sct-range="60"     onclick="selectSctRange(this)">60d</button>
+          <button class="cct-range-btn"     data-sct-range="90"     onclick="selectSctRange(this)">90d</button>
+          <button class="cct-range-btn"     data-sct-range="120"    onclick="selectSctRange(this)">120d</button>
+          <button class="cct-range-btn"     data-sct-range="custom" onclick="selectSctRange(this)">Custom</button>
+        </div>
+        <div id="sctCustomRange" style="display:none;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <input type="date" id="sctDateFrom" class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px">
+          <span style="font-size:12px;color:var(--text-3)">→</span>
+          <input type="date" id="sctDateTo" class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px">
+        </div>
+
+        <!-- Chart type -->
+        <div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Chart type</div>
+        <div style="display:flex;gap:5px;margin-bottom:12px">
+          <button class="cct-range-btn sel" data-sct-type="line"  onclick="selectSctType(this)">Line</button>
+          <button class="cct-range-btn"     data-sct-type="bar"   onclick="selectSctType(this)">Bar</button>
+          <button class="cct-range-btn"     data-sct-type="mixed" onclick="selectSctType(this)">Mixed</button>
+        </div>
+
+        <button onclick="renderSingleChart()"
+          style="width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:12px">
+          📉 Plot Chart
+        </button>
+
+        <div id="sctEmpty" style="display:none;text-align:center;padding:20px 0;font-size:13px;color:var(--text-3)">Not enough data for the selected range.</div>
+        <canvas id="singleChartCanvas" height="260" style="display:none"></canvas>
+        <div id="sctStats" style="margin-top:10px;display:none;gap:8px;flex-wrap:wrap"></div>
+      </div>
+
       <div class="chart-card">
         <div class="card-title">Daily Calories — Trend</div>
         <canvas id="calTrendChart" height="200"></canvas>
@@ -3009,7 +3058,7 @@ function switchTab(name) {
   if (name === 'search')    autoSelectMealType();
   if (name === 'today')     { renderToday(); updateFastingCard(); }
   if (name === 'calendar')  renderCalendar();
-  if (name === 'analytics') { renderAnalytics(); restoreCctState(); }
+  if (name === 'analytics') { renderAnalytics(); restoreCctState(); restoreSctState(); }
   if (name === 'mealplan')  initMealPlanTab();
   if (name === 'exercise')  initExerciseTab();
 }
@@ -6754,6 +6803,244 @@ function getChartKeys() {
 ════════════════════════════════════════ */
 let cctRange     = 'all';
 let cctChartInst = null;
+
+/* ════════════════════════════════════════
+   SINGLE-AXIS CUSTOM CHART
+════════════════════════════════════════ */
+let sctRange     = 'all';
+let sctType      = 'line';
+let sctChartInst = null;
+let sctVars      = ['weight', 'cal'];   // default two vars on load
+
+const SCT_SERIES_COLORS = [
+  'rgba(21,101,192,', 'rgba(211,47,47,', 'rgba(46,125,50,',
+  'rgba(249,168,37,', 'rgba(106,27,154,', 'rgba(0,105,92,'
+];
+
+function initSctVarRows() {
+  const el = document.getElementById('sctVarRows');
+  if (!el || el.children.length > 0) return;
+  sctVars.forEach((v, i) => addSctVar(v, i));
+}
+
+function addSctVar(defaultVal, idx) {
+  const el = document.getElementById('sctVarRows');
+  if (!el) return;
+  if (el.children.length >= 4) { showToast('Max 4 variables', ''); return; }
+  const rowIdx = el.children.length;
+  const col = SCT_SERIES_COLORS[rowIdx] + '0.9)';
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px';
+  row.dataset.rowIdx = rowIdx;
+  row.innerHTML = `
+    <div style="width:12px;height:12px;border-radius:50%;background:${col};flex-shrink:0"></div>
+    <select class="cct-sel" style="flex:1" onchange="saveSctState()">
+      ${Object.entries(CCT_LABELS).map(([k,v]) =>
+        `<option value="${k}"${k===(defaultVal||'cal')?' selected':''}>${v}</option>`
+      ).join('')}
+    </select>
+    ${rowIdx > 0 ? `<button onclick="removeSctVar(this)" style="background:none;border:none;font-size:18px;color:var(--text-3);cursor:pointer;padding:0 4px;line-height:1">×</button>` : '<div style="width:26px"></div>'}`;
+  el.appendChild(row);
+  document.getElementById('sctAddBtn').style.display = el.children.length >= 4 ? 'none' : 'inline-flex';
+}
+
+function removeSctVar(btn) {
+  btn.closest('[data-row-idx]').remove();
+  // Renumber and recolor remaining rows
+  const el = document.getElementById('sctVarRows');
+  [...el.children].forEach((row, i) => {
+    row.dataset.rowIdx = i;
+    const dot = row.querySelector('div[style*="border-radius:50%"]');
+    if (dot) dot.style.background = SCT_SERIES_COLORS[i] + '0.9)';
+  });
+  document.getElementById('sctAddBtn').style.display = el.children.length >= 4 ? 'none' : 'inline-flex';
+  saveSctState();
+}
+
+function selectSctRange(btn) {
+  sctRange = btn.dataset.sctRange;
+  document.querySelectorAll('[data-sct-range]').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  const cd = document.getElementById('sctCustomRange');
+  if (cd) cd.style.display = sctRange === 'custom' ? 'flex' : 'none';
+  saveSctState();
+}
+
+function selectSctType(btn) {
+  sctType = btn.dataset.sctType;
+  document.querySelectorAll('[data-sct-type]').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  saveSctState();
+}
+
+function getSctSelectedVars() {
+  return [...document.querySelectorAll('#sctVarRows select')].map(s => s.value);
+}
+
+function renderSingleChart() {
+  const vars    = getSctSelectedVars();
+  const canvas  = document.getElementById('singleChartCanvas');
+  const emptyEl = document.getElementById('sctEmpty');
+  const statsEl = document.getElementById('sctStats');
+  if (!canvas || !vars.length) return;
+
+  // Build filtered key range
+  const allKeys = Object.keys(db).sort();
+  let keys = allKeys;
+  if (sctRange === 'custom') {
+    const from = document.getElementById('sctDateFrom')?.value;
+    const to   = document.getElementById('sctDateTo')?.value;
+    if (from && to) keys = allKeys.filter(k => k >= from && k <= to);
+  } else if (sctRange !== 'all') {
+    const days = parseInt(sctRange);
+    const cut  = new Date(); cut.setDate(cut.getDate() - days);
+    keys = allKeys.filter(k => k >= cut.toISOString().slice(0,10));
+  }
+
+  const dayObjs = keys.map(k => ({ key: k, raw: db[k] }));
+  const labels  = dayObjs.map(d => d.key.slice(5));
+
+  // Build one dataset per variable
+  const datasets = vars.map((varKey, i) => {
+    const vals = dayObjs.map(d => cctGetValue(d, varKey));
+    const col  = SCT_SERIES_COLORS[i];
+    const isAvg = varKey.endsWith('_w') || varKey.endsWith('_m') || varKey === 'wtDelta_d' || varKey === 'weight' || varKey === 'bmi';
+    const type = sctType === 'mixed'
+      ? (i === 0 ? 'line' : i === 1 ? 'bar' : 'line')
+      : sctType;
+    return {
+      type,
+      label: CCT_LABELS[varKey] || varKey,
+      data: vals,
+      borderColor:     col + '0.9)',
+      backgroundColor: type === 'bar' ? col + '0.55)' : col + '0.08)',
+      borderWidth: 2,
+      pointRadius: vals.length > 60 ? 0 : 3,
+      pointBackgroundColor: col + '0.9)',
+      fill: type === 'line' && i === 0,
+      tension: 0.3,
+      spanGaps: true,
+      borderRadius: 3,
+      yAxisID: 'y',
+    };
+  });
+
+  const hasData = datasets.some(ds => ds.data.some(v => v !== null));
+  if (!hasData || keys.length < 2) {
+    canvas.style.display = 'none';
+    emptyEl.style.display = 'block';
+    statsEl.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  canvas.style.display  = 'block';
+
+  if (sctChartInst) { sctChartInst.destroy(); sctChartInst = null; }
+
+  sctChartInst = new Chart(canvas, {
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          labels: { boxWidth: 12, font: { size: 11 }, color: 'var(--text-2)' }
+        },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const d = new Date(keys[items[0].dataIndex]+'T00:00:00');
+              return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 12, color: 'var(--text-3)', font: { size: 10 }, maxRotation: 45 },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        y: {
+          ticks: { color: 'var(--text-3)', font: { size: 10 } },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        }
+      }
+    }
+  });
+
+  // Stats strip
+  statsEl.style.display = 'flex';
+  const tiles = vars.map((varKey, i) => {
+    const vals  = datasets[i].data.filter(v => v !== null);
+    if (!vals.length) return null;
+    const avg   = vals.reduce((a,b)=>a+b,0)/vals.length;
+    const fmtN  = v => Math.abs(v) >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(1);
+    const col   = SCT_SERIES_COLORS[i] + '1)';
+    return `<div style="flex:1;min-width:80px;background:var(--surface2);border-radius:var(--r-sm);padding:8px;text-align:center;border:1.5px solid var(--border)">
+      <div style="font-size:15px;font-weight:800;color:${col};line-height:1">${fmtN(avg)}</div>
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-3);margin-top:3px">${CCT_LABELS[varKey]||varKey} avg</div>
+    </div>`;
+  }).filter(Boolean);
+  tiles.push(`<div style="flex:1;min-width:60px;background:var(--surface2);border-radius:var(--r-sm);padding:8px;text-align:center;border:1.5px solid var(--border)">
+    <div style="font-size:15px;font-weight:800;color:var(--text);line-height:1">${keys.length}</div>
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-3);margin-top:3px">Days</div>
+  </div>`);
+  statsEl.innerHTML = tiles.join('');
+
+  saveSctState();
+}
+
+function saveSctState() {
+  try {
+    const vars = getSctSelectedVars();
+    localStorage.setItem('nt_sct', JSON.stringify({
+      vars, range: sctRange, type: sctType,
+      from: document.getElementById('sctDateFrom')?.value || '',
+      to:   document.getElementById('sctDateTo')?.value   || ''
+    }));
+  } catch(e) {}
+}
+
+function restoreSctState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('nt_sct'));
+    initSctVarRows();  // ensure rows exist
+    if (!saved) return;
+
+    // Restore vars into selects
+    if (saved.vars?.length) {
+      const el = document.getElementById('sctVarRows');
+      if (el) {
+        el.innerHTML = '';
+        saved.vars.forEach((v, i) => addSctVar(v, i));
+      }
+    }
+
+    // Restore range
+    if (saved.range) {
+      sctRange = saved.range;
+      document.querySelectorAll('[data-sct-range]').forEach(b =>
+        b.classList.toggle('sel', b.dataset.sctRange === saved.range));
+      const cd = document.getElementById('sctCustomRange');
+      if (cd) cd.style.display = saved.range === 'custom' ? 'flex' : 'none';
+    }
+
+    // Restore type
+    if (saved.type) {
+      sctType = saved.type;
+      document.querySelectorAll('[data-sct-type]').forEach(b =>
+        b.classList.toggle('sel', b.dataset.sctType === saved.type));
+    }
+
+    // Restore dates
+    if (saved.from) { const el = document.getElementById('sctDateFrom'); if (el) el.value = saved.from; }
+    if (saved.to)   { const el = document.getElementById('sctDateTo');   if (el) el.value = saved.to;   }
+
+    // Auto-replot
+    if (saved.vars?.length) renderSingleChart();
+  } catch(e) { initSctVarRows(); }
+}
 
 function restoreCctState() {
   try {

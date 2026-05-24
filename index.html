@@ -1445,10 +1445,52 @@ a { color: inherit; text-decoration: none; }
           </div>
         </div>
         <div id="savedRunDisplay" style="display:none;margin-bottom:6px;font-size:13px;color:#7B1FA2;font-weight:600"></div>
+
+        <div style="border-top:1px solid var(--border);margin:10px 0 8px"></div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">🛶 Surfski Paddling (optional)</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:4px">Distance (km)</div>
+            <input class="inp" id="paddleKmInput" type="text" inputmode="decimal" placeholder="e.g. 12.0" autocomplete="off" oninput="this.value=this.value.replace(',','.');" style="padding:10px">
+          </div>
+          <div style="flex:0 0 auto;align-self:flex-end">
+            <button class="weight-save-btn" style="background:#00695C" onclick="savePaddle()">Save ✓</button>
+          </div>
+        </div>
+        <div id="savedPaddleDisplay" style="display:none;margin-bottom:6px;font-size:13px;color:#00695C;font-weight:600"></div>
+
+        <div style="border-top:1px solid var(--border);margin:10px 0 8px"></div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">🚴 Cycling (optional)</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:4px">Distance (km)</div>
+            <input class="inp" id="cycleKmInput" type="text" inputmode="decimal" placeholder="e.g. 25.0" autocomplete="off" oninput="this.value=this.value.replace(',','.');" style="padding:10px">
+          </div>
+          <div style="flex:0 0 auto;align-self:flex-end">
+            <button class="weight-save-btn" style="background:#E65100" onclick="saveCycle()">Save ✓</button>
+          </div>
+        </div>
+        <div id="savedCycleDisplay" style="display:none;margin-bottom:6px;font-size:13px;color:#E65100;font-weight:600"></div>
+
         <div id="savedWeightDisplay" style="display:none;margin-top:8px;font-size:13px;color:var(--green);font-weight:600"></div>
         <div id="locationDisplay" style="display:none;margin-top:4px;font-size:12px;color:var(--text-3)"></div>
         <div id="savedStepsDisplay" style="display:none;margin-top:4px;font-size:13px;color:var(--blue);font-weight:600"></div>
         <div id="netCalDisplay" style="display:none;margin-top:6px"></div>
+
+        <!-- Calorie Distance Guide -->
+        <div style="border-top:1px solid var(--border);margin:12px 0 8px"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-3)">🔥 Calorie Distance Guide</div>
+          <select id="calDistTarget" onchange="renderCalDistGuide()"
+            style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:12px;font-weight:700;background:var(--surface2);color:var(--text);cursor:pointer">
+            <option value="100">100 kcal</option>
+            <option value="200">200 kcal</option>
+            <option value="300" selected>300 kcal</option>
+            <option value="400">400 kcal</option>
+            <option value="500">500 kcal</option>
+          </select>
+        </div>
+        <div id="calDistGuide" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
       </div>
 
       <!-- fasting tracker -->
@@ -2833,11 +2875,12 @@ let goals    = loadGoals();
 //           running steps ≈ km × 900
 // Walking:  remaining steps × 0.00057 × weight_kg (MET=3.8 derived)
 // Falls back to 80kg if no weight logged
-function calcBurn(steps, weightInUnits, units, runKm, runPaceMin) {
+function calcBurn(steps, weightInUnits, units, runKm, runPaceMin, paddleKm, cycleKm) {
   const weightKg = weightInUnits
     ? (units === 'kg' ? weightInUnits : weightInUnits / 2.205)
     : 80;
 
+  // Running: MET 9.8, uses pace
   let runBurn = 0;
   let runSteps = 0;
   if (runKm && runKm > 0 && runPaceMin && runPaceMin > 0) {
@@ -2846,10 +2889,33 @@ function calcBurn(steps, weightInUnits, units, runKm, runPaceMin) {
     runSteps = Math.round(runKm * 900);
   }
 
+  // Walking: remaining steps after run
   const walkSteps = Math.max(0, (steps || 0) - runSteps);
   const walkBurn  = Math.round(walkSteps * 0.00057 * weightKg);
 
-  return runBurn + walkBurn;
+  // Surfski paddling: MET 7.0 at ~10 km/h → 0.70 × weight_kg × km
+  const paddleBurn = paddleKm && paddleKm > 0
+    ? Math.round(0.70 * weightKg * paddleKm) : 0;
+
+  // Cycling: MET 8.0 at ~18 km/h → 0.444 × weight_kg × km
+  const cycleBurn = cycleKm && cycleKm > 0
+    ? Math.round(0.444 * weightKg * cycleKm) : 0;
+
+  return runBurn + walkBurn + paddleBurn + cycleBurn;
+}
+
+// Component burns for a day object (used by burn split chart)
+function calcActivityBurns(d, weightKg) {
+  const wKg = weightKg || 80;
+  let runBurn = 0, runSteps = 0;
+  if (d.runKm > 0 && d.runPace > 0) {
+    runBurn  = Math.round(9.8 * wKg * (d.runKm * d.runPace / 60));
+    runSteps = Math.round(d.runKm * 900);
+  }
+  const walkBurn   = Math.round(Math.max(0, (d.steps||0) - runSteps) * 0.00057 * wKg);
+  const paddleBurn = d.paddleKm > 0 ? Math.round(0.70  * wKg * d.paddleKm) : 0;
+  const cycleBurn  = d.cycleKm  > 0 ? Math.round(0.444 * wKg * d.cycleKm)  : 0;
+  return { runBurn, walkBurn, paddleBurn, cycleBurn };
 }
 
 // Helper: just the running portion of burn
@@ -2931,11 +2997,13 @@ function effectiveDay(key) {
   if (!d) return { items: [], weight: null, steps: null, runKm: null, runPace: null };
   return {
     ...d,
-    weight: d.exclude_weight   ? null  : d.weight,
-    items:  d.exclude_cal      ? []    : (d.items || []),
-    steps:  d.exclude_exercise ? null  : d.steps,
-    runKm:  d.exclude_exercise ? null  : d.runKm,
-    runPace:d.exclude_exercise ? null  : d.runPace,
+    weight:    d.exclude_weight   ? null  : d.weight,
+    items:     d.exclude_cal      ? []    : (d.items || []),
+    steps:     d.exclude_exercise ? null  : d.steps,
+    runKm:     d.exclude_exercise ? null  : d.runKm,
+    runPace:   d.exclude_exercise ? null  : d.runPace,
+    paddleKm:  d.exclude_exercise ? null  : d.paddleKm,
+    cycleKm:   d.exclude_exercise ? null  : d.cycleKm,
   };
 }
 
@@ -3120,7 +3188,7 @@ function selectMPMode(btn) {
         const d = db[wKeys[i-1]];
         const cal = d.items?.reduce((s,it)=>s+it.calories,0)||0;
         if (!cal) continue;
-        const burn = calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace);
+        const burn = calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace,d.paddleKm,d.cycleKm);
         const net = cal - burn;
         const delta = db[wKeys[i]].weight - db[wKeys[i-1]].weight;
         pts.push({x:net,y:delta});
@@ -4908,8 +4976,26 @@ function renderToday() {
   }
   // auto-calculate burn from steps using weight-adjusted MET formula
   // Net cal ring + tile (always shown when burn available)
-  const burn = calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace);
-  const net  = (day.steps || day.runKm) && totCal > 0 ? totCal - burn : null;
+  // Load paddle and cycle inputs + display
+  const paddleDisp = document.getElementById('savedPaddleDisplay');
+  if (day.paddleKm) {
+    if (document.getElementById('paddleKmInput')) document.getElementById('paddleKmInput').value = day.paddleKm;
+    if (paddleDisp) { paddleDisp.style.display='block'; paddleDisp.textContent=`🛶 ${day.paddleKm} km logged`; }
+  } else {
+    if (paddleDisp) paddleDisp.style.display='none';
+  }
+  const cycleDisp = document.getElementById('savedCycleDisplay');
+  if (day.cycleKm) {
+    if (document.getElementById('cycleKmInput')) document.getElementById('cycleKmInput').value = day.cycleKm;
+    if (cycleDisp) { cycleDisp.style.display='block'; cycleDisp.textContent=`🚴 ${day.cycleKm} km logged`; }
+  } else {
+    if (cycleDisp) cycleDisp.style.display='none';
+  }
+  // Render calorie distance guide
+  renderCalDistGuide();
+
+  const burn = calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace, day.paddleKm, day.cycleKm);
+  const net  = (day.steps || day.runKm || day.paddleKm || day.cycleKm) && totCal > 0 ? totCal - burn : null;
 
   const ringNetWrap = document.getElementById('ringNetWrap');
   const todayNetTile = document.getElementById('todayNetTile');
@@ -4939,7 +5025,7 @@ function renderToday() {
   }
 
   const nd = document.getElementById('netCalDisplay');
-  if ((day.steps || day.runKm) && totCal > 0) {
+  if ((day.steps || day.runKm || day.paddleKm || day.cycleKm) && totCal > 0) {
     const weightNote = day.weight ? `${day.weight} ${goals.units}` : 'est. 80kg';
     const distUnit   = goals.distUnit !== 'miles' ? 'km' : 'mi';
     const runNote    = day.runKm ? ` · 🏃 ${day.runKm}${distUnit}${day.runPace ? ' @ ' + day.runPace + ' min/' + distUnit : ''}` : '';
@@ -5071,6 +5157,74 @@ function saveRun() {
   const distUnit = goals.distUnit !== 'miles' ? 'km' : 'mi';
   showToast(`Run saved: ${km}${distUnit} @ ${pace} min/${distUnit} 🏃`, 'success');
   renderToday();
+}
+
+function savePaddle() {
+  const kmRaw = document.getElementById('paddleKmInput').value.replace(',','.');
+  const km    = parseFloat(kmRaw);
+  if (!km || km <= 0) { showToast('Enter a valid distance', 'error'); return; }
+  const key = todayKey();
+  const day = getDay(key);
+  day.paddleKm = km;
+  setDay(key, day);
+  showToast(`Surfski saved: ${km} km 🛶`, 'success');
+  renderToday();
+}
+
+function saveCycle() {
+  const kmRaw = document.getElementById('cycleKmInput').value.replace(',','.');
+  const km    = parseFloat(kmRaw);
+  if (!km || km <= 0) { showToast('Enter a valid distance', 'error'); return; }
+  const key = todayKey();
+  const day = getDay(key);
+  day.cycleKm = km;
+  setDay(key, day);
+  showToast(`Cycle saved: ${km} km 🚴`, 'success');
+  renderToday();
+}
+
+// Calorie Distance Guide
+function renderCalDistGuide() {
+  const el     = document.getElementById('calDistGuide');
+  const target = parseInt(document.getElementById('calDistTarget')?.value || 300);
+  if (!el) return;
+
+  const day = getDay(todayKey());
+  const weightKg = day.weight
+    ? (goals.units === 'kg' ? day.weight : day.weight / 2.205)
+    : 72; // fallback to avg
+
+  // For running, estimate pace from typical logged pace or default 5:30/km
+  const allRunDays = Object.values(db).filter(d => d.runKm && d.runPace);
+  const avgPace = allRunDays.length
+    ? allRunDays.reduce((s,d)=>s+d.runPace,0)/allRunDays.length
+    : 5.5;
+
+  const activities = [
+    { label:'🚶 Walking',  icon:'👟', color:'#1565C0',
+      dist: target / (0.00057 * weightKg * 1350),  // ~1350 steps/km × 0.00057 × wKg
+      formula: km => Math.round(km * 1350 * 0.00057 * weightKg) },
+    { label:'🏃 Running',  icon:'🏃', color:'#7B1FA2',
+      dist: target / (9.8 * weightKg * (avgPace / 60)),
+      formula: km => Math.round(9.8 * weightKg * km * avgPace / 60) },
+    { label:'🛶 Surfski',  icon:'🛶', color:'#00695C',
+      dist: target / (0.70 * weightKg),
+      formula: km => Math.round(0.70 * weightKg * km) },
+    { label:'🚴 Cycling',  icon:'🚴', color:'#E65100',
+      dist: target / (0.444 * weightKg),
+      formula: km => Math.round(0.444 * weightKg * km) },
+  ];
+
+  el.innerHTML = activities.map(a => {
+    const km = a.dist.toFixed(1);
+    const cal = a.formula(a.dist);
+    return `
+      <div style="background:var(--surface2);border-radius:var(--r-sm);padding:10px;border:1.5px solid var(--border)">
+        <div style="font-size:12.5px;font-weight:800;color:${a.color}">${a.label}</div>
+        <div style="font-size:20px;font-weight:900;color:var(--text);margin:3px 0;line-height:1">${km} <span style="font-size:11px;color:var(--text-3);font-weight:600">km</span></div>
+        <div style="font-size:10.5px;color:var(--text-3)">≈ ${cal} kcal · ${weightKg.toFixed(0)} kg</div>
+      </div>`;
+  }).join('');
 }
 
 let notesSaveTimer = null;
@@ -5481,7 +5635,7 @@ function renderAnalytics() {
     const totProtein = d.items?.reduce((s,i)=>s+(i.protein_g||0),0)||0;
     const totFat     = d.items?.reduce((s,i)=>s+(i.fat_g||0),0)||0;
     const totFibre   = d.items?.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||0;
-    const burn        = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+    const burn        = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm);
     const netCal     = totCal > 0 ? totCal - burn : null;
     if (totCal > 0) {
       calSeries.push({ date: k, cal: totCal, carb: totCarb, protein: totProtein, fat: totFat, fibre: totFibre });
@@ -6460,33 +6614,19 @@ function renderBurnSplit() {
 
   const allKeys = getChartKeys();
 
-  // Build series: days that have steps or a run
+  // Build series: days that have any exercise
   const splitDays = allKeys
-    .filter(k => (effectiveDay(k).steps || effectiveDay(k).runKm))
+    .filter(k => { const e=effectiveDay(k); return e.steps||e.runKm||e.paddleKm||e.cycleKm; })
     .map(k => {
-      const d = effectiveDay(k);   // respects exclusion flags
+      const d = effectiveDay(k);
       const weightKg = d.weight
         ? (goals.units === 'kg' ? d.weight : d.weight / 2.205)
         : 80;
-
-      // Running burn
-      let runBurn = 0;
-      let runSteps = 0;
-      if (d.runKm && d.runPace && d.runKm > 0 && d.runPace > 0) {
-        const durationHrs = d.runKm * d.runPace / 60;
-        runBurn  = Math.round(9.8 * weightKg * durationHrs);
-        runSteps = Math.round(d.runKm * 900);
-      }
-
-      // Walking burn — remaining steps
-      const walkSteps = Math.max(0, (d.steps || 0) - runSteps);
-      const walkBurn  = Math.round(walkSteps * 0.00057 * weightKg);
-
+      const { runBurn, walkBurn, paddleBurn, cycleBurn } = calcActivityBurns(d, weightKg);
       return {
-        date:     k.slice(5),
-        runBurn,
-        walkBurn,
-        total:    runBurn + walkBurn,
+        date: k.slice(5),
+        runBurn, walkBurn, paddleBurn, cycleBurn,
+        total: runBurn + walkBurn + paddleBurn + cycleBurn,
       };
     })
     .filter(d => d.total > 0);
@@ -6508,6 +6648,20 @@ function renderBurnSplit() {
           label: '🏃 Running',
           data: splitDays.map(d => d.runBurn),
           backgroundColor: 'rgba(123,31,162,0.75)',
+          borderRadius: 0,
+          stack: 'burn',
+        },
+        {
+          label: '🛶 Surfski',
+          data: splitDays.map(d => d.paddleBurn),
+          backgroundColor: 'rgba(0,105,92,0.75)',
+          borderRadius: 0,
+          stack: 'burn',
+        },
+        {
+          label: '🚴 Cycling',
+          data: splitDays.map(d => d.cycleBurn),
+          backgroundColor: 'rgba(230,81,0,0.75)',
           borderRadius: 0,
           stack: 'burn',
         },
@@ -6651,7 +6805,7 @@ function renderBurnScatter() {
     const dr = db[k];
     if (dr.weight && !dr.exclude_weight) wSeries3[k] = dr.weight;
     if (d.steps) {
-      burnByDate[k] = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+      burnByDate[k] = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm);
     }
   });
 
@@ -7087,14 +7241,14 @@ function cctGetValue(dayObj, varKey) {
   const cal = (d.items||[]).reduce((s,i)=>s+i.calories,0);
   switch(varKey) {
     case 'cal':     return cal > 0 ? cal : null;
-    case 'netCal':  { if(!cal) return null; const b=calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace); return cal-b; }
+    case 'netCal':  { if(!cal) return null; const b=calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace,d.paddleKm,d.cycleKm); return cal-b; }
     case 'carbs':   return cal>0 ? (d.items||[]).reduce((s,i)=>s+i.carbs_g,0)||null : null;
     case 'protein': return cal>0 ? (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0)||null : null;
     case 'fat':     return cal>0 ? (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0)||null : null;
     case 'fibre':   return cal>0 ? (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0)||null : null;
     case 'weight':  return d.weight || null;
     case 'steps':   return d.steps  || null;
-    case 'burn':    return d.steps||d.runKm ? calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace)||null : null;
+    case 'burn':    return d.steps||d.runKm ? calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace,d.paddleKm,d.cycleKm)||null : null;
     case 'runKm':   return d.runKm  || null;
     case 'bmi':     { if(!d.weight||!goals.heightCm) return null; const h=goals.heightCm/100; return Math.round(d.weight/(h*h)*10)/10; }
     case 'wtDelta_d': {
@@ -7328,7 +7482,7 @@ function buildWeeklyObs() {
     const deltaWt = +(wtEnd - wtStart).toFixed(2);
 
     const avgCal  = foodEntries.reduce((s,{d}) => s + (d.items||[]).reduce((ss,i)=>ss+i.calories,0), 0) / foodEntries.length;
-    const avgBurn = foodEntries.reduce((s,{d}) => s + calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace), 0) / foodEntries.length;
+    const avgBurn = foodEntries.reduce((s,{d}) => s + calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm), 0) / foodEntries.length;
     const avgNet  = avgCal - avgBurn;
 
     obs.push({ week: wk, avgCal: +avgCal.toFixed(0), avgBurn: +avgBurn.toFixed(0), avgNet: +avgNet.toFixed(0), deltaWt, wtStart, wtEnd, n: foodEntries.length });
@@ -7527,7 +7681,7 @@ function renderWeightModel() {
     const fibre   = d.items?.reduce((s,it)=>s+(it.fibre_g||it.fiber_g||0),0)||0;
     const steps   = d.steps||0;
     const runKm   = d.runKm||0;
-    const burn    = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+    const burn    = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm);
     const netCal  = cal - burn;
     const weight  = d.weight||0;
     const deltaWt = dY.weight - d.weight;  // effectiveDay — excluded weights skipped above
@@ -7884,7 +8038,7 @@ function renderWeeklyWeightModel() {
       const dr = db[k];
       const cal = (d.items||[]).reduce((s,i)=>s+i.calories,0);
       if (cal > 0) {
-        const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+        const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm);
         totCal  += cal; totBurn += burn;
         totCarb += (d.items||[]).reduce((s,i)=>s+i.carbs_g,0);
         totProt += (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
@@ -8186,7 +8340,7 @@ function renderWeeklyModelPredictions(activePreds, beta) {
         const prot  = (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
         const fat   = (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
         const fib   = (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
-        const burn  = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+        const burn  = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm);
         totCal   += cal; totCarb += carb; totProt += prot;
         totFat   += fat; totFib  += fib;
         totSteps += (d.steps||0); totBurn += burn;
@@ -8580,7 +8734,7 @@ function renderDayView(key) {
   const totProtein = day.items.reduce((s,i)=>s+(i.protein_g||0),0);
   const totFat     = day.items.reduce((s,i)=>s+(i.fat_g||0),0);
   const totFibre   = day.items.reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
-  const burn       = calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace);
+  const burn       = calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace, day.paddleKm, day.cycleKm);
   const net        = totCal > 0 ? totCal - burn : null;
 
   const mealOrder = ['Breakfast','Lunch','Dinner','Snack'];
@@ -9140,7 +9294,7 @@ function renderMonthlySummaries() {
         totProtein += (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
         totFat     += (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
         totFibre   += (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
-        const burn = calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace);
+        const burn = calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace,d.paddleKm,d.cycleKm);
         totBurn += burn; burnDays++; foodDays++;
       }
       if (d.steps > 0) { totSteps += d.steps; stepDays++; }
@@ -9215,7 +9369,7 @@ function renderTotalToDate() {
       totProtein += (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
       totFat     += (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
       totFibre   += (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
-      const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+      const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm);
       totBurn    += burn;
       burnDays++;
       foodDays++;
@@ -9314,7 +9468,7 @@ function renderWeeklySummaries() {
         totProtein += (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
         totFat     += (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
         totFibre   += (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
-        const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+        const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm);
         totBurn    += burn;
         daysWithBurn++;
         daysLogged++;
@@ -9387,7 +9541,7 @@ function buildExportRows() {
       day.steps || '',
       day.runKm || '',
       day.runPace || '',
-      (day.steps || day.runKm) ? calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace) : '',
+      (day.steps || day.runKm) ? calcBurn(day.steps, day.weight, goals.units, day.runKm, day.runPace, day.paddleKm, day.cycleKm) : '',
       (() => { const cal=(day.items||[]).reduce((s,i)=>s+i.calories,0); const burn=calcBurn(day.steps,day.weight,goals.units); return cal>0?cal-burn:''; })(),
       day.exercise === true ? 'Yes' : day.exercise === false ? 'No' : '',
       day.water    === true ? 'Yes' : day.water    === false ? 'No' : '',
@@ -9983,7 +10137,7 @@ async function exportPDFReport() {
     const prot = (d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0);
     const fat  = (d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0);
     const fib  = (d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0);
-    const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace);
+    const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm);
     return { date:k, cal, carb, prot, fat, fib, burn, net: cal-burn, steps: d.steps||0 };
   });
   const avg = arr => arr.length ? Math.round(arr.reduce((s,v)=>s+v,0)/arr.length) : 0;
@@ -10331,7 +10485,7 @@ async function exportPDFReport() {
       const prot = Math.round((d.items||[]).reduce((s,i)=>s+(i.protein_g||0),0));
       const fat  = Math.round((d.items||[]).reduce((s,i)=>s+(i.fat_g||0),0));
       const fib  = Math.round((d.items||[]).reduce((s,i)=>s+(i.fibre_g||i.fiber_g||0),0));
-      const burn = calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace);
+      const burn = calcBurn(d.steps,d.weight,goals.units,d.runKm,d.runPace,d.paddleKm,d.cycleKm);
       const net  = cal > 0 ? cal - burn : null;
       const bg   = goals.calGoal&&cal>0?(cal>goals.calGoal*1.1?'#FFEBEE':cal<goals.calGoal*0.85?'#FFFDE7':'#F1F8E9'):'';
       return `<tr style="background:${bg}">

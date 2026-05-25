@@ -5033,12 +5033,32 @@ function renderToday() {
       nd.style.display = 'block';
       const cls = net > 200 ? 'positive' : net < -200 ? 'negative' : 'neutral';
       const lbl = net > 200 ? '📈 Surplus' : net < -200 ? '📉 Deficit' : '⚖️ Near neutral';
+      // Build per-activity burn breakdown
+      const _wKg = day.weight ? (goals.units==='kg' ? day.weight : day.weight/2.205) : 80;
+      const _burns = calcActivityBurns(
+        { runKm:day.runKm, runPace:day.runPace, steps:day.steps,
+          paddleKm:day.paddleKm, cycleKm:day.cycleKm },
+        _wKg
+      );
+      const burnParts = [];
+      if (_burns.runBurn)    burnParts.push(`🏃 ${_burns.runBurn} run`);
+      if (_burns.paddleBurn) burnParts.push(`🛶 ${_burns.paddleBurn} paddle`);
+      if (_burns.cycleBurn)  burnParts.push(`🚴 ${_burns.cycleBurn} cycle`);
+      if (_burns.walkBurn)   burnParts.push(`👟 ${_burns.walkBurn} walk`);
+      const burnBreakdown = burnParts.length > 1 ? burnParts.join(' · ') : `🔥 ${burn} burned`;
+      const activityNotes = [];
+      if (day.runKm)    activityNotes.push(`🏃 ${day.runKm}${distUnit}${day.runPace?' @ '+day.runPace+' min/'+distUnit:''}`);
+      if (day.paddleKm) activityNotes.push(`🛶 ${day.paddleKm}${distUnit}`);
+      if (day.cycleKm)  activityNotes.push(`🚴 ${day.cycleKm}${distUnit}`);
+      if (day.steps)    activityNotes.push(`${day.steps.toLocaleString()} steps`);
+      const actNote = activityNotes.join(' · ');
       nd.innerHTML = `<div class="net-cal-banner ${cls}">
-        <div>
+        <div style="flex:1;min-width:0">
           <span style="font-weight:700;font-size:13px">${lbl}</span>
-          <div style="font-size:11px;opacity:.75">🔥 ${burn} cal burned · ${(day.steps||0).toLocaleString()} steps${runNote} · ${weightNote}</div>
+          <div style="font-size:11px;opacity:.85;margin-top:2px">${actNote}</div>
+          <div style="font-size:11px;opacity:.7;margin-top:1px">${burnBreakdown} · ${weightNote}</div>
         </div>
-        <span style="font-size:16px;font-weight:800">${net > 0 ? '+' : ''}${net} net</span>
+        <span style="font-size:16px;font-weight:800;flex-shrink:0;margin-left:8px">${net > 0 ? '+' : ''}${net} net</span>
       </div>`;
     }
   } else {
@@ -5522,6 +5542,8 @@ function renderCalendar() {
               ${day.weight ? `<div class="cal-weight">⚖️ ${day.weight} ${goals.units}</div>` : `<span style="font-size:11px;color:var(--text-3)">No weight</span>`}
               ${day.steps ? `<div style="font-size:12px;color:var(--blue);font-weight:600">👟 ${day.steps.toLocaleString()}</div>` : ''}
               ${day.runKm ? `<div style="font-size:12px;color:#7B1FA2;font-weight:600">🏃 ${day.runKm}km${day.runPace ? ' @ ' + day.runPace : ''}</div>` : ''}
+              ${day.paddleKm ? `<div style="font-size:12px;color:#00695C;font-weight:600">🛶 ${day.paddleKm}km</div>` : ''}
+              ${day.cycleKm  ? `<div style="font-size:12px;color:#E65100;font-weight:600">🚴 ${day.cycleKm}km</div>` : ''}
               ${day.exercise === true  ? `<div style="font-size:12px;color:var(--green);font-weight:700">💪 Exercised</div>` : ''}
               ${day.exercise === false ? `<div style="font-size:11px;color:var(--text-3)">Rest day</div>` : ''}
               ${day.water === true  ? `<div style="font-size:12px;color:#0288D1;font-weight:700">💧 Hydrated</div>` : ''}
@@ -5554,6 +5576,23 @@ function renderCalendar() {
             <div class="cal-bar-track cal-bar-fibre"><div class="cal-bar-fill" style="width:${fibrePct}%"></div></div>
           </div>
         </div>
+        ${(() => {
+          if (!totCal || !(day.steps||day.runKm||day.paddleKm||day.cycleKm)) return '';
+          const _calWKg  = day.weight ? (goals.units==='kg'?day.weight:day.weight/2.205) : 80;
+          const _calBurn = calcBurn(day.steps,day.weight,goals.units,day.runKm,day.runPace,day.paddleKm,day.cycleKm);
+          const _calNet  = totCal - _calBurn;
+          const _calBurns= calcActivityBurns({runKm:day.runKm,runPace:day.runPace,steps:day.steps,paddleKm:day.paddleKm,cycleKm:day.cycleKm},_calWKg);
+          const _parts = [];
+          if(_calBurns.runBurn)    _parts.push('🏃 '+_calBurns.runBurn);
+          if(_calBurns.paddleBurn) _parts.push('🛶 '+_calBurns.paddleBurn);
+          if(_calBurns.cycleBurn)  _parts.push('🚴 '+_calBurns.cycleBurn);
+          if(_calBurns.walkBurn)   _parts.push('👟 '+_calBurns.walkBurn);
+          const netCol = _calNet > 300 ? '#C62828' : _calNet < -100 ? '#2E7D32' : '#6A1B9A';
+          return '<div style="font-size:11.5px;font-weight:700;color:'+netCol+';margin-top:6px;display:flex;justify-content:space-between;align-items:center">'+
+            '<span>⚡ Net: '+(_calNet>0?'+':'')+_calNet+' kcal</span>'+
+            '<span style="font-size:10.5px;font-weight:400;color:var(--text-3)">'+_parts.join(' · ')+'</span>'+
+          '</div>';
+        })()}
         <div class="cal-items-count" style="display:flex;align-items:center;justify-content:space-between">
           <span>${day.items.length} item${day.items.length!==1?'s':''} logged</span>
           <button onclick="openDayDetail('${key}')" style="font-size:12px;font-weight:700;color:var(--blue);background:var(--blue-lt);border:none;padding:4px 10px;border-radius:20px">View items ›</button>
@@ -9282,6 +9321,7 @@ function renderMonthlySummaries() {
     const moLabel = moDate.toLocaleDateString('en-US',{month:'long',year:'numeric'});
 
     let totCal=0,totCarb=0,totProtein=0,totFat=0,totFibre=0,totBurn=0,totSteps=0;
+    let totPaddleKm=0,totCycleKm=0;
     let foodDays=0,stepDays=0,burnDays=0,exDays=0,waterDays=0,medsDays=0;
     const wVals=[]; let wStart=null,wEnd=null;
 
@@ -9298,6 +9338,8 @@ function renderMonthlySummaries() {
         totBurn += burn; burnDays++; foodDays++;
       }
       if (d.steps > 0) { totSteps += d.steps; stepDays++; }
+      if (d.paddleKm > 0) totPaddleKm += d.paddleKm;
+      if (d.cycleKm  > 0) totCycleKm  += d.cycleKm;
       if (db[k].exercise===true) exDays++;
       if (db[k].water===true)    waterDays++;
       if (db[k].meds===true)     medsDays++;
@@ -9333,6 +9375,8 @@ function renderMonthlySummaries() {
         </div>
         <div class="week-weight-row">
           ${exDays?`<span>💪 ${exDays} ex days</span>`:''}
+          ${totPaddleKm?`<span>🛶 ${totPaddleKm.toFixed(1)}km paddle</span>`:''}
+          ${totCycleKm?`<span>🚴 ${totCycleKm.toFixed(1)}km cycle</span>`:''}
           ${waterDays?`<span>💧 ${waterDays} hydrated</span>`:''}
           ${medsDays?`<span>💊 ${medsDays} medicated</span>`:''}
           ${wDelta?`<span>⚖️ ${wDelta}</span>`:''}
@@ -9456,6 +9500,7 @@ function renderWeeklySummaries() {
     const rangeStr = monDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' – ' + sunDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
     let totCal=0, totCarb=0, totProtein=0, totFat=0, totFibre=0, totSteps=0, totBurn=0, daysWithBurn=0;
+    let totPaddleKm=0, totCycleKm=0;
     let exDays=0, waterDays=0, medsDays=0, daysLogged=0;
     let wStart=null, wEnd=null;
     const sortedDays = days.slice().sort();
@@ -9474,6 +9519,8 @@ function renderWeeklySummaries() {
         daysLogged++;
       }
       if (d.steps) totSteps += d.steps;
+      if (d.paddleKm) totPaddleKm += d.paddleKm;
+      if (d.cycleKm)  totCycleKm  += d.cycleKm;
       if (db[k].exercise === true) exDays++;
       if (db[k].water    === true) waterDays++;
       if (db[k].meds     === true) medsDays++;
@@ -9509,6 +9556,8 @@ function renderWeeklySummaries() {
         <div class="week-weight-row">
           <span>📅 ${daysLogged} day${daysLogged!==1?'s':''} logged</span>
           ${exDays    ? `<span>💪 ${exDays} ex</span>` : ''}
+          ${totPaddleKm ? `<span>🛶 ${totPaddleKm.toFixed(1)}km</span>` : ''}
+          ${totCycleKm  ? `<span>🚴 ${totCycleKm.toFixed(1)}km</span>` : ''}
           ${waterDays ? `<span>💧 ${waterDays} hydrated</span>` : ''}
           ${medsDays  ? `<span>💊 ${medsDays} medicated</span>` : ''}
           ${wDelta   ? `<span>⚖️ ${wDelta}</span>` : ''}

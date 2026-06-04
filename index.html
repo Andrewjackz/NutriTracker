@@ -1691,6 +1691,22 @@ a { color: inherit; text-decoration: none; }
 
     <!-- ── SCREEN: ANALYTICS ── -->
     <div class="screen" id="screen-analytics">
+
+      <!-- ── Stats / Nutrition sub-tab toggle ── -->
+      <div style="display:flex;gap:0;border-radius:var(--r-sm);overflow:hidden;border:1.5px solid var(--border);margin-bottom:14px">
+        <button id="statsSubTabStats" onclick="switchStatsSubTab('stats')"
+          style="flex:1;padding:11px 6px;border:none;font-size:12.5px;font-weight:700;cursor:pointer;border-right:1px solid var(--border);background:var(--blue);color:#fff">
+          📊 Stats
+        </button>
+        <button id="statsSubTabNutrition" onclick="switchStatsSubTab('nutrition')"
+          style="flex:1;padding:11px 6px;border:none;font-size:12.5px;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text-2)">
+          🧬 Nutrition
+        </button>
+      </div>
+
+      <!-- ── STATS PANEL ── -->
+      <div id="statsPanelStats">
+
       <div class="stat-grid" id="analyticsStats">
         <div class="stat-tile"><div class="stv" id="statDays">—</div><div class="stl">Days Logged</div></div>
         <div class="stat-tile"><div class="stv" id="statAvgCal">—</div><div class="stl">Avg Cals</div></div>
@@ -2181,6 +2197,52 @@ a { color: inherit; text-decoration: none; }
 
         </div>
       </div><!-- end #modelPanelWeekly -->
+
+      </div><!-- end statsPanelStats -->
+
+      <!-- ── NUTRITION ANALYSIS PANEL ── -->
+      <div id="statsPanelNutrition" style="display:none">
+
+        <div class="card" style="margin-bottom:10px">
+          <div class="card-title" style="margin-bottom:8px">🧬 Nutrient Analysis</div>
+          <div style="font-size:12px;color:var(--text-3);margin-bottom:10px;line-height:1.5">Claude analyses your food log and estimates macro + micronutrient intake vs RDA. <strong>Estimates only</strong> — inferred from food names, not lab-measured.</div>
+          <div id="nutriProfileChip" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--blue);background:var(--blue-lt);padding:5px 12px;border-radius:20px;cursor:pointer;margin-bottom:2px" onclick="switchTab('settings')">
+            ✏️ <span id="nutriProfileLabel">Set age &amp; sex in Settings</span>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Select Week to Analyse</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+            <select id="nutriWeekSel" class="inp" style="flex:1;padding:9px" onchange="onNutriWeekChange()">
+              <option value="">— choose a week —</option>
+            </select>
+            <div id="nutriWeekStatus" style="font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;background:var(--surface2);color:var(--text-3);white-space:nowrap;flex-shrink:0">Not run</div>
+          </div>
+          <button id="nutriRunBtn" onclick="runNutritionAnalysis()"
+            style="width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px">
+            🧬 Analyse This Week
+          </button>
+          <div style="font-size:10.5px;color:var(--text-3);text-align:center;line-height:1.4">
+            ~$0.02–0.04 per week · results cached · re-run only if food log changed
+          </div>
+        </div>
+
+        <div id="nutriWeekResult" style="display:none;margin-bottom:10px"></div>
+
+        <div class="card" style="margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div class="card-title" style="margin-bottom:0">📈 Aggregate — all analysed weeks</div>
+            <button onclick="renderNutriAggregate()"
+              style="padding:5px 12px;border:1.5px solid var(--border);border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text-2)">↻</button>
+          </div>
+          <div id="nutriAggResult">
+            <div style="font-size:12.5px;color:var(--text-3);text-align:center;padding:12px 0">Run at least one week to see aggregated averages.</div>
+          </div>
+        </div>
+
+      </div><!-- end statsPanelNutrition -->
+
     </div>
     <!-- ── SCREEN: MEAL PLAN ── -->
     <div class="screen" id="screen-mealplan">
@@ -2865,6 +2927,7 @@ const MEALPLAN_KEY = 'nt_mealplan';
 const EXPLAN_KEY   = 'nt_explan';
 const FASTING_KEY  = 'nt_fasting';
 const USAGE_KEY    = 'nt_api_usage';   // array of call log entries
+const NUTRI_KEY    = 'nt_nutrition';   // object: weekKey → analysis result
 
 let db       = loadDB();
 let goals    = loadGoals();
@@ -2941,8 +3004,8 @@ function loadDB() {
 }
 function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 function loadGoals() {
-  try { return JSON.parse(localStorage.getItem(GOAL_KEY)) || { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, netCalGoal: null, targetWeight: null, units: 'lbs' }; }
-  catch { return { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, netCalGoal: null, targetWeight: null, units: 'lbs' }; }
+  try { return JSON.parse(localStorage.getItem(GOAL_KEY)) || { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, netCalGoal: null, targetWeight: null, units: 'lbs', age: null, sex: 'male' }; }
+  catch { return { calGoal: 2000, carbGoal: 250, proteinGoal: 120, fatGoal: 65, fibreGoal: 30, stepsGoal: 10000, netCalGoal: null, targetWeight: null, units: 'lbs', age: null, sex: 'male' }; }
 }
 function saveGoals() {
   goals.calGoal     = parseInt(document.getElementById('calGoalInp').value)     || 2000;
@@ -2952,6 +3015,8 @@ function saveGoals() {
   goals.fibreGoal   = parseInt(document.getElementById('fibreGoalInp').value)   || 30;
   goals.stepsGoal   = parseInt(document.getElementById('stepsGoalInp').value)   || 10000;
   goals.netCalGoal  = parseInt(document.getElementById('netCalGoalInp').value)  || null;
+  goals.age         = parseInt(document.getElementById('ageInp')?.value)          || null;
+  goals.sex         = document.getElementById('sexSel')?.value                    || 'male';
   goals.units        = document.getElementById('unitsSel').value;
   const twRaw = document.getElementById('targetWeightInp').value.replace(',','.');
   goals.targetWeight = parseFloat(twRaw) || null;
@@ -3039,6 +3104,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('unitsSel').value         = goals.units;
   if (goals.targetWeight) document.getElementById('targetWeightInp').value = goals.targetWeight;
   if (goals.netCalGoal)   document.getElementById('netCalGoalInp').value  = goals.netCalGoal;
+  if (goals.age)          { const el=document.getElementById('ageInp');  if(el) el.value=goals.age; }
+  if (goals.sex)          { const el=document.getElementById('sexSel');  if(el) el.value=goals.sex; }
   document.getElementById('weightUnit').textContent = goals.units;
 
   // show api modal if no key
@@ -3126,7 +3193,12 @@ function switchTab(name) {
   if (name === 'search')    autoSelectMealType();
   if (name === 'today')     { renderToday(); updateFastingCard(); }
   if (name === 'calendar')  renderCalendar();
-  if (name === 'analytics') { renderAnalytics(); restoreCctState(); restoreSctState(); }
+  if (name === 'analytics') {
+    renderAnalytics(); restoreCctState(); restoreSctState();
+    // Keep last active sub-tab; default to stats
+    const nPanel = document.getElementById('statsPanelNutrition');
+    if (nPanel && nPanel.style.display === 'block') initNutritionPanel();
+  }
   if (name === 'mealplan')  initMealPlanTab();
   if (name === 'exercise')  initExerciseTab();
 }
@@ -6991,6 +7063,428 @@ function getChartKeys() {
   return Object.keys(db).sort();
 }
 
+/* ════════════════════════════════════════════════════════════════
+   STATS SUB-TAB SWITCH
+════════════════════════════════════════════════════════════════ */
+function switchStatsSubTab(tab) {
+  const isStats = tab === 'stats';
+  const sBtn = document.getElementById('statsSubTabStats');
+  const nBtn = document.getElementById('statsSubTabNutrition');
+  const sPanel = document.getElementById('statsPanelStats');
+  const nPanel = document.getElementById('statsPanelNutrition');
+  if (sBtn) { sBtn.style.background = isStats ? 'var(--blue)' : 'var(--surface2)'; sBtn.style.color = isStats ? '#fff' : 'var(--text-2)'; }
+  if (nBtn) { nBtn.style.background = isStats ? 'var(--surface2)' : 'var(--blue)'; nBtn.style.color = isStats ? 'var(--text-2)' : '#fff'; }
+  if (sPanel) sPanel.style.display = isStats ? 'block' : 'none';
+  if (nPanel) nPanel.style.display = isStats ? 'none'  : 'block';
+  if (!isStats) initNutritionPanel();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   NUTRITION ANALYSIS
+════════════════════════════════════════════════════════════════ */
+
+// RDA table: [male_rda, female_rda, unit, display_name, category]
+const NUTRI_RDA = {
+  // ── Macros ──────────────────────────────────────────────────
+  energy:      [2500,  2000,  'kcal', 'Energy',        'macro'],
+  protein:     [56,    46,    'g',    'Protein',        'macro'],
+  carbs:       [300,   225,   'g',    'Carbohydrates',  'macro'],
+  fat:         [78,    62,    'g',    'Total Fat',      'macro'],
+  fibre:       [38,    25,    'g',    'Dietary Fibre',  'macro'],
+  sugar:       [50,    50,    'g',    'Added Sugar',    'macro'],
+  saturatedFat:[20,    20,    'g',    'Saturated Fat',  'macro'],
+  omega3:      [1.6,   1.1,   'g',    'Omega-3',        'macro'],
+  // ── Fat-soluble Vitamins ─────────────────────────────────────
+  vitA:        [900,   700,   'µg',   'Vitamin A',      'fat_vit'],
+  vitD:        [20,    20,    'µg',   'Vitamin D',      'fat_vit'],
+  vitE:        [15,    15,    'mg',   'Vitamin E',      'fat_vit'],
+  vitK:        [120,   90,    'µg',   'Vitamin K',      'fat_vit'],
+  // ── Water-soluble Vitamins ────────────────────────────────────
+  vitC:        [90,    75,    'mg',   'Vitamin C',      'water_vit'],
+  vitB1:       [1.2,   1.1,   'mg',   'B1 Thiamine',    'water_vit'],
+  vitB2:       [1.3,   1.1,   'mg',   'B2 Riboflavin',  'water_vit'],
+  vitB3:       [16,    14,    'mg',   'B3 Niacin',      'water_vit'],
+  vitB6:       [1.7,   1.5,   'mg',   'B6 Pyridoxine',  'water_vit'],
+  folate:      [400,   400,   'µg',   'B9 Folate',      'water_vit'],
+  vitB12:      [2.4,   2.4,   'µg',   'B12 Cobalamin',  'water_vit'],
+  // ── Minerals ─────────────────────────────────────────────────
+  calcium:     [1000,  1000,  'mg',   'Calcium',        'mineral'],
+  iron:        [8,     18,    'mg',   'Iron',           'mineral'],
+  magnesium:   [420,   320,   'mg',   'Magnesium',      'mineral'],
+  zinc:        [11,    8,     'mg',   'Zinc',           'mineral'],
+  potassium:   [3400,  2600,  'mg',   'Potassium',      'mineral'],
+  sodium:      [2300,  2300,  'mg',   'Sodium',         'mineral'],
+  phosphorus:  [700,   700,   'mg',   'Phosphorus',     'mineral'],
+  selenium:    [55,    55,    'µg',   'Selenium',       'mineral'],
+  iodine:      [150,   150,   'µg',   'Iodine',         'mineral'],
+};
+
+const NUTRI_CAT_LABELS = {
+  macro: '🍽 Macronutrients', fat_vit: '🟡 Fat-soluble Vitamins',
+  water_vit: '🔵 Water-soluble Vitamins', mineral: '⚙️ Minerals'
+};
+
+function nutriRDA(key) {
+  const row = NUTRI_RDA[key];
+  if (!row) return 1;
+  const isMale = (goals.sex || 'male') === 'male';
+  return row[isMale ? 0 : 1];
+}
+
+function loadNutriStore() {
+  try { return JSON.parse(localStorage.getItem(NUTRI_KEY)) || {}; } catch { return {}; }
+}
+function saveNutriStore(store) {
+  try { localStorage.setItem(NUTRI_KEY, JSON.stringify(store)); } catch {}
+}
+
+function initNutritionPanel() {
+  // Update profile chip
+  const lbl = document.getElementById('nutriProfileLabel');
+  if (lbl) {
+    if (goals.age && goals.sex) {
+      lbl.textContent = `${goals.sex === 'male' ? '♂' : '♀'} ${goals.sex}, age ${goals.age}`;
+    } else {
+      lbl.textContent = 'Set age & sex in Settings ›';
+    }
+  }
+
+  // Populate week selector with all ISO weeks in db
+  const sel = document.getElementById('nutriWeekSel');
+  if (!sel) return;
+  const allKeys = Object.keys(db).sort();
+  if (!allKeys.length) return;
+
+  const weeks = new Set(allKeys.map(k => getMonday(k)));
+  const store = loadNutriStore();
+  const weekArr = [...weeks].sort().reverse();
+
+  sel.innerHTML = '<option value="">— choose a week —</option>' +
+    weekArr.map(mon => {
+      const sun = new Date(mon+'T00:00:00'); sun.setDate(sun.getDate()+6);
+      const lbl = new Date(mon+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) +
+                  ' – ' + sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const done = store[mon] ? ' ✓' : '';
+      return `<option value="${mon}">${lbl}${done}</option>`;
+    }).join('');
+
+  onNutriWeekChange();
+}
+
+function onNutriWeekChange() {
+  const sel    = document.getElementById('nutriWeekSel');
+  const status = document.getElementById('nutriWeekStatus');
+  const result = document.getElementById('nutriWeekResult');
+  const mon    = sel?.value;
+  if (!mon) {
+    if (status) { status.textContent = 'Not run'; status.style.background='var(--surface2)'; status.style.color='var(--text-3)'; }
+    if (result) result.style.display = 'none';
+    return;
+  }
+  const store = loadNutriStore();
+  if (store[mon]) {
+    if (status) { status.textContent = '✓ Cached'; status.style.background='rgba(46,125,50,.15)'; status.style.color='#2E7D32'; }
+    renderNutriWeekResult(store[mon], mon);
+  } else {
+    if (status) { status.textContent = 'Not run'; status.style.background='var(--surface2)'; status.style.color='var(--text-3)'; }
+    if (result) result.style.display = 'none';
+  }
+}
+
+async function runNutritionAnalysis() {
+  const sel = document.getElementById('nutriWeekSel');
+  const mon = sel?.value;
+  if (!mon) { showToast('Select a week first', ''); return; }
+
+  const apiKey = localStorage.getItem('nt_api_key');
+  if (!apiKey) { showToast('Set your Claude API key in Settings', ''); return; }
+
+  // Gather food log for the week
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mon+'T00:00:00'); d.setDate(d.getDate()+i);
+    const k = isoDate(d);
+    const day = db[k];
+    if (day?.items?.length) {
+      weekDays.push({ date: k, items: day.items.map(it => ({
+        name: it.name, qty: it.qty_label||'1 serving',
+        cal: it.calories, carbs: it.carbs_g, protein: it.protein_g||0,
+        fat: it.fat_g||0, fibre: it.fibre_g||it.fiber_g||0
+      }))});
+    }
+  }
+
+  if (!weekDays.length) { showToast('No food logged this week', ''); return; }
+
+  const daysLogged = weekDays.length;
+  const btn = document.getElementById('nutriRunBtn');
+  const result = document.getElementById('nutriWeekResult');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Analysing…'; }
+  if (result) {
+    result.style.display = 'block';
+    result.innerHTML = `<div class="card" style="text-align:center;padding:24px">
+      <div class="thinking-dots" style="justify-content:center;margin-bottom:10px"><span></span><span></span><span></span></div>
+      <div style="font-size:13px;color:var(--text-2);font-weight:600">Claude is analysing your food log…</div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:4px">Estimating micronutrients from food names</div>
+    </div>`;
+  }
+
+  const sex  = goals.sex  || 'male';
+  const age  = goals.age  || 40;
+  const wt   = Object.values(db).filter(d=>d.weight).slice(-1)[0]?.weight || 75;
+
+  const weekRange2 = new Date(mon+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' – ' + (() => { const s=new Date(mon+'T00:00:00');s.setDate(s.getDate()+6);return s.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); })();
+  const foodLogText = weekDays.map(d => d.date+': '+d.items.map(it => it.name+' ('+it.qty+', '+it.cal+'kcal, P'+it.protein+'g C'+it.carbs+'g F'+it.fat+'g Fi'+it.fibre+'g)').join('; ')).join('\n');
+  const prompt = [
+    'You are a registered dietitian. Analyse the following '+daysLogged+'-day food log for a '+age+'-year-old '+sex+', '+wt+goals.units+' body weight.',
+    '',
+    'For EACH nutrient listed, estimate the DAILY AVERAGE intake across the '+daysLogged+' days based on the food names, quantities and known macro data provided.',
+    '',
+    'FOOD LOG:',
+    foodLogText,
+    '',
+    'Return ONLY valid JSON (no markdown, no backticks, no commentary) with this exact structure:',
+    '{',
+    '  "daysAnalysed": '+daysLogged+',',
+    '  "summary": "2-3 sentence plain-English summary of the week nutritional profile, key strengths and key gaps",',
+    '  "nutrients": {',
+    '    "energy":{"value":2100,"confidence":"high"},',
+    '    "protein":{"value":95,"confidence":"high"},',
+    '    "carbs":{"value":240,"confidence":"high"},',
+    '    "fat":{"value":70,"confidence":"high"},',
+    '    "fibre":{"value":22,"confidence":"high"},',
+    '    "sugar":{"value":45,"confidence":"medium"},',
+    '    "saturatedFat":{"value":18,"confidence":"medium"},',
+    '    "omega3":{"value":0.8,"confidence":"low"},',
+    '    "vitA":{"value":650,"confidence":"medium"},',
+    '    "vitD":{"value":6,"confidence":"medium"},',
+    '    "vitE":{"value":9,"confidence":"medium"},',
+    '    "vitK":{"value":80,"confidence":"low"},',
+    '    "vitC":{"value":55,"confidence":"medium"},',
+    '    "vitB1":{"value":1.1,"confidence":"medium"},',
+    '    "vitB2":{"value":1.2,"confidence":"medium"},',
+    '    "vitB3":{"value":14,"confidence":"medium"},',
+    '    "vitB6":{"value":1.4,"confidence":"medium"},',
+    '    "folate":{"value":280,"confidence":"medium"},',
+    '    "vitB12":{"value":2.8,"confidence":"medium"},',
+    '    "calcium":{"value":750,"confidence":"medium"},',
+    '    "iron":{"value":11,"confidence":"medium"},',
+    '    "magnesium":{"value":320,"confidence":"medium"},',
+    '    "zinc":{"value":9,"confidence":"medium"},',
+    '    "potassium":{"value":2800,"confidence":"medium"},',
+    '    "sodium":{"value":2100,"confidence":"medium"},',
+    '    "phosphorus":{"value":900,"confidence":"medium"},',
+    '    "selenium":{"value":48,"confidence":"medium"},',
+    '    "iodine":{"value":120,"confidence":"low"}',
+    '  },',
+    '  "deficiencies": ["vitD","omega3"],',
+    '  "excesses": ["sodium"],',
+    '  "supplementNote": "Plain-English note on which supplements might address the identified deficiencies."',
+    '}',
+    '',
+    'All values are per-day averages. Use actual macro data where provided (energy, protein, carbs, fat, fibre are tracked precisely). Estimate all others from food names using standard nutritional databases. Set confidence: high=macro data, medium=well-known food composition, low=highly variable.'
+  ].join('\n');
+
+  const t0 = Date.now();
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json','x-api-key':apiKey,
+        'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
+        messages:[{role:'user',content:prompt}] })
+    });
+    if (!resp.ok) throw new Error(`API error ${resp.status}`);
+    const data  = await resp.json();
+    trackUsage('nutrition', 'claude-sonnet-4-20250514', data, t0);
+    const raw   = data.content?.[0]?.text || '';
+    const analysis = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    analysis.weekMon = mon;
+    analysis.ranAt   = new Date().toISOString();
+
+    // Cache
+    const store = loadNutriStore();
+    store[mon] = analysis;
+    saveNutriStore(store);
+
+    // Refresh selector (mark as done)
+    initNutritionPanel();
+    const newSel = document.getElementById('nutriWeekSel');
+    if (newSel) newSel.value = mon;
+
+    const status = document.getElementById('nutriWeekStatus');
+    if (status) { status.textContent = '✓ Cached'; status.style.background='rgba(46,125,50,.15)'; status.style.color='#2E7D32'; }
+
+    renderNutriWeekResult(analysis, mon);
+    renderNutriAggregate();
+
+  } catch(e) {
+    if (result) result.innerHTML = `<div class="card" style="border-color:var(--red)">
+      <div style="color:var(--red);font-weight:700;margin-bottom:6px">⚠️ Analysis failed</div>
+      <div style="font-size:12.5px;color:var(--text-2)">${e.message}</div>
+      <button onclick="runNutritionAnalysis()" style="margin-top:10px;padding:9px 16px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-weight:700;cursor:pointer">Try again</button>
+    </div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🧬 Analyse This Week'; }
+  }
+}
+
+function renderNutriWeekResult(analysis, mon) {
+  const el = document.getElementById('nutriWeekResult');
+  if (!el) return;
+
+  const sex = goals.sex || 'male';
+  const sunDate = new Date(mon+'T00:00:00'); sunDate.setDate(sunDate.getDate()+6);
+  const weekRange = new Date(mon+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) +
+                    ' – ' + sunDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+  const cats = ['macro','fat_vit','water_vit','mineral'];
+
+  let html = `
+    <div class="card" style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Week of ${weekRange}</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:8px">${analysis.summary || ''}</div>
+      ${analysis.supplementNote ? `<div style="font-size:12px;color:var(--text-2);background:var(--blue-lt);border-left:3px solid var(--blue);padding:8px 10px;border-radius:0 var(--r-sm) var(--r-sm) 0;line-height:1.5">💊 ${analysis.supplementNote}</div>` : ''}
+    </div>`;
+
+  cats.forEach(cat => {
+    const keys = Object.keys(NUTRI_RDA).filter(k => NUTRI_RDA[k][4] === cat);
+    html += `<div class="card" style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--text-3);margin-bottom:10px">${NUTRI_CAT_LABELS[cat]}</div>
+      <div style="display:flex;flex-direction:column;gap:8px">`;
+
+    keys.forEach(key => {
+      const row    = NUTRI_RDA[key];
+      const rda    = nutriRDA(key);
+      const nData  = analysis.nutrients?.[key];
+      const val    = nData?.value;
+      const conf   = nData?.confidence || 'low';
+      const unit   = row[2];
+      const name   = row[3];
+      if (val === undefined || val === null) return;
+
+      const pct    = Math.round(val / rda * 100);
+      const isExcess = key === 'sodium' || key === 'sugar' || key === 'saturatedFat';
+      let ragColor, ragLabel;
+      if (isExcess) {
+        ragColor = pct > 120 ? '#C62828' : pct > 100 ? '#E65100' : '#2E7D32';
+        ragLabel = pct > 120 ? 'High' : pct > 100 ? 'Over' : 'OK';
+      } else {
+        ragColor = pct < 50 ? '#C62828' : pct < 80 ? '#E65100' : '#2E7D32';
+        ragLabel = pct < 50 ? 'Low' : pct < 80 ? 'Moderate' : 'Good';
+      }
+      const barW = Math.min(pct, 100);
+      const confDot = conf === 'high' ? '●' : conf === 'medium' ? '◐' : '○';
+      const confColor = conf === 'high' ? 'var(--green)' : conf === 'medium' ? 'var(--yellow)' : 'var(--text-3)';
+
+      html += `
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+            <span style="font-size:12.5px;font-weight:700;color:var(--text)">${name}</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;color:${confColor}" title="Confidence: ${conf}">${confDot}</span>
+              <span style="font-size:12px;font-weight:800;color:${ragColor}">${val}${unit}</span>
+              <span style="font-size:10.5px;color:var(--text-3)">/ ${rda}${unit}</span>
+              <span style="font-size:10.5px;font-weight:700;color:${ragColor};min-width:44px;text-align:right">${pct}% · ${ragLabel}</span>
+            </div>
+          </div>
+          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${barW}%;background:${ragColor};border-radius:3px;transition:width .4s"></div>
+          </div>
+        </div>`;
+    });
+    html += '</div></div>';
+  });
+
+  // Legend
+  html += `<div style="font-size:10.5px;color:var(--text-3);display:flex;gap:12px;flex-wrap:wrap;padding:4px 0 8px">
+    <span style="color:#2E7D32">■ Good (≥80% RDA)</span>
+    <span style="color:#E65100">■ Moderate (50–79%)</span>
+    <span style="color:#C62828">■ Low (&lt;50% RDA)</span>
+    <span>Confidence: <span style="color:var(--green)">●</span> high &nbsp;<span style="color:var(--yellow)">◐</span> medium &nbsp;○ low</span>
+  </div>
+  <div style="font-size:10px;color:var(--text-3);padding-bottom:4px">Ran ${new Date(analysis.ranAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>`;
+
+  el.style.display = 'block';
+  el.innerHTML = html;
+}
+
+function renderNutriAggregate() {
+  const el = document.getElementById('nutriAggResult');
+  if (!el) return;
+  const store = loadNutriStore();
+  const weeks = Object.values(store);
+  if (!weeks.length) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--text-3);text-align:center;padding:12px 0">No weeks analysed yet.</div>';
+    return;
+  }
+
+  const nKeys = Object.keys(NUTRI_RDA);
+  const avgs  = {};
+  nKeys.forEach(key => {
+    const vals = weeks.map(w => w.nutrients?.[key]?.value).filter(v => v != null);
+    avgs[key] = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length * 100)/100 : null;
+  });
+
+  const nWeeks = weeks.length;
+  const dates  = weeks.map(w=>w.weekMon).sort();
+  const range  = dates.length > 1
+    ? `${new Date(dates[0]+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date(dates[dates.length-1]+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`
+    : new Date(dates[0]+'T00:00:00').toLocaleDateString('en-US',{month:'short',year:'numeric'});
+
+  // Identify persistent deficiencies (< 80% RDA in >50% of weeks)
+  const defKeys = nKeys.filter(key => {
+    if (['sodium','sugar','saturatedFat'].includes(key)) return false;
+    const rda = nutriRDA(key);
+    const lowWeeks = weeks.filter(w => {
+      const v = w.nutrients?.[key]?.value;
+      return v != null && (v/rda) < 0.8;
+    }).length;
+    return lowWeeks > weeks.length * 0.5;
+  });
+
+  let html = `<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">${nWeeks} week${nWeeks!==1?'s':''} analysed · ${range}</div>`;
+
+  if (defKeys.length) {
+    html += `<div style="background:rgba(198,40,40,.08);border:1.5px solid rgba(198,40,40,.3);border-radius:var(--r-sm);padding:10px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;color:#C62828;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">⚠️ Persistent Deficiencies (>50% of weeks below 80% RDA)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        ${defKeys.map(k=>`<span style="font-size:12px;font-weight:700;background:rgba(198,40,40,.1);color:#C62828;padding:3px 10px;border-radius:20px">${NUTRI_RDA[k][3]}</span>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Summary table — top-level averages by category
+  const cats = ['macro','fat_vit','water_vit','mineral'];
+  cats.forEach(cat => {
+    const keys = nKeys.filter(k => NUTRI_RDA[k][4] === cat && avgs[k] != null);
+    if (!keys.length) return;
+    html += `<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--text-3);margin:10px 0 6px">${NUTRI_CAT_LABELS[cat]}</div>
+    <div style="display:flex;flex-direction:column;gap:5px">`;
+    keys.forEach(key => {
+      const rda   = nutriRDA(key);
+      const val   = avgs[key];
+      const unit  = NUTRI_RDA[key][2];
+      const name  = NUTRI_RDA[key][3];
+      const pct   = Math.round(val/rda*100);
+      const isEx  = ['sodium','sugar','saturatedFat'].includes(key);
+      const col   = isEx ? (pct>120?'#C62828':pct>100?'#E65100':'#2E7D32') : (pct<50?'#C62828':pct<80?'#E65100':'#2E7D32');
+      html += `<div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;font-size:12px;color:var(--text)">${name}</div>
+        <div style="font-size:12px;font-weight:700;color:${col}">${val}${unit}</div>
+        <div style="font-size:10.5px;color:var(--text-3);min-width:36px;text-align:right">/ ${rda}${unit}</div>
+        <div style="width:50px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(pct,100)}%;background:${col};border-radius:3px"></div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:${col};min-width:38px;text-align:right">${pct}%</div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
 /* ════════════════════════════════════════
    CUSTOM CHART TOOL
 ════════════════════════════════════════ */
@@ -9659,6 +10153,8 @@ This will REPLACE all current data.`)) return;
       document.getElementById('weightUnit').textContent = goals.units || 'lbs';
       if (goals.targetWeight) document.getElementById('targetWeightInp').value = goals.targetWeight;
   if (goals.netCalGoal)   document.getElementById('netCalGoalInp').value  = goals.netCalGoal;
+  if (goals.age)          { const el=document.getElementById('ageInp');  if(el) el.value=goals.age; }
+  if (goals.sex)          { const el=document.getElementById('sexSel');  if(el) el.value=goals.sex; }
       renderHistory();
       renderToday();
       renderCalendar();

@@ -1626,6 +1626,21 @@ a { color: inherit; text-decoration: none; }
             </div>
           </div>
         </div>
+        <!-- Age + Sex for Nutrition RDA calculations -->
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px">🎂 Age <span style="font-weight:400;color:var(--text-3)">(for RDAs)</span></div>
+            <input class="inp" id="ageInp" type="number" min="10" max="100" placeholder="e.g. 45" oninput="saveGoals()" style="padding:10px">
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px">⚧ Sex <span style="font-weight:400;color:var(--text-3)">(for RDAs)</span></div>
+            <select class="inp" id="sexSel" onchange="saveGoals()" style="padding:10px">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+        </div>
+
         <div style="display:flex;gap:8px">
           <div style="flex:1">
             <div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px">⚖️ Units</div>

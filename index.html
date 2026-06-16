@@ -2928,8 +2928,8 @@ function openSettings() {
 ════════════════════════════════════════ */
 const PRICING = {
   // Per-million-token rates (USD) — update if Anthropic changes pricing
-  'claude-sonnet-4-20250514': { input: 3.00,  output: 15.00  },
-  'claude-opus-4-20250514':   { input: 15.00, output: 75.00  },
+  'claude-sonnet-4-6': { input: 3.00,  output: 15.00  },
+  'claude-opus-4-8':   { input: 15.00, output: 75.00  },
   'claude-haiku-4-20251001':  { input: 0.25,  output: 1.25   },
   'default':                  { input: 3.00,  output: 15.00  },
 };
@@ -2949,7 +2949,7 @@ function logApiCall(callType, model, inputTokens, outputTokens, durationMs) {
     ts:       now.toISOString(),
     month:    now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'),
     type:     callType,       // 'search','photo','barcode','mealplan','exercise','recipe','fridge'
-    model:    model || 'claude-sonnet-4-20250514',
+    model:    model || 'claude-sonnet-4-6',
     in:       inputTokens  || 0,
     out:      outputTokens || 0,
     ms:       durationMs   || 0,
@@ -3455,13 +3455,13 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, no preamble):
                'anthropic-version': '2023-06-01',
                'anthropic-dangerous-direct-browser-access': 'true' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514', max_tokens: 1200,
+      model: 'claude-sonnet-4-6', max_tokens: 1200,
       messages: [{ role: 'user', content: prompt }]
     })
   });
   if (!resp.ok) throw new Error(`API error ${resp.status}`);
   const data = await resp.json();
-  trackUsage('mp-recipe', 'claude-sonnet-4-20250514', data, t0);
+  trackUsage('mp-recipe', 'claude-sonnet-4-6', data, t0);
   const raw  = data.content?.[0]?.text || '';
   return JSON.parse(raw.replace(/```json|```/g,'').trim());
 }
@@ -3671,14 +3671,14 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, no preamble):
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
                  'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514', max_tokens: 1500,
+        model: 'claude-sonnet-4-6', max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }]
       })
     });
 
     if (!resp.ok) throw new Error(`API error ${resp.status}`);
     const data = await resp.json();
-    trackUsage('fridge-chef', 'claude-sonnet-4-20250514', data, t0);
+    trackUsage('fridge-chef', 'claude-sonnet-4-6', data, t0);
     const raw = data.content?.[0]?.text || '';
     const json = raw.replace(/```json|```/g, '').trim();
     const recipe = JSON.parse(json);
@@ -3858,7 +3858,7 @@ Respond ONLY with a valid JSON array — no markdown, no extra text:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -3868,7 +3868,7 @@ Respond ONLY with a valid JSON array — no markdown, no extra text:
       throw new Error(err.error?.message || `API error ${resp.status}`);
     }
     const data  = await resp.json();
-    trackUsage('meal-plan', 'claude-sonnet-4-20250514', data, t0);
+    trackUsage('meal-plan', 'claude-sonnet-4-6', data, t0);
     cent?.[0]?.text || '';
     const match = raw.match(/\[[\s\S]*\]/);
     if (!match) throw new Error('Could not parse meal plan response');
@@ -4213,7 +4213,7 @@ Respond ONLY with valid JSON — no markdown, no extra text:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -4500,7 +4500,7 @@ Respond ONLY with valid JSON like this, no markdown, no extra text:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 400,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -4512,7 +4512,7 @@ Respond ONLY with valid JSON like this, no markdown, no extra text:
     }
 
     const data = await resp.json();
-    trackUsage('food-search', 'claude-sonnet-4-20250514', data, t0);
+    trackUsage('food-search', 'claude-sonnet-4-6', data, t0);
     const raw  = data.content?.[0]?.text || '';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Could not parse nutrition data');
@@ -4626,7 +4626,7 @@ async function doBarcodeSearch() {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 150,
         messages: [{
           role: 'user',
@@ -4708,7 +4708,7 @@ async function doBarcodeSearch() {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 400,
         messages: [{
           role: 'user',
@@ -4836,7 +4836,7 @@ Respond ONLY with valid JSON like this, no markdown, no extra text:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 500,
         messages: [{
           role: 'user',
@@ -7369,12 +7369,12 @@ async function runNutritionAnalysis() {
       method: 'POST',
       headers: { 'Content-Type':'application/json','x-api-key':apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
+      body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:2000,
         messages:[{role:'user',content:prompt}] })
     });
     if (!resp.ok) throw new Error(`API error ${resp.status}`);
     const data  = await resp.json();
-    trackUsage('nutrition', 'claude-sonnet-4-20250514', data, t0);
+    trackUsage('nutrition', 'claude-sonnet-4-6', data, t0);
     const raw   = data.content?.[0]?.text || '';
     const analysis = JSON.parse(raw.replace(/```json|```/g,'').trim());
     analysis.weekMon = mon;

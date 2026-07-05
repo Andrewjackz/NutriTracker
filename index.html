@@ -1892,6 +1892,38 @@ a { color: inherit; text-decoration: none; }
         <div id="sctStats" style="margin-top:10px;display:none;gap:8px;flex-wrap:wrap"></div>
       </div>
 
+      <!-- ══ GLOBAL CHART CONTROLS ══ -->
+      <div id="gccCard" style="background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-2)">📊 Chart Range &amp; Aggregation</div>
+          <div id="gccRangeLabel" style="font-size:11px;font-weight:700;color:var(--blue);background:#EFF6FF;padding:3px 10px;border-radius:20px"></div>
+        </div>
+
+        <!-- Range buttons -->
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
+          <button class="gcc-btn sel" data-gcc-range="30"     onclick="setGccRange('30',this)">30d</button>
+          <button class="gcc-btn"     data-gcc-range="7"      onclick="setGccRange('7',this)">7d</button>
+          <button class="gcc-btn"     data-gcc-range="90"     onclick="setGccRange('90',this)">90d</button>
+          <button class="gcc-btn"     data-gcc-range="180"    onclick="setGccRange('180',this)">6m</button>
+          <button class="gcc-btn"     data-gcc-range="ytd"    onclick="setGccRange('ytd',this)">YTD</button>
+          <button class="gcc-btn"     data-gcc-range="all"    onclick="setGccRange('all',this)">All</button>
+          <button class="gcc-btn"     data-gcc-range="custom" onclick="setGccRange('custom',this)">Custom…</button>
+        </div>
+        <div id="gccCustomRow" style="display:none;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <input type="date" id="gccFrom" class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px" onchange="applyGccCustom()">
+          <span style="font-size:12px;color:var(--text-3)">→</span>
+          <input type="date" id="gccTo"   class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px" onchange="applyGccCustom()">
+        </div>
+
+        <!-- Aggregation buttons -->
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          <button class="gcc-agg-btn sel" data-gcc-agg="daily"   onclick="setGccAgg('daily',this)">Daily</button>
+          <button class="gcc-agg-btn"     data-gcc-agg="7davg"   onclick="setGccAgg('7davg',this)">7d avg</button>
+          <button class="gcc-agg-btn"     data-gcc-agg="30davg"  onclick="setGccAgg('30davg',this)">30d avg</button>
+          <button class="gcc-agg-btn"     data-gcc-agg="monthly" onclick="setGccAgg('monthly',this)">Monthly avg</button>
+        </div>
+      </div>
+
       <div class="chart-card">
         <div class="card-title">Daily Calories — Trend</div>
         <canvas id="calTrendChart" height="200"></canvas>
@@ -5772,6 +5804,8 @@ function calNav(dir) {
    ANALYTICS
 ════════════════════════════════════════ */
 function renderAnalytics() {
+  gccRestoreUI();
+  _updateGccLabel();
   renderBMI();
   renderTotalToDate();
   renderWeeklySummaries();
@@ -5782,8 +5816,8 @@ function renderAnalytics() {
   renderNetScatter();
   renderFullCorrMatrix();
   renderBurnScatter();
-  // build dataset: filtered by chart range setting
-  const keys = getChartKeys();
+  // build dataset: filtered by global chart controls
+  const keys = _gccFilteredKeys();
   const calSeries  = [];
   const carbSeries = [];
   const weightSeries = {};
@@ -5994,7 +6028,7 @@ function renderAnalytics() {
   if (!netCalTrendInst) netCalTrendInst = null;
   if (netCalTrendInst) { netCalTrendInst.destroy(); netCalTrendInst = null; }
   // build combined consumed + net series aligned on same dates
-  const ncDates30 = calSeries.slice(-30);
+  const ncDates30 = calSeries;  // range already filtered by _gccFilteredKeys()
   if (ncDates30.length >= 2) {
     const ncLabels = ncDates30.map(d => d.date.slice(5));
     const consumed = ncDates30.map(d => d.cal);
@@ -6144,11 +6178,24 @@ function renderAnalytics() {
   // cal trend
   if (calTrendInst) calTrendInst.destroy();
   // Use getChartKeys-filtered calSeries + aggregation
-  const trendDates = calSeries.slice(-60);
-  const calLabels = trendDates.map(d => d.date.slice(5));
+  // Apply buildSeries aggregation to all trend series
+  const _calBuilt      = buildSeries(calSeries.map(p=>({date:p.date,val:p.cal})));
+  const _carbBuilt     = buildSeries(calSeries.map(p=>({date:p.date,val:p.carb})));
+  const _proteinBuilt  = buildSeries(proteinSeries.map(p=>({date:p.date,val:p.val})));
+  const _fatBuilt      = buildSeries(fatSeries.map(p=>({date:p.date,val:p.val})));
+  const _fibreBuilt    = buildSeries(fibreSeries.map(p=>({date:p.date,val:p.val})));
+  const _weightBuilt   = buildSeries(weightTrend.map(p=>({date:p.date,val:p.val})));
+  const _stepsBuilt    = buildSeries(stepsTrend.map(p=>({date:p.date,val:p.val})));
+  const _netCalBuilt   = buildSeries(calSeries.map(p=>{
+    const ed=effectiveDay(p.date);
+    const burn=calcBurn(ed.steps,ed.weight,goals.units,ed.runKm,ed.runPace,ed.paddleKm,ed.cycleKm);
+    return {date:p.date, val:p.cal>0?p.cal-burn:null};
+  }));
+  const trendDates = _calBuilt;   // alias for any remaining refs
+  const calLabels = _calBuilt.map(d => d.label);
   const calGoalDs = goalDataset(calLabels, goals.calGoal, 'rgba(211,47,47,0.7)');
   calTrendInst = new Chart(document.getElementById('calTrendChart'), {
-    type: 'bar',
+    type: gccChartType(),
     data: {
       labels: calLabels,
       datasets: [
@@ -6232,7 +6279,7 @@ function renderAnalytics() {
 
   // protein trend
   if (proteinTrendInst) proteinTrendInst.destroy();
-  const proteinDates = proteinSeries.slice(-30);
+  const proteinDates = _proteinBuilt;
   const proteinLabels = proteinDates.map(d => d.date.slice(5));
   const proteinGoalDs = goalDataset(proteinLabels, goals.proteinGoal, 'rgba(46,125,50,0.55)');
   proteinTrendInst = new Chart(document.getElementById('proteinTrendChart'), {
@@ -6250,7 +6297,7 @@ function renderAnalytics() {
 
   // fat trend
   if (fatTrendInst) fatTrendInst.destroy();
-  const fatDates = fatSeries.slice(-30);
+  const fatDates = _fatBuilt;
   const fatLabels = fatDates.map(d => d.date.slice(5));
   const fatGoalDs = goalDataset(fatLabels, goals.fatGoal, 'rgba(249,168,37,0.7)');
   fatTrendInst = new Chart(document.getElementById('fatTrendChart'), {
@@ -6268,7 +6315,7 @@ function renderAnalytics() {
 
   // fibre trend
   if (fibreTrendInst) fibreTrendInst.destroy();
-  const fibreDates = fibreSeries.slice(-30);
+  const fibreDates = _fibreBuilt;
   const fibreLabels = fibreDates.map(d => d.date.slice(5));
   const fibreGoalVal = goals.fibreGoal || 30;
   const fibreGoalDs = goalDataset(fibreLabels, fibreGoalVal, 'rgba(0,105,92,0.6)');
@@ -6287,7 +6334,7 @@ function renderAnalytics() {
 
   // weight trend
   if (weightTrendInst) weightTrendInst.destroy();
-  const wtDates = weightTrend.slice(-60);
+  const wtDates = _weightBuilt;
   const weightChartEmpty = document.getElementById('weightChartEmpty');
   const weightCanvas     = document.getElementById('weightTrendChart');
   if (wtDates.length < 2) {
@@ -6454,7 +6501,7 @@ function renderAnalytics() {
 
   // steps trend
   if (stepsTrendInst) stepsTrendInst.destroy();
-  const stDates  = stepsTrend.slice(-30);
+  const stDates  = _stepsBuilt;
   const stepsChartEmpty = document.getElementById('stepsChartEmpty');
   const stepsCanvas     = document.getElementById('stepsTrendChart');
   if (stDates.length < 2) {
@@ -7119,6 +7166,166 @@ function setRegressionMode(mode) {
 
 function getChartKeys() {
   return Object.keys(db).sort();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   GLOBAL CHART CONTROLS  (gcc)
+   Drives all 12 standard time-series charts.
+   Custom dual-axis (cct) and single-axis (sct) are independent.
+════════════════════════════════════════════════════════════════ */
+let gccRange   = '30';    // '7'|'30'|'90'|'180'|'ytd'|'all'|'custom'
+let gccAgg     = 'daily'; // 'daily'|'7davg'|'30davg'|'monthly'
+let gccFrom    = null;    // ISO date string, custom range
+let gccTo      = null;
+
+const GCC_KEY = 'nt_gcc';
+
+function loadGccState() {
+  try {
+    const s = JSON.parse(localStorage.getItem(GCC_KEY));
+    if (!s) return;
+    gccRange = s.range || '30';
+    gccAgg   = s.agg   || 'daily';
+    gccFrom  = s.from  || null;
+    gccTo    = s.to    || null;
+  } catch(e) {}
+}
+
+function saveGccState() {
+  try { localStorage.setItem(GCC_KEY, JSON.stringify({ range:gccRange, agg:gccAgg, from:gccFrom, to:gccTo })); } catch(e) {}
+}
+
+function setGccRange(range, btn) {
+  gccRange = range;
+  document.querySelectorAll('[data-gcc-range]').forEach(b => b.classList.toggle('sel', b.dataset.gccRange === range));
+  const cr = document.getElementById('gccCustomRow');
+  if (cr) cr.style.display = range === 'custom' ? 'flex' : 'none';
+  if (range !== 'custom') { gccFrom = null; gccTo = null; saveGccState(); _gccRerender(); }
+}
+
+function setGccAgg(agg, btn) {
+  gccAgg = agg;
+  document.querySelectorAll('[data-gcc-agg]').forEach(b => b.classList.toggle('sel', b.dataset.gccAgg === agg));
+  saveGccState(); _gccRerender();
+}
+
+function applyGccCustom() {
+  const f = document.getElementById('gccFrom')?.value;
+  const t = document.getElementById('gccTo')?.value;
+  if (f && t && f <= t) { gccFrom = f; gccTo = t; saveGccState(); _gccRerender(); }
+}
+
+function _gccRerender() {
+  // Re-render only the standard charts, not the custom chart tools
+  // Rebuild the full renderAnalytics pipeline
+  renderAnalytics();
+}
+
+// Apply saved state to buttons on panel open
+function gccRestoreUI() {
+  loadGccState();
+  document.querySelectorAll('[data-gcc-range]').forEach(b => b.classList.toggle('sel', b.dataset.gccRange === gccRange));
+  document.querySelectorAll('[data-gcc-agg]').forEach(b => b.classList.toggle('sel', b.dataset.gccAgg === gccAgg));
+  const cr = document.getElementById('gccCustomRow');
+  if (cr) cr.style.display = gccRange === 'custom' ? 'flex' : 'none';
+  if (gccFrom) { const el = document.getElementById('gccFrom'); if(el) el.value = gccFrom; }
+  if (gccTo)   { const el = document.getElementById('gccTo');   if(el) el.value = gccTo;   }
+  _updateGccLabel();
+}
+
+function _updateGccLabel() {
+  const el = document.getElementById('gccRangeLabel');
+  if (!el) return;
+  const keys = _gccFilteredKeys();
+  if (!keys.length) { el.textContent = 'No data'; return; }
+  const fmt = k => new Date(k+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+  const rangeLabels = {'7':'Last 7 days','30':'Last 30 days','90':'Last 90 days',
+    '180':'Last 6 months','ytd':'Year to date','all':'All time','custom':'Custom'};
+  const aggLabels = {'daily':'Daily','7davg':'7d avg','30davg':'30d avg','monthly':'Monthly avg'};
+  el.textContent = (rangeLabels[gccRange]||gccRange) + ' · ' + aggLabels[gccAgg] + ' · ' + keys.length + ' days';
+}
+
+// Returns the filtered sorted day keys for the current range
+function _gccFilteredKeys() {
+  const all = Object.keys(db).sort();
+  if (!all.length) return [];
+  if (gccRange === 'all') return all;
+  if (gccRange === 'custom' && gccFrom && gccTo) return all.filter(k => k >= gccFrom && k <= gccTo);
+  if (gccRange === 'ytd') {
+    const jan1 = new Date().getFullYear() + '-01-01';
+    return all.filter(k => k >= jan1);
+  }
+  const days = parseInt(gccRange);
+  if (!isNaN(days)) {
+    const cut = new Date(); cut.setDate(cut.getDate() - days);
+    return all.filter(k => k >= cut.toISOString().slice(0,10));
+  }
+  return all;
+}
+
+// ── Core series builder ──────────────────────────────────────────
+// Takes a raw series array [{date, val}] already filtered by _gccFilteredKeys
+// and returns an aggregated version based on gccAgg.
+// Output: [{label, val, date}]
+function buildSeries(rawSeries) {
+  if (!rawSeries.length) return [];
+  if (gccAgg === 'daily') {
+    return rawSeries.map(p => ({
+      label: p.date.slice(5),
+      val:   p.val,
+      date:  p.date,
+    }));
+  }
+
+  // Bucket into periods
+  const buckets = {};
+  rawSeries.forEach(({date, val}) => {
+    if (val === null || val === undefined) return;
+    let key, label;
+    if (gccAgg === 'monthly') {
+      key   = date.slice(0,7);
+      label = new Date(key+'-01T00:00:00').toLocaleDateString('en-US',{month:'short',year:'2-digit'});
+    } else {
+      // 7d or 30d rolling average — compute at each point
+      key   = date;
+      label = date.slice(5);
+    }
+    if (!buckets[key]) buckets[key] = { sum:0, count:0, label };
+    buckets[key].sum   += val;
+    buckets[key].count += 1;
+  });
+
+  if (gccAgg === 'monthly') {
+    return Object.keys(buckets).sort().map(k => ({
+      label: buckets[k].label,
+      val:   buckets[k].count > 0 ? Math.round(buckets[k].sum/buckets[k].count*10)/10 : null,
+      date:  k,
+    }));
+  }
+
+  // Rolling averages — compute for each date in rawSeries
+  const window = gccAgg === '7davg' ? 7 : 30;
+  const allKeys = rawSeries.map(p => p.date);
+  const valMap  = {};
+  rawSeries.forEach(p => { valMap[p.date] = p.val; });
+
+  return rawSeries.map((p, i) => {
+    const start = Math.max(0, i - window + 1);
+    const slice = rawSeries.slice(start, i+1).map(x => x.val).filter(v => v !== null && v !== undefined);
+    const avg   = slice.length ? Math.round(slice.reduce((a,b)=>a+b,0)/slice.length*10)/10 : null;
+    return { label: p.date.slice(5), val: avg, date: p.date };
+  });
+}
+
+// Chart type helper — bar for daily, line for aggregated
+function gccChartType() {
+  return gccAgg === 'daily' ? 'bar' : 'line';
+}
+
+// Point radius helper
+function gccPointRadius(seriesLength) {
+  if (gccAgg !== 'daily') return seriesLength > 60 ? 0 : 3;
+  return 0;
 }
 
 /* ════════════════════════════════════════════════════════════════

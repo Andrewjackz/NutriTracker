@@ -5825,18 +5825,18 @@ function renderAnalytics() {
   initGcc();
   gccSyncUI();
   _updateGccLabel();
+  // build filtered keys FIRST so all chart functions respect current range
+  const keys = _gccFilteredKeys();
   renderBMI();
   renderTotalToDate();
   renderWeeklySummaries();
   renderMonthlySummaries();
   renderStreaks();
-  renderRunTrend();
-  renderBurnSplit();
-  renderNetScatter();
-  renderFullCorrMatrix();
-  renderBurnScatter();
-  // build dataset: filtered by global chart controls
-  const keys = _gccFilteredKeys();
+  renderRunTrend(keys);
+  renderBurnSplit(keys);
+  renderNetScatter(keys);
+  renderFullCorrMatrix(keys);
+  renderBurnScatter(keys);
   const calSeries  = [];
   const carbSeries = [];
   const weightSeries = {};
@@ -7239,10 +7239,13 @@ function applyGccCustom() {
 }
 
 function _gccRerender() {
-  // Re-render only the standard charts, not the custom chart tools
-  // Rebuild the full renderAnalytics pipeline
+  // renderAnalytics now calls _gccFilteredKeys() as its FIRST step
+  // and passes the result to all standalone chart functions —
+  // so calling it here correctly re-renders all charts for the new range/agg.
   renderAnalytics();
 }
+
+
 
 // Apply saved state to buttons on panel open
 let _gccInitialised = false;

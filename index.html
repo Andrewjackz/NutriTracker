@@ -1141,6 +1141,17 @@ a { color: inherit; text-decoration: none; }
 /* 3-button toggle */
 .search-mode-toggle .smt-btn:first-child  { border-right: 1px solid var(--border); }
 .search-mode-toggle .smt-btn:nth-child(2) { border-right: 1px solid var(--border); }
+
+/* ── Global chart controls ── */
+.gcc-chip { display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:1.5px solid var(--border);border-radius:24px;background:var(--surface);color:var(--text-2);font-size:12px;font-weight:600;cursor:pointer;transition:background .12s,color .12s,border-color .12s;user-select:none; }
+.gcc-chip:active { opacity:.8; }
+.gcc-chip.sel { background:#EFF6FF;color:#1565C0;border-color:#1565C0;font-weight:700; }
+.gcc-chip.sel::before { content:"✓ ";font-size:11px; }
+.gcc-chip-agg { display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:24px;background:var(--surface);color:var(--text-2);font-size:11.5px;font-weight:600;cursor:pointer;transition:background .12s,color .12s,border-color .12s;user-select:none; }
+.gcc-chip-agg:active { opacity:.8; }
+.gcc-chip-agg.sel { background:#F0FDF4;color:#15803d;border-color:#16a34a;font-weight:700; }
+.gcc-chip-agg.sel::before { content:"✓ ";font-size:11px; }
+
 </style>
 </head>
 <body>
@@ -1893,34 +1904,41 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <!-- ══ GLOBAL CHART CONTROLS ══ -->
-      <div id="gccCard" style="background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
-          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-2)">📊 Chart Range &amp; Aggregation</div>
-          <div id="gccRangeLabel" style="font-size:11px;font-weight:700;color:var(--blue);background:#EFF6FF;padding:3px 10px;border-radius:20px"></div>
+      <div id="gccCard" class="card" style="margin-bottom:12px;padding:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+          <div style="font-size:13px;font-weight:800;color:var(--text)">📊 Chart Controls</div>
+          <div id="gccRangeLabel" style="font-size:11px;font-weight:700;color:#1565C0;background:#EFF6FF;padding:4px 11px;border-radius:20px;border:1px solid #BFDBFE"></div>
         </div>
 
-        <!-- Range buttons -->
-        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
-          <button class="gcc-btn sel" data-gcc-range="30"     onclick="setGccRange('30',this)">30d</button>
-          <button class="gcc-btn"     data-gcc-range="7"      onclick="setGccRange('7',this)">7d</button>
-          <button class="gcc-btn"     data-gcc-range="90"     onclick="setGccRange('90',this)">90d</button>
-          <button class="gcc-btn"     data-gcc-range="180"    onclick="setGccRange('180',this)">6m</button>
-          <button class="gcc-btn"     data-gcc-range="ytd"    onclick="setGccRange('ytd',this)">YTD</button>
-          <button class="gcc-btn"     data-gcc-range="all"    onclick="setGccRange('all',this)">All</button>
-          <button class="gcc-btn"     data-gcc-range="custom" onclick="setGccRange('custom',this)">Custom…</button>
+        <!-- Date Range -->
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-3);margin-bottom:7px">Date Range</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          <button class="gcc-chip"     data-gcc-range="7"      onclick="setGccRange('7',this)">7d</button>
+          <button class="gcc-chip sel" data-gcc-range="30"     onclick="setGccRange('30',this)">30d</button>
+          <button class="gcc-chip"     data-gcc-range="90"     onclick="setGccRange('90',this)">90d</button>
+          <button class="gcc-chip"     data-gcc-range="180"    onclick="setGccRange('180',this)">6m</button>
+          <button class="gcc-chip"     data-gcc-range="ytd"    onclick="setGccRange('ytd',this)">Year to date</button>
+          <button class="gcc-chip"     data-gcc-range="all"    onclick="setGccRange('all',this)">All time</button>
+          <button class="gcc-chip"     data-gcc-range="custom" onclick="setGccRange('custom',this)">Custom dates</button>
         </div>
         <div id="gccCustomRow" style="display:none;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-          <input type="date" id="gccFrom" class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px" onchange="applyGccCustom()">
-          <span style="font-size:12px;color:var(--text-3)">→</span>
-          <input type="date" id="gccTo"   class="inp" style="flex:1;min-width:120px;padding:7px 9px;font-size:12px" onchange="applyGccCustom()">
+          <div style="flex:1;min-width:130px">
+            <div style="font-size:10.5px;color:var(--text-3);font-weight:600;margin-bottom:4px">From</div>
+            <input type="date" id="gccFrom" class="inp" style="padding:7px 9px;font-size:12.5px;width:100%" onchange="applyGccCustom()">
+          </div>
+          <div style="flex:1;min-width:130px">
+            <div style="font-size:10.5px;color:var(--text-3);font-weight:600;margin-bottom:4px">To</div>
+            <input type="date" id="gccTo" class="inp" style="padding:7px 9px;font-size:12.5px;width:100%" onchange="applyGccCustom()">
+          </div>
         </div>
 
-        <!-- Aggregation buttons -->
-        <div style="display:flex;flex-wrap:wrap;gap:5px">
-          <button class="gcc-agg-btn sel" data-gcc-agg="daily"   onclick="setGccAgg('daily',this)">Daily</button>
-          <button class="gcc-agg-btn"     data-gcc-agg="7davg"   onclick="setGccAgg('7davg',this)">7d avg</button>
-          <button class="gcc-agg-btn"     data-gcc-agg="30davg"  onclick="setGccAgg('30davg',this)">30d avg</button>
-          <button class="gcc-agg-btn"     data-gcc-agg="monthly" onclick="setGccAgg('monthly',this)">Monthly avg</button>
+        <!-- Aggregation -->
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-3);margin-bottom:7px">Aggregation</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <button class="gcc-chip-agg sel" data-gcc-agg="daily"   onclick="setGccAgg('daily',this)">Daily</button>
+          <button class="gcc-chip-agg"     data-gcc-agg="7davg"   onclick="setGccAgg('7davg',this)">7-day rolling avg</button>
+          <button class="gcc-chip-agg"     data-gcc-agg="30davg"  onclick="setGccAgg('30davg',this)">30-day rolling avg</button>
+          <button class="gcc-chip-agg"     data-gcc-agg="monthly" onclick="setGccAgg('monthly',this)">Monthly avg</button>
         </div>
       </div>
 
@@ -6025,18 +6043,30 @@ function renderAnalytics() {
   }
 
   // ── net cal trend chart ──
+if (calTrendInst) calTrendInst.destroy();
+  // Use getChartKeys-filtered calSeries + aggregation
+  // Apply buildSeries aggregation to all trend series
+  const _calBuilt      = buildSeries(calSeries.map(p=>({date:p.date,val:p.cal})));
+  const _carbBuilt     = buildSeries(calSeries.map(p=>({date:p.date,val:p.carb})));
+  const _proteinBuilt  = buildSeries(proteinSeries.map(p=>({date:p.date,val:p.val})));
+  const _fatBuilt      = buildSeries(fatSeries.map(p=>({date:p.date,val:p.val})));
+  const _fibreBuilt    = buildSeries(fibreSeries.map(p=>({date:p.date,val:p.val})));
+  const _weightBuilt   = buildSeries(weightTrend.map(p=>({date:p.date,val:p.val})));
+  const _stepsBuilt    = buildSeries(stepsTrend.map(p=>({date:p.date,val:p.val})));
+  const _netCalBuilt   = buildSeries(calSeries.map(p=>{
+    const ed=effectiveDay(p.date);
+    const burn=calcBurn(ed.steps,ed.weight,goals.units,ed.runKm,ed.runPace,ed.paddleKm,ed.cycleKm);
+    return {date:p.date, val:p.cal>0?p.cal-burn:null};
+  }));
+  const trendDates = _calBuilt;   // alias for any remaining refs
+
+  // ── Net Cal Trend Chart (uses _netCalBuilt for aggregation) ──
   if (!netCalTrendInst) netCalTrendInst = null;
   if (netCalTrendInst) { netCalTrendInst.destroy(); netCalTrendInst = null; }
-  // build combined consumed + net series aligned on same dates
-  const ncDates30 = calSeries;  // range already filtered by _gccFilteredKeys()
-  if (ncDates30.length >= 2) {
-    const ncLabels = ncDates30.map(d => d.date.slice(5));
-    const consumed = ncDates30.map(d => d.cal);
-    const netVals  = ncDates30.map(d => {
-      const dayD = effectiveDay(d.date);
-      const burn = calcBurn(dayD.steps, dayD.weight, goals.units, dayD.runKm, dayD.runPace);
-      return d.cal - burn;
-    });
+  if (_netCalBuilt.length >= 2) {
+    const ncLabels = _netCalBuilt.map(d => d.label);
+    const consumed = _calBuilt.map(d => d.val);
+    const netVals  = _netCalBuilt.map(d => d.val);
     netCalTrendInst = new Chart(document.getElementById('netCalTrendChart'), {
       type: 'bar',
       data: {
@@ -6176,23 +6206,7 @@ function renderAnalytics() {
   }
 
   // cal trend
-  if (calTrendInst) calTrendInst.destroy();
-  // Use getChartKeys-filtered calSeries + aggregation
-  // Apply buildSeries aggregation to all trend series
-  const _calBuilt      = buildSeries(calSeries.map(p=>({date:p.date,val:p.cal})));
-  const _carbBuilt     = buildSeries(calSeries.map(p=>({date:p.date,val:p.carb})));
-  const _proteinBuilt  = buildSeries(proteinSeries.map(p=>({date:p.date,val:p.val})));
-  const _fatBuilt      = buildSeries(fatSeries.map(p=>({date:p.date,val:p.val})));
-  const _fibreBuilt    = buildSeries(fibreSeries.map(p=>({date:p.date,val:p.val})));
-  const _weightBuilt   = buildSeries(weightTrend.map(p=>({date:p.date,val:p.val})));
-  const _stepsBuilt    = buildSeries(stepsTrend.map(p=>({date:p.date,val:p.val})));
-  const _netCalBuilt   = buildSeries(calSeries.map(p=>{
-    const ed=effectiveDay(p.date);
-    const burn=calcBurn(ed.steps,ed.weight,goals.units,ed.runKm,ed.runPace,ed.paddleKm,ed.cycleKm);
-    return {date:p.date, val:p.cal>0?p.cal-burn:null};
-  }));
-  const trendDates = _calBuilt;   // alias for any remaining refs
-  const calLabels = _calBuilt.map(d => d.label);
+    const calLabels = _calBuilt.map(d => d.label);
   const calGoalDs = goalDataset(calLabels, goals.calGoal, 'rgba(211,47,47,0.7)');
   calTrendInst = new Chart(document.getElementById('calTrendChart'), {
     type: gccChartType(),
@@ -6201,8 +6215,8 @@ function renderAnalytics() {
       datasets: [
         {
           label: 'Calories',
-          data: trendDates.map(d => d.cal),
-          backgroundColor: trendDates.map(d => d.cal > goals.calGoal ? 'rgba(211,47,47,0.75)' : 'rgba(21,101,192,0.65)'),
+          data: _calBuilt.map(d => d.val),
+          backgroundColor: _calBuilt.map(d => (d.val||0) > goals.calGoal ? 'rgba(211,47,47,0.75)' : 'rgba(21,101,192,0.65)'),
           borderRadius: 6,
           order: 1,
           type: 'bar',
@@ -6262,15 +6276,15 @@ function renderAnalytics() {
 
   // carb trend
   if (carbTrendInst) carbTrendInst.destroy();
-  const carbLabels = trendDates.map(d => d.date.slice(5));
+  const carbLabels = _carbBuilt.map(d => d.label);
   const carbGoalDs = goalDataset(carbLabels, goals.carbGoal, 'rgba(21,101,192,0.55)');
   carbTrendInst = new Chart(document.getElementById('carbTrendChart'), {
     type: 'line',
     data: {
       labels: carbLabels,
       datasets: [
-        { label: 'Carbs (g)', data: trendDates.map(d => d.carb), borderColor: '#1565C0', backgroundColor: 'rgba(21,101,192,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#1565C0', order: 1 },
-        rollingDataset(carbLabels, trendDates.map(d=>d.carb), 'rgba(13,71,161,0.8)', '7-day avg'),
+        { label: 'Carbs (g)', data: _carbBuilt.map(d => d.val), borderColor: '#1565C0', backgroundColor: 'rgba(21,101,192,0.1)', fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: '#1565C0', order: 1 },
+        rollingDataset(carbLabels, _carbBuilt.map(d=>d.val), 'rgba(13,71,161,0.8)', '7-day avg'),
         ...(carbGoalDs ? [{ ...carbGoalDs, label: `Goal (${goals.carbGoal}g)` }] : [])
       ]
     },
@@ -7205,7 +7219,7 @@ function setGccRange(range, btn) {
 
 function setGccAgg(agg, btn) {
   gccAgg = agg;
-  document.querySelectorAll('[data-gcc-agg]').forEach(b => b.classList.toggle('sel', b.dataset.gccAgg === agg));
+  // handled by combined loop above
   saveGccState(); _gccRerender();
 }
 
@@ -7224,7 +7238,10 @@ function _gccRerender() {
 // Apply saved state to buttons on panel open
 function gccRestoreUI() {
   loadGccState();
-  document.querySelectorAll('[data-gcc-range]').forEach(b => b.classList.toggle('sel', b.dataset.gccRange === gccRange));
+  document.querySelectorAll('[data-gcc-range],[data-gcc-agg]').forEach(b => {
+    if(b.dataset.gccRange) b.classList.toggle('sel', b.dataset.gccRange === gccRange);
+    if(b.dataset.gccAgg)   b.classList.toggle('sel', b.dataset.gccAgg   === gccAgg);
+  });
   document.querySelectorAll('[data-gcc-agg]').forEach(b => b.classList.toggle('sel', b.dataset.gccAgg === gccAgg));
   const cr = document.getElementById('gccCustomRow');
   if (cr) cr.style.display = gccRange === 'custom' ? 'flex' : 'none';
@@ -11246,8 +11263,7 @@ async function exportPDFReport() {
   .eq-block .eq-stats{display:flex;gap:16px;flex-wrap:wrap}
   .eq-block .eq-stat .es-val{font-size:18px;font-weight:800}
   .eq-block .eq-stat .es-lbl{font-size:10px;opacity:.7;letter-spacing:0.5px}
-  @media print{body{padding:20px}.no-print{display:none}@page{margin:1.5cm;size:A4}}
-</style>
+  @media print{body{padding:20px}.no-print{display:none}@page{margin:1.5cm;size:A4}}</style>
 </head><body>
 
 <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">

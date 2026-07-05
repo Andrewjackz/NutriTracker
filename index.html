@@ -5822,7 +5822,8 @@ function calNav(dir) {
    ANALYTICS
 ════════════════════════════════════════ */
 function renderAnalytics() {
-  gccRestoreUI();
+  initGcc();
+  gccSyncUI();
   _updateGccLabel();
   renderBMI();
   renderTotalToDate();
@@ -7211,15 +7212,23 @@ function saveGccState() {
 
 function setGccRange(range, btn) {
   gccRange = range;
-  document.querySelectorAll('[data-gcc-range]').forEach(b => b.classList.toggle('sel', b.dataset.gccRange === range));
+  document.querySelectorAll('[data-gcc-range]').forEach(b =>
+    b.classList.toggle('sel', b.dataset.gccRange === range));
   const cr = document.getElementById('gccCustomRow');
   if (cr) cr.style.display = range === 'custom' ? 'flex' : 'none';
-  if (range !== 'custom') { gccFrom = null; gccTo = null; saveGccState(); _gccRerender(); }
+  if (range !== 'custom') {
+    gccFrom = null; gccTo = null;
+    saveGccState(); _gccRerender();
+  } else {
+    // Custom: show pickers, wait for applyGccCustom
+    _updateGccLabel();
+  }
 }
 
 function setGccAgg(agg, btn) {
   gccAgg = agg;
-  // handled by combined loop above
+  document.querySelectorAll('[data-gcc-agg]').forEach(b =>
+    b.classList.toggle('sel', b.dataset.gccAgg === agg));
   saveGccState(); _gccRerender();
 }
 
@@ -7236,13 +7245,27 @@ function _gccRerender() {
 }
 
 // Apply saved state to buttons on panel open
-function gccRestoreUI() {
+let _gccInitialised = false;
+
+function initGcc() {
+  // Called once on first renderAnalytics — loads saved state from localStorage
+  if (_gccInitialised) return;
+  _gccInitialised = true;
   loadGccState();
-  document.querySelectorAll('[data-gcc-range],[data-gcc-agg]').forEach(b => {
-    if(b.dataset.gccRange) b.classList.toggle('sel', b.dataset.gccRange === gccRange);
-    if(b.dataset.gccAgg)   b.classList.toggle('sel', b.dataset.gccAgg   === gccAgg);
-  });
-  document.querySelectorAll('[data-gcc-agg]').forEach(b => b.classList.toggle('sel', b.dataset.gccAgg === gccAgg));
+  gccSyncUI();
+}
+
+function gccRestoreUI() {
+  // Called on every renderAnalytics — only syncs DOM to current JS state
+  // Does NOT overwrite state from localStorage
+  gccSyncUI();
+}
+
+function gccSyncUI() {
+  document.querySelectorAll('[data-gcc-range]').forEach(b =>
+    b.classList.toggle('sel', b.dataset.gccRange === gccRange));
+  document.querySelectorAll('[data-gcc-agg]').forEach(b =>
+    b.classList.toggle('sel', b.dataset.gccAgg === gccAgg));
   const cr = document.getElementById('gccCustomRow');
   if (cr) cr.style.display = gccRange === 'custom' ? 'flex' : 'none';
   if (gccFrom) { const el = document.getElementById('gccFrom'); if(el) el.value = gccFrom; }

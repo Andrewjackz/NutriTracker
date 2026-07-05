@@ -1940,6 +1940,12 @@ a { color: inherit; text-decoration: none; }
           <button class="gcc-chip-agg"     data-gcc-agg="30davg"  onclick="setGccAgg('30davg',this)">30-day rolling avg</button>
           <button class="gcc-chip-agg"     data-gcc-agg="monthly" onclick="setGccAgg('monthly',this)">Monthly avg</button>
         </div>
+
+        <!-- Replot button -->
+        <button onclick="gccReplot()"
+          style="width:100%;margin-top:14px;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.3px;box-shadow:0 2px 8px rgba(21,101,192,.25)">
+          📊 Replot Charts
+        </button>
       </div>
 
       <div class="chart-card">
@@ -7216,33 +7222,41 @@ function setGccRange(range, btn) {
     b.classList.toggle('sel', b.dataset.gccRange === range));
   const cr = document.getElementById('gccCustomRow');
   if (cr) cr.style.display = range === 'custom' ? 'flex' : 'none';
-  if (range !== 'custom') {
-    gccFrom = null; gccTo = null;
-    saveGccState(); _gccRerender();
-  } else {
-    // Custom: show pickers, wait for applyGccCustom
-    _updateGccLabel();
-  }
+  if (range !== 'custom') { gccFrom = null; gccTo = null; }
+  saveGccState();
+  _updateGccLabel();
 }
 
 function setGccAgg(agg, btn) {
   gccAgg = agg;
   document.querySelectorAll('[data-gcc-agg]').forEach(b =>
     b.classList.toggle('sel', b.dataset.gccAgg === agg));
-  saveGccState(); _gccRerender();
+  saveGccState();
+  _updateGccLabel();
 }
 
 function applyGccCustom() {
   const f = document.getElementById('gccFrom')?.value;
   const t = document.getElementById('gccTo')?.value;
-  if (f && t && f <= t) { gccFrom = f; gccTo = t; saveGccState(); _gccRerender(); }
+  if (f && t && f <= t) { gccFrom = f; gccTo = t; saveGccState(); _updateGccLabel(); }
 }
 
 function _gccRerender() {
-  // renderAnalytics now calls _gccFilteredKeys() as its FIRST step
-  // and passes the result to all standalone chart functions —
-  // so calling it here correctly re-renders all charts for the new range/agg.
   renderAnalytics();
+}
+
+function gccReplot() {
+  // Explicit replot — called by the Replot button.
+  // Saves state then runs the full chart re-render.
+  saveGccState();
+  _updateGccLabel();
+  const btn = document.querySelector('#gccCard button[onclick="gccReplot()"]');
+  if (btn) { btn.textContent = '⏳ Plotting…'; btn.disabled = true; }
+  // Small timeout so button state paints before heavy render
+  setTimeout(() => {
+    renderAnalytics();
+    if (btn) { btn.textContent = '📊 Replot Charts'; btn.disabled = false; }
+  }, 30);
 }
 
 

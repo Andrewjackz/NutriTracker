@@ -5842,12 +5842,12 @@ function renderAnalytics(chartsOnly) {
     renderMonthlySummaries();
     renderStreaks();
   }
-  renderRunTrend(keys);
-  renderBurnSplit(keys);
+  renderRunTrend();
+  renderBurnSplit();
   if (!chartsOnly) {
-    renderNetScatter(keys);
-    renderFullCorrMatrix(keys);
-    renderBurnScatter(keys);
+    renderNetScatter();        // always full dataset — regression needs all data
+    renderFullCorrMatrix();    // always full dataset
+    renderBurnScatter();       // always full dataset
   }
   const calSeries  = [];
   const carbSeries = [];
@@ -5903,9 +5903,11 @@ function renderAnalytics(chartsOnly) {
   // ── Weekly scatter charts ──
   if (regressionMode === 'weekly') renderWeeklyScatter();
 
-  // ── Weight models — must run AFTER all charts (isolate any errors) ──
+  // ── Weight models — always use full dataset, skip when chartsOnly ──
+  if (!chartsOnly) {
   try { renderWeightModel(); }        catch(e) { console.warn('Daily weight model error:', e); }
   try { renderWeeklyWeightModel(); }  catch(e) { console.warn('Weekly weight model error:', e); }
+  }  // end !chartsOnly for weight models
 
   // scatter: pair PREVIOUS day's calories with TODAY's weight change
   // Logic: you weigh yourself in the morning, so yesterday's food intake
@@ -6854,7 +6856,7 @@ function renderBurnSplit() {
   const splitCanvas = document.getElementById('burnSplitChart');
   if (!splitCanvas) return;
 
-  const allKeys = getChartKeys();
+  const allKeys = _gccFilteredKeys();
 
   // Build series: days that have any exercise
   const splitDays = allKeys
@@ -6954,7 +6956,7 @@ function renderRunTrend() {
   const runCanvas = document.getElementById('runTrendChart');
   if (!runCanvas) return;
 
-  const allKeys = getChartKeys();
+  const allKeys = _gccFilteredKeys();
   const runDays = allKeys
     .filter(k => db[k]?.runKm && db[k]?.runPace)
     .map(k => ({ date: k.slice(5), km: db[k].runKm, pace: db[k].runPace }));

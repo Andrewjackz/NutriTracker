@@ -6097,8 +6097,10 @@ if (calTrendInst) calTrendInst.destroy();
   const _proteinBuilt  = buildSeries(proteinSeries.map(p=>({date:p.date,val:p.val})));
   const _fatBuilt      = buildSeries(fatSeries.map(p=>({date:p.date,val:p.val})));
   const _fibreBuilt    = buildSeries(fibreSeries.map(p=>({date:p.date,val:p.val})));
-  const _weightBuilt   = buildSeries(weightTrend.map(p=>({date:p.date,val:p.val})));
-  const _stepsBuilt    = buildSeries(stepsTrend.map(p=>({date:p.date,val:p.val})));
+  // Weight and steps are measurements (not totals) — always daily raw values
+  // regardless of gccAgg setting. The rollingDataset overlay handles smoothing.
+  const _weightBuilt   = weightTrend.map(p=>({label:p.date.slice(5), val:p.val, date:p.date}));
+  const _stepsBuilt    = stepsTrend.map(p=>({label:p.date.slice(5),  val:p.val, date:p.date}));
   const _netCalBuilt   = buildSeries(calSeries.map(p=>{
     const ed=effectiveDay(p.date);
     const burn=calcBurn(ed.steps,ed.weight,goals.units,ed.runKm,ed.runPace,ed.paddleKm,ed.cycleKm);
@@ -7238,6 +7240,7 @@ let gccFrom    = null;    // ISO date string, custom range
 let gccTo      = null;
 
 const GCC_KEY = 'nt_gcc';
+const APP_VERSION = '2026-07-07-v2';  // weight+steps daily fix
 
 function loadGccState() {
   try {

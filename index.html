@@ -5833,22 +5833,61 @@ function renderAnalytics(chartsOnly) {
   initGcc();
   gccSyncUI();
   _updateGccLabel();
-  // build filtered keys FIRST so all chart functions respect current range
-  const keys = _gccFilteredKeys();
+
+  // TWO key sets — critical separation:
+  // allKeys  = full db always (stat tiles, regression, models, summaries)
+  // chartKeys = GCC-filtered (trend charts only)
+  const allKeys   = Object.keys(db).sort();
+  const chartKeys = _gccFilteredKeys();
+
   if (!chartsOnly) {
     renderBMI();
     renderTotalToDate();
     renderWeeklySummaries();
     renderMonthlySummaries();
     renderStreaks();
+    renderNetScatter();
+    renderFullCorrMatrix();
+    renderBurnScatter();
   }
   renderRunTrend();
   renderBurnSplit();
-  if (!chartsOnly) {
-    renderNetScatter();        // always full dataset — regression needs all data
-    renderFullCorrMatrix();    // always full dataset
-    renderBurnScatter();       // always full dataset
+
+  // Build TWO parallel series:
+  // _all* series from allKeys  → stat tiles, regression
+  // (chart series below)      → trend charts only (chartKeys)
+
+  // ── All-time series for stat tiles ──────────────────────────────
+  const _allCals = [], _allWts = {}, _allSteps = [];
+  allKeys.forEach(k => {
+    const d = effectiveDay(k);
+    const cal = (d.items||[]).reduce((s,i)=>s+i.calories,0);
+    if (cal > 0) _allCals.push(cal);
+    if (d.weight) _allWts[k] = d.weight;
+    if (d.steps)  _allSteps.push(d.steps);
+  });
+
+  // Stat tiles — always full dataset
+  const daysLoggedAll = _allCals.length;
+  const avgCalAll     = daysLoggedAll ? Math.round(_allCals.reduce((a,b)=>a+b)/daysLoggedAll) : 0;
+  const wtKeysAll     = Object.keys(_allWts).sort();
+  let weightDeltaAll  = '—';
+  if (wtKeysAll.length >= 2) {
+    const delta = (_allWts[wtKeysAll[wtKeysAll.length-1]] - _allWts[wtKeysAll[0]]).toFixed(1);
+    weightDeltaAll = (delta > 0 ? '+' : '') + delta + ' ' + goals.units;
   }
+  // weightKeys used by regression scatter — must be from full dataset
+  const weightKeys = wtKeysAll;
+
+  const statDaysEl = document.getElementById('statDays');
+  const statCalEl  = document.getElementById('statAvgCal');
+  const statWtEl   = document.getElementById('statWeightDelta');
+  if (statDaysEl) statDaysEl.textContent = daysLoggedAll || '—';
+  if (statCalEl)  statCalEl.textContent  = avgCalAll     || '—';
+  if (statWtEl)   statWtEl.textContent   = weightDeltaAll;
+
+  // ── Chart series from chartKeys (GCC-filtered) ──────────────────
+  const keys = chartKeys;  // alias so rest of function body unchanged
   const calSeries  = [];
   const carbSeries = [];
   const weightSeries = {};
@@ -5884,18 +5923,10 @@ function renderAnalytics(chartsOnly) {
     burnByDate[k] = burn;
   });
 
-  // stats
-  const daysLogged = calSeries.length;
+  // stat tiles now set at top of renderAnalytics from allKeys (full db)
+  // daysLogged/avgCal/weightDelta variables kept for regression use below
+  const daysLogged = calSeries.length;  // chart-range days (used for display in chart context only)
   const avgCal     = daysLogged ? Math.round(calSeries.reduce((s,d)=>s+d.cal,0)/daysLogged) : 0;
-  const weightKeys = Object.keys(weightSeries).sort();
-  let weightDelta = '—';
-  if (weightKeys.length >= 2) {
-    const delta = (weightSeries[weightKeys[weightKeys.length-1]] - weightSeries[weightKeys[0]]).toFixed(1);
-    weightDelta = (delta > 0 ? '+' : '') + delta + ' ' + goals.units;
-  }
-  document.getElementById('statDays').textContent    = daysLogged || '—';
-  document.getElementById('statAvgCal').textContent  = avgCal    || '—';
-  document.getElementById('statWeightDelta').textContent = weightDelta;
 
   // ── Render regression mode note ──
   setRegressionModeNote(regressionMode);

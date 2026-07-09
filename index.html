@@ -5859,10 +5859,17 @@ function renderAnalytics(chartsOnly) {
 
   // ── All-time series for stat tiles ──────────────────────────────
   const _allCals = [], _allWts = {}, _allSteps = [];
+  const allCalByDate  = {};   // full-dataset cal lookup for regression
+  const allBurnByDate = {};   // full-dataset burn lookup for regression
   allKeys.forEach(k => {
     const d = effectiveDay(k);
-    const cal = (d.items||[]).reduce((s,i)=>s+i.calories,0);
-    if (cal > 0) _allCals.push(cal);
+    const cal  = (d.items||[]).reduce((s,i)=>s+i.calories,0);
+    const burn = calcBurn(d.steps, d.weight, goals.units, d.runKm, d.runPace, d.paddleKm, d.cycleKm);
+    if (cal > 0) {
+      _allCals.push(cal);
+      allCalByDate[k]  = cal;
+      allBurnByDate[k] = burn;
+    }
     if (d.weight) _allWts[k] = d.weight;
     if (d.steps)  _allSteps.push(d.steps);
   });
@@ -5948,7 +5955,7 @@ function renderAnalytics(chartsOnly) {
     const k     = weightKeys[i];     // today (weight measurement)
     const kPrev = weightKeys[i-1];   // yesterday (calories eaten)
     const delta = weightSeries[k] - weightSeries[kPrev];
-    const cal   = calByDate[kPrev] || 0;  // ← previous day's calories
+    const cal   = allCalByDate[kPrev] || 0;  // ← full-dataset lookup
     if (cal > 0) scatterData.push({ x: cal, y: +delta.toFixed(2), date: k });
   }
 
@@ -6218,7 +6225,7 @@ if (calTrendInst) calTrendInst.destroy();
   // Build lagged pairs: variable on day D vs weight change D+1 morning
   const wKeys = weightKeys;
   const corrVars = [
-    { name: '🔥 Calories',      vals: wKeys.slice(1).map((_,i) => calByDate[wKeys[i]]||null) },
+    { name: '🔥 Calories',      vals: wKeys.slice(1).map((_,i) => allCalByDate[wKeys[i]]||null) },
     { name: '🌾 Carbs (g)',     vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+it.carbs_g,0)||null; }) },
     { name: '💪 Protein (g)',   vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+(it.protein_g||0),0)||null; }) },
     { name: '🥑 Fat (g)',       vals: wKeys.slice(1).map((_,i) => { const d=db[wKeys[i]]; return d?.items?.reduce((s,it)=>s+(it.fat_g||0),0)||null; }) },
@@ -6620,7 +6627,7 @@ if (calTrendInst) calTrendInst.destroy();
   for (let i = 1; i < weightKeys.length; i++) {
     const k     = weightKeys[i];
     const kPrev = weightKeys[i-1];
-    if (calByDate[kPrev] > 0) ncwtPairs.push({ k, kPrev });
+    if (allCalByDate[kPrev] > 0) ncwtPairs.push({ k, kPrev });
   }
 
   if (ncwtPairs.length < 3) {
@@ -6633,8 +6640,8 @@ if (calTrendInst) calTrendInst.destroy();
     // For each day with a weight reading, pair with prior day net cal
     const ncwtLabels = [], ncwtNetCal = [], ncwtDeltaWt = [];
     ncwtPairs.forEach(({ k, kPrev }) => {
-      const cal  = calByDate[kPrev]  || 0;
-      const burn = burnByDate[kPrev] || calcBurn(db[kPrev]?.steps, db[kPrev]?.weight, goals.units, db[kPrev]?.runKm, db[kPrev]?.runPace);
+      const cal  = allCalByDate[kPrev]  || 0;
+      const burn = allBurnByDate[kPrev] || calcBurn(db[kPrev]?.steps, db[kPrev]?.weight, goals.units, db[kPrev]?.runKm, db[kPrev]?.runPace);
       const net  = Math.round(cal - burn);
       const dWt  = +(weightSeries[k] - weightSeries[kPrev]).toFixed(2);
       ncwtLabels.push(k.slice(5));
